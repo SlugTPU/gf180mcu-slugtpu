@@ -67,10 +67,11 @@
         extra-python-packages = with pkgs.python3.pkgs; [
           # Verification
           cocotb
-          
+          pytest
+
           # For KLayout Python DRC runner
           docopt
-          
+
           # For logo generation
           pillow
         ];
