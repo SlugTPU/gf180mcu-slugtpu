@@ -6,3 +6,5 @@ sim_build/
 final/
 img/
 *.lyrdb
+
+.DS_Store

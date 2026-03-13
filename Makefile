@@ -10,6 +10,10 @@ PDK_TAG ?= 1.6.6
 AVAILABLE_SLOTS = 1x1 0p5x1 1x0p5 0p5x0p5
 DEFAULT_SLOT = 1x1
 
+# always dump waveforms
+export WAVES=1
+RTL_FILES := $(shell find rtl/ -name "*.sv")
+
 # Slot can be any of AVAILABLE_SLOTS
 SLOT ?= $(DEFAULT_SLOT)
 
@@ -66,9 +70,48 @@ librelane-padring: ## Only create the padring
 	PDK_ROOT=${PDK_ROOT} PDK=${PDK} python3 scripts/padring.py librelane/slots/slot_${SLOT}.yaml librelane/config.yaml
 .PHONY: librelane-padring
 
-sim: ## Run RTL simulation with cocotb
+sim: ## Run chip-level RTL simulation of with cocotb
 	cd cocotb; PDK_ROOT=${PDK_ROOT} PDK=${PDK} SLOT=${SLOT} python3 chip_top_tb.py
 .PHONY: sim
+
+sim-fifo:
+	python3 -m pytest cocotb/test_fifo.py -s
+
+sim-spi:
+	python3 -m pytest cocotb/test_spi.py -s
+
+sim-scalar-load:
+	python3 -m pytest cocotb/test_load_data.py -s
+
+sim-add-n:
+	python3 -m pytest cocotb/test_add_n.py -s
+
+sim-scale-n:
+	python3 -m pytest cocotb/test_scale_n.py -s
+
+sim-sram:
+	python3 -m pytest cocotb/test_sram.py -s
+	
+sim-tri:
+	python3 -m pytest cocotb/test_tri.py -s
+
+test_quantizer_mul:
+	python3 -m pytest cocotb/test_quantizer_mul.py -s
+
+test_write_transaction:
+	python3 -m pytest cocotb/test_write_transaction.py -s
+
+test_read_transaction:
+	python3 -m pytest cocotb/test_read_transaction.py -s
+
+sim-sysray-2x2:
+	python3 -m pytest cocotb/test_sysray_2x2.py -s
+
+test-sysray-nxn:
+	python3 -m pytest cocotb/test_sysray_nxn.py -s
+
+test-activation-sram:
+	python3 -m pytest cocotb/test_activation_sram.py -s
 
 sim-gl: ## Run gate-level simulation with cocotb (after copy-final)
 	cd cocotb; GL=1 PDK_ROOT=${PDK_ROOT} PDK=${PDK} SLOT=${SLOT} python3 chip_top_tb.py
