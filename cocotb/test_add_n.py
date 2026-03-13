@@ -294,8 +294,8 @@ async def add_n_random_backpressure(dut):
 
 
 tests = ["reset_test", "add_n_simple_test", "add_n_random_backpressure"]
-proj_path = Path("./rtl").resolve()
-sources = [ proj_path/"utils/elastic.sv", proj_path/"scalar_units/add_n.sv"   ]
+proj_path = Path("./src").resolve()
+sources = [ proj_path/"common"/"elastic.sv", proj_path/"scalar_units"/"add_n.sv"   ]
 
 @pytest.mark.parametrize("testcase", tests)
 def test_add_n_each(testcase):

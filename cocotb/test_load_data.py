@@ -61,21 +61,14 @@ async def load_simple_test(dut):
 
 
 tests = ["reset_test", "load_simple_test"]
-proj_path = Path("./rtl").resolve()
-sources = [ proj_path/"scalar_units/load_data.sv", proj_path/"utils/shift.sv" ]
+proj_path = Path("./src").resolve()
+sources = [ proj_path/"scalar_units/load_data.sv", proj_path/"common"/"shift.sv" ]
 
 @pytest.mark.parametrize("testcase", tests)
 def test_bias_each(testcase):
     """Runs each test independently. Continues on test failure"""
-    
-    
-
     run_test(parameters={}, sources=sources, module_name="test_load_data", hdl_toplevel="load_scalar_data", testcase=testcase)
 
 def test_bias_all():
     """Runs each test sequentially as one giant test."""
-
-    # debug print parameters can be idea if a simulator fails silently without telling you why
-    # print(f"DEBUG PARAMETERs: {depth_p}")
-
     run_test(parameters={}, sources=sources, module_name="test_load_data", hdl_toplevel="load_scalar_data")

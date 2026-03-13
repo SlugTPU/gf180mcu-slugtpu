@@ -266,12 +266,12 @@ tests = [
 ]
 
 
+proj_path = Path("./src").resolve()
+sources = [proj_path / "quantizer_mul.sv"]
+
 @pytest.mark.parametrize("testcase", tests)
 def test_quantizer_mul_each(testcase):
     """Runs each test independently. Continues on test failure."""
-    proj_path = Path("./rtl").resolve()
-    sources = [proj_path / "quantizer_mul.sv"]
-
     run_test(
         parameters={"ACC_WIDTH": 32, "FIXED_SHIFT": 16, "M0_WIDTH": 32},
         sources=sources,
@@ -283,9 +283,6 @@ def test_quantizer_mul_each(testcase):
 
 def test_quantizer_mul_all():
     """Runs each test sequentially as one giant test."""
-    proj_path = Path("./rtl").resolve()
-    sources = [proj_path / "quantizer_mul.sv"]
-
     run_test(
         parameters={"ACC_WIDTH": 32, "FIXED_SHIFT": 16, "M0_WIDTH": 32},
         sources=sources,

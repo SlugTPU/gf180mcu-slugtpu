@@ -213,23 +213,16 @@ async def fifo_random_stream_test(dut, with_pressure):
     await FallingEdge(clk_i)
 
 tests = ["reset_test", "fifo_simple_test", "fifo_stream_test"]
+proj_path = Path("./src").resolve()
+sources = [ proj_path/"common"/"fifo.sv" ]
 
 @pytest.mark.parametrize("depth_log2_p", [1, 3])
 @pytest.mark.parametrize("testcase", tests)
 def test_fifo_each(depth_log2_p, testcase):
     """Runs each test independently. Continues on test failure"""
-    proj_path = Path("./rtl").resolve()
-    sources = [ proj_path/"fifo.sv" ]
-
     run_test(parameters={"DEPTH_LOG2_P": depth_log2_p}, sources=sources, module_name="test_fifo", hdl_toplevel="fifo", testcase=testcase)
 
 @pytest.mark.parametrize("depth_log2_p", [1, 3])
 def test_fifo_all(depth_log2_p):
     """Runs each test sequentially as one giant test."""
-    proj_path = Path("./rtl").resolve()
-    sources = [ proj_path/"fifo.sv" ]
-
-    # debug print parameters can be idea if a simulator fails silently without telling you why
-    # print(f"DEBUG PARAMETERs: {depth_p}")
-
     run_test(parameters={"DEPTH_LOG2_P": depth_log2_p}, sources=sources, module_name="test_fifo", hdl_toplevel="fifo")
