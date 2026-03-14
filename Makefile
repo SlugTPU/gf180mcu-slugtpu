@@ -104,9 +104,6 @@ sim-sram:
 sim-tri:
 	python3 -m pytest cocotb/test_tri.py -s
 
-sim-quantizer-mul:
-	python3 -m pytest cocotb/test_quantizer_mul.py -s
-
 sim-write-transaction:
 	python3 -m pytest cocotb/test_write_transaction.py -s
 
