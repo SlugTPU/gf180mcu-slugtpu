@@ -1,6 +1,78 @@
-# gf180mcu Project Template
+# gf180mcu Project: SlugTPU
 
-Project template for wafer.space MPW runs using the gf180mcu PDK.
+SlugTPU is an open source tensor processing unit that is designed to accelerate quantized neural network inference. We feature a parameterizable N x N systolic array with a full scalar post processing pipleline, on-chip SRAM, SPI host communication, and off-chip DRAM support via LiteDRAM. The design runs INT8 matrix multiplications with 32 bit accumulation, with hardware quantization to convert outputs back into INT8 for layer chaining.
+
+This ASIC currently targets the GF180MCU process node.
+
+> Part of the UC Santa Cruz CSE 127A/B Capstone Course
+
+## Architecture
+
+Our datapath can be organized into three major sections: the **compute core**, the **memory hierarchy**, and the **host interface**.
+
+### Compute Core
+
+The compute core performs tiled matrix multiplication that are followed by per element post-processing.
+
+**Systolic Array**: A parameterizable N x N grid of processing elements (our current default is 8 x 8, which provides 64 MACs per cycle). Activations flow from left to right and partial sums accumulate from top to bottom. Weights are loaded top-down through a chain of shift registers Each PE performs a signed 8-bit multiply-accumulate into a 32 bit accumulator. 
+
+The weight registers are designed to be double buffered, which allows the next layer's weights to be loaded while the current inference is still running, eliminating dead time between layers.
+
+**Scalar Post Processing Pipeline**: A elastic pipeline that processes the systolic array's 32 bit output column by column in 4 stages:
+
+1. **Bias Add**: Adds a 32 bit bias term per output channel
+2. **ReLU**: Clamps negative values to zero
+3. **Subtract Zero-Point**: Adjusts for quantization offset
+4. **Fixed Point Scale + Quantize**: Multiplies by a 32 bit fixed point scale factor, rounds, and saturates to INT8
+
+All stages use valid/ready elastic handshaking for backpressure safe pipelining.
+
+### Memory Hierarchy
+
+**On-Chip SRAM**: Eight SRAM blocks that store activations and intermediate results. The SRAM controller supports simultaneous read and write through an AXI-Lite interface with separate read/write channels. Address decoding uses the bottom 2 bits for bank selection and the upper bits for the intra bank address.
+
+**Off-Chip DRAM**: Full model weights and potentially activation tensors will live in external DRAM. The design will interface with DRAM through a LiteDRAM controller exposing a Wishbone B4 port.
+
+### Host Interface
+
+Our host interfaces with the TPU via SPI. The host loads model data and instructions into DRAM using SPIBone as a bridge, and then sends a issues a flag to `wb_mux_2to1.sv` to give access to the TPU to begin execution.
+
+
+---
+
+## ISA
+
+SlugTPU uses a CISC-style instruction set where each instruction maps to a high-level data movement or compute operation. Instructions are fetched from DRAM and decoded by the control unit.
+
+| Instruction | Description |
+|---|---|
+| `Gmem2Smem` | DRAM to SRAM transfer |
+| `Smem2Gmem` | SRAM to DRAM transfer |
+| `Load_bias/zp/scale` | Load scalar parameters |
+| `Load_weights` | Shift weights into systolic array |
+| `Matmul` | Read activations, performs tiled matmul |
+| `do_relu` | Activation function |
+| `to_host_spi` | Send results to host |
+| `exit` | Stop execution, return to IDLE |
+
+---
+
+## Verification
+
+All RTL modules are verified with cocotb testbenches driven by pytest. The verification framework follows a producer–consumer model with Python reference models.
+
+**The test framework currently covers:**
+- Processing element (PE): MAC correctness, double buffer bank switching
+- Systolic array (2 x 2 and N x N): full matrix multiply against NumPy reference
+- Scalar pipeline: bias, ReLU, zero-point subtraction, fixed point quantization
+- SRAM controller: read/write transactions, bank addressing
+- SPI slave: host communication protocol
+- FIFO: fill/drain, backpressure, boundary conditions
+- Data loader: streaming activation/weight data into compute units
+- Triangle shifter: input staggering for systolic array feeding
+
+---
+
 
 ## Prerequisites
 
@@ -54,7 +126,7 @@ This will only work if the last run was completed without errors.
 We use [cocotb](https://www.cocotb.org/), a Python-based testbench environment, for the verification of the chip.
 The underlying simulator is Icarus Verilog (https://github.com/steveicarus/iverilog).
 
-The testbench is located in `cocotb/chip_top_tb.py`. To run the RTL simulation, run the following command:
+The testbenches are located in `cocotb`.  The chip top-level testbench is located inside as `chip_top_tb.py`. To run the chip-level RTL simulation, run the following command:
 
 ```
 make sim
@@ -64,6 +136,12 @@ To run the GL (gate-level) simulation, run the following command:
 
 ```
 make sim-gl
+```
+
+In addition, module specific tests are located inside `cocotb` as well as `test_*.py`. To run the module specific RTL simulation, such as the sysray_nxn module for instance, run
+
+```
+make sim-sysray-nxn
 ```
 
 > [!NOTE]
