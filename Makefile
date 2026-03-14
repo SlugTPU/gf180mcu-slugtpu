@@ -95,13 +95,13 @@ sim-sram:
 sim-tri:
 	python3 -m pytest cocotb/test_tri.py -s
 
-test_quantizer_mul:
+sim-quantizer-mul:
 	python3 -m pytest cocotb/test_quantizer_mul.py -s
 
-test_write_transaction:
+sim-write-transaction:
 	python3 -m pytest cocotb/test_write_transaction.py -s
 
-test_read_transaction:
+sim-read-transaction:
 	python3 -m pytest cocotb/test_read_transaction.py -s
 
 sim-sysray-2x2:
