@@ -168,7 +168,7 @@ tests = [
     "test_overwrite",
 ]
 
-proj_path = Path("./rtl").resolve()
+proj_path = Path("./src").resolve()
 sources = [
     proj_path / "sram/sram_8x256.sv",
     "ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1.v"
