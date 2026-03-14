@@ -165,7 +165,6 @@ All RTL modules are verified with cocotb testbenches driven by pytest. The verif
 | `sim-add-n` | Vectorized bias adder |
 | `sim-relu-n` | Vectorized ReLU |
 | `sim-scale-n` | Vectorized fixed point scale |
-| `sim-quantizer-mul` | Fixed point quantized multiplier |
 | `sim-fifo` | FIFO |
 | `sim-spi` | SPI slave |
 | `sim-sram` | SRAM controller |
