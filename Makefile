@@ -107,10 +107,10 @@ test_read_transaction:
 sim-sysray-2x2:
 	python3 -m pytest cocotb/test_sysray_2x2.py -s
 
-test-sysray-nxn:
+sim-sysray-nxn:
 	python3 -m pytest cocotb/test_sysray_nxn.py -s
 
-test-activation-sram:
+sim-activation-sram:
 	python3 -m pytest cocotb/test_activation_sram.py -s
 
 sim-gl: ## Run gate-level simulation with cocotb (after copy-final)
