@@ -92,6 +92,9 @@ sim-scalar-stage:
 sim-add-n:
 	python3 -m pytest cocotb/test_add_n.py -s
 
+sim-relu-n:
+	python3 -m pytest cocotb/test_relu_n.py -s
+
 sim-scale-n:
 	python3 -m pytest cocotb/test_scale_n.py -s
 
