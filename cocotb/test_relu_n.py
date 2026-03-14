@@ -222,8 +222,8 @@ async def backpressure_test(dut):
 
 
 tests = ["reset_test", "known_values_test", "random_stress_test", "backpressure_test"]
-proj_path = Path("./rtl").resolve()
-sources = [proj_path / "scalar_units/relu_n.sv"]
+proj_path = Path("./src").resolve()
+sources = [proj_path / "scalar_units" / "relu_n.sv"]
 
 
 @pytest.mark.parametrize("testcase", tests)

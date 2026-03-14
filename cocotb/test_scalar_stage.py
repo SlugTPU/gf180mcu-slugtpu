@@ -166,15 +166,15 @@ async def test_multi_vector(dut):
 
 # pytest
 SOURCES =[
-    Path("./rtl/scalar_units/scalar_stage.sv").resolve(),
-    Path("./rtl/scalar_units/scalar_pipe.sv").resolve(),
-    Path("./rtl/scalar_units/add_n.sv").resolve(),
-    Path("./rtl/scalar_units/scale_n.sv").resolve(),
-    Path("./rtl/scalar_units/relu_n.sv").resolve(),
-    Path("./rtl/scalar_units/load_data.sv").resolve(),
-    Path("./rtl/quantizer_mul.sv").resolve(),
-    Path("./rtl/utils/elastic.sv").resolve(),
-    Path("./rtl/utils/shift.sv").resolve(),
+    Path("./src/scalar_units/scalar_stage.sv").resolve(),
+    Path("./src/scalar_units/scalar_pipe.sv").resolve(),
+    Path("./src/scalar_units/add_n.sv").resolve(),
+    Path("./src/scalar_units/scale_n.sv").resolve(),
+    Path("./src/scalar_units/relu_n.sv").resolve(),
+    Path("./src/scalar_units/load_data.sv").resolve(),
+    Path("./src/quantizer_mul.sv").resolve(),
+    Path("./src/common/elastic.sv").resolve(),
+    Path("./src/common/shift.sv").resolve(),
 ]
 
 PARAMS = {"N": N, "PSUM_W": 32, "M0_W": 32, "FIXED_SHIFT": FIXED_SHIFT, "BUS_W": 64}

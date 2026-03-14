@@ -154,9 +154,10 @@ tests = [
 ]
 
 
+sources = [Path("./src"/"spi_slave.sv").resolve()]
+
 @pytest.mark.parametrize("testcase", tests)
 def test_spi_each(testcase):
-    sources = [Path("./rtl/spi_slave.sv").resolve()]
     try:
         run_test(
             parameters={},
@@ -171,7 +172,6 @@ def test_spi_each(testcase):
 
 
 def test_spi_all():
-    sources = [Path("./rtl/spi_slave.sv").resolve()]
     try:
         run_test(
             parameters={},

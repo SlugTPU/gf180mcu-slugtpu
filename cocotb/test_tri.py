@@ -161,12 +161,13 @@ tests = [
 ]
 
 
+sources = [
+    Path("./src/tri_shift.sv").resolve(),
+    Path("./src/common/shift.sv").resolve(),
+]
+
 @pytest.mark.parametrize("testcase", tests)
 def test_tri_each(testcase):
-    sources = [
-        Path("./rtl/tri_shift.sv").resolve(),
-        Path("./rtl/utils/shift.sv").resolve(),
-    ]
     try:
         run_test(
             parameters={"N": 8, "DATA_W": 16},
@@ -181,10 +182,6 @@ def test_tri_each(testcase):
 
 
 def test_tri_all():
-    sources = [
-        Path("./rtl/tri_shift.sv").resolve(),
-        Path("./rtl/utils/shift.sv").resolve(),
-    ]
     try:
         run_test(
             parameters={"N": 8, "DATA_W": 16},

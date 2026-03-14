@@ -246,12 +246,12 @@ tests = [
 ]
 
 SOURCES = [
-    Path("./rtl/scalar_units/scalar_pipe.sv").resolve(),
-    Path("./rtl/scalar_units/add_n.sv").resolve(),
-    Path("./rtl/scalar_units/relu_n.sv").resolve(),
-    Path("./rtl/scalar_units/scale_n.sv").resolve(),
-    Path("./rtl/quantizer_mul.sv").resolve(),
-    Path("./rtl/utils/elastic.sv").resolve(),
+    Path("./src/scalar_units/scalar_pipe.sv").resolve(),
+    Path("./src/scalar_units/add_n.sv").resolve(),
+    Path("./src/scalar_units/relu_n.sv").resolve(),
+    Path("./src/scalar_units/scale_n.sv").resolve(),
+    Path("./src/quantizer_mul.sv").resolve(),
+    Path("./src/common/elastic.sv").resolve(),
 ]
 
 @pytest.mark.parametrize("testcase", tests)

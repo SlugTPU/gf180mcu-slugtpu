@@ -317,7 +317,7 @@ tests = [
     "test_shadow_buffer_3",
 ]
 
-proj_path = Path("./rtl").resolve()
+proj_path = Path("./src").resolve()
 SOURCES   = [proj_path / "sysray_nxn.sv", proj_path / "pe.sv"]
 
 
