@@ -83,7 +83,7 @@ tests = [
 
 proj_path = Path("./src").resolve()
 sources = [
-    proj_path / "sram/write_transaction.sv",
+    proj_path / "sram" / "write_transaction.sv",
 ]
 
 @pytest.mark.parametrize("testcase", tests)
