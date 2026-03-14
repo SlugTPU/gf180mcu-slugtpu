@@ -155,7 +155,7 @@ tests = [
 
 
 proj_path = [Path("./src").resolve()]
-sources = proj_path / "spi_slave.sv"
+sources = [proj_path / "spi_slave.sv"]
 
 
 @pytest.mark.parametrize("testcase", tests)
