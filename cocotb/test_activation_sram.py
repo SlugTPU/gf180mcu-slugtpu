@@ -89,12 +89,12 @@ tests =[
     'test_simple'
 ]
 
-proj_path = Path("./rtl").resolve()
+proj_path = Path("./src").resolve()
 sources = [
     proj_path / "sram/memory_transaction.sv",
     proj_path / "sram/activation_sram.sv",
     proj_path / "sram/sram_8x256.sv",
-    proj_path / "lib/sram/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1.v",
+    "ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1.v"
 ]
 
 @pytest.mark.parametrize("testcase", tests)
