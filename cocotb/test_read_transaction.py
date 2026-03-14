@@ -86,7 +86,7 @@ tests = [
     'test_simple'
 ]
 
-proj_path = Path("./rtl").resolve()
+proj_path = Path("./src").resolve()
 sources = [
     proj_path / "sram/read_transaction.sv",
 ]
