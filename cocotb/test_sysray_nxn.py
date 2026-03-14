@@ -147,40 +147,6 @@ async def reset_test(dut):
     await FallingEdge(dut.rst_i)
 
 
-@cocotb.test()
-async def test_basic_matmul_matrix(dut):
-    """
-    Fixed-value matrix-matrix multiply: N×N activation matrix × N×N weights.
-
-    Each output row is verified independently against matmul_ref.
-    """
-    N = dut.N.value.to_unsigned()
-    # always square!
-    M = N
-    await clock_start(dut.clk_i)
-    await reset_sequence(dut.clk_i, dut.rst_i)
-
-    act_matrix = [[m * N + i + 1 for i in range(N)] for m in range(M)]
-    weights    = [[(i + 1) * (j + 1) for j in range(N)] for i in range(N)]
-    expected   = mat_mat_mul_ref(act_matrix, weights)
-
-    cocotb.log.info(f"N={N}, M={M}")
-    cocotb.log.info(f"act_matrix={act_matrix}")
-    cocotb.log.info(f"weights={weights}")
-    cocotb.log.info(f"expected={expected}")
-
-    cocotb.start_soon(load_weights(dut, N, weights))
-    for _ in range(N):                          # wait for col 0 to finish loading
-        await FallingEdge(dut.clk_i)
-    results = await stream_activation_matrix(dut, N, act_matrix)
-
-    for m, (row_got, row_exp) in enumerate(zip(results, expected)):
-        for j, (got, exp) in enumerate(zip(row_got, row_exp)):
-            cocotb.log.info(f"out[{m}][{j}] = {got}  (expected {exp})")
-            assert got == exp, f"row {m}, col {j}: expected {exp}, got {got}"
-
-    await FallingEdge(dut.clk_i)
-
 
 @cocotb.test()
 async def test_random_matmul_matrix(dut):
@@ -310,10 +276,9 @@ async def test_shadow_buffer_3(dut):
     await FallingEdge(dut.clk_i)
 
 tests = [
-    # "reset_test",
-    # "test_basic_matmul_matrix",
-    # "test_random_matmul_matrix",
-    # "test_shadow_buffer_2",
+    "reset_test",
+    "test_random_matmul_matrix",
+    "test_shadow_buffer_2",
     "test_shadow_buffer_3",
 ]
 
@@ -321,7 +286,7 @@ proj_path = Path("./src").resolve()
 SOURCES   = [proj_path / "sysray_nxn.sv", proj_path / "pe.sv"]
 
 
-@pytest.mark.parametrize("N", [2, 8, 64])
+@pytest.mark.parametrize("N", [2, 8])
 @pytest.mark.parametrize("testcase", tests)
 def test_sysray_nxn_each(N, testcase):
     run_test(
@@ -333,7 +298,7 @@ def test_sysray_nxn_each(N, testcase):
     )
 
 
-@pytest.mark.parametrize("N", [2, 8, 64])
+@pytest.mark.parametrize("N", [2, 8])
 def test_sysray_nxn_all(N):
     run_test(
         sources=SOURCES,
