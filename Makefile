@@ -12,7 +12,7 @@ DEFAULT_SLOT = 1x1
 
 # always dump waveforms
 export WAVES=1
-RTL_FILES := $(shell find rtl/ -name "*.sv")
+RTL_FILES := $(shell find src/ -name "*.sv")
 
 # Slot can be any of AVAILABLE_SLOTS
 SLOT ?= $(DEFAULT_SLOT)
