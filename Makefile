@@ -84,10 +84,10 @@ sim-scalar-load:
 	python3 -m pytest cocotb/test_load_data.py -s
 
 sim-scalar-pipe:
-	python3 -m pytest sim/test_scalar_pipe.py -s
+	python3 -m pytest cocotb/test_scalar_pipe.py -s
 
 sim-scalar-stage:
-	python3 -m pytest sim/test_scalar_stage.py -s
+	python3 -m pytest cocotb/test_scalar_stage.py -s
 
 sim-add-n:
 	python3 -m pytest cocotb/test_add_n.py -s
