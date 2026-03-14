@@ -144,6 +144,39 @@ In addition, module specific tests are located inside `cocotb` as well as `test_
 make sim-sysray-nxn
 ```
 
+All RTL modules are verified with cocotb testbenches driven by pytest. The verification framework follows a producer–consumer model with Python reference models.
+
+**The test framework currently covers:**
+- Processing element (PE): MAC correctness, double buffer bank switching
+- Systolic array (2 x 2 and N x N): full matrix multiply against NumPy reference
+- Scalar pipeline: bias, ReLU, zero-point subtraction, fixed point quantization
+- SRAM controller: read/write transactions, bank addressing
+- SPI slave: host communication protocol
+- FIFO: fill/drain, backpressure, boundary conditions
+- Data loader: streaming activation/weight data into compute units
+- Triangle shifter: input staggering for systolic array feeding
+
+### Available Test Targets
+| Target | Module Under Test |
+|---|---|
+| `test_sysray_nxn` | N x N systolic array |
+| `test_scalar_pipe` | Test scalar units |
+| `test_scalar_stage` | Test scalar units, including loading |
+| `test_add_n` | Vectorized bias adder |
+| `test_relu_n` | Vectorized ReLU |
+| `test_scale_n` | Vectorized fixed point scale |
+| `test_quantizer_mul` | Fixed point quantized multiplier |
+| `test_fifo` | FIFO |
+| `test_spi` | SPI slave |
+| `test_sram` | SRAM controller |
+| `test_activation_sram` | Activation SRAM |
+| `test_read_transaction` | SRAM read transaction |
+| `test_write_transaction` | SRAM write transaction |
+| `test_tri` | Triangle shifter |
+| `test_load` | Data loader |
+---
+
+
 > [!NOTE]
 > You need to have the latest implementation of your design in the `final/` folder. After implementing the design, execute 'make copy-final' to copy all necessary files.
 
