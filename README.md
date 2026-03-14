@@ -159,21 +159,21 @@ All RTL modules are verified with cocotb testbenches driven by pytest. The verif
 ### Available Test Targets
 | Target | Module Under Test |
 |---|---|
-| `test_sysray_nxn` | N x N systolic array |
-| `test_scalar_pipe` | Test scalar units |
-| `test_scalar_stage` | Test scalar units, including loading |
-| `test_add_n` | Vectorized bias adder |
-| `test_relu_n` | Vectorized ReLU |
-| `test_scale_n` | Vectorized fixed point scale |
-| `test_quantizer_mul` | Fixed point quantized multiplier |
-| `test_fifo` | FIFO |
-| `test_spi` | SPI slave |
-| `test_sram` | SRAM controller |
-| `test_activation_sram` | Activation SRAM |
-| `test_read_transaction` | SRAM read transaction |
-| `test_write_transaction` | SRAM write transaction |
-| `test_tri` | Triangle shifter |
-| `test_load` | Data loader |
+| `sim-sysray-nxn` | N x N systolic array |
+| `sim-scalar-pipe` | Test scalar units |
+| `sim-scalar-stage` | Test scalar units, including loading |
+| `sim-add-n` | Vectorized bias adder |
+| `sim-relu-n` | Vectorized ReLU |
+| `sim-scale-n` | Vectorized fixed point scale |
+| `sim-quantizer-mul` | Fixed point quantized multiplier |
+| `sim-fifo` | FIFO |
+| `sim-spi` | SPI slave |
+| `sim-sram` | SRAM controller |
+| `sim-activation-sram` | Activation SRAM |
+| `sim-read-transaction` | SRAM read transaction |
+| `sim-write-transaction` | SRAM write transaction |
+| `sim-tri` | Triangle shifter |
+| `sim-load` | Data loader |
 ---
 
 
