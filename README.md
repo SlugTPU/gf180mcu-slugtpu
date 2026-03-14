@@ -169,8 +169,6 @@ All RTL modules are verified with cocotb testbenches driven by pytest. The verif
 | `sim-spi` | SPI slave |
 | `sim-sram` | SRAM controller |
 | `sim-activation-sram` | Activation SRAM |
-| `sim-read-transaction` | SRAM read transaction |
-| `sim-write-transaction` | SRAM write transaction |
 | `sim-tri` | Triangle shifter |
 | `sim-load` | Data loader |
 ---
