@@ -1,5 +1,7 @@
 # gf180mcu Project: SlugTPU
 
+Migrated and cleaned from [SlugTPU/slugtpu](https://github.com/SlugTPU/slugtpu)
+
 SlugTPU is an open source tensor processing unit that is designed to accelerate quantized neural network inference. We feature a parameterizable N x N systolic array with a full scalar post processing pipleline, on-chip SRAM, SPI host communication, and off-chip DRAM support via LiteDRAM. The design runs INT8 matrix multiplications with 32 bit accumulation, with hardware quantization to convert outputs back into INT8 for layer chaining.
 
 This ASIC currently targets the GF180MCU process node.
