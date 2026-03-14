@@ -31,9 +31,10 @@ All stages use valid/ready elastic handshaking for backpressure safe pipelining.
 
 ### Memory Hierarchy
 
-**On-Chip SRAM**: Eight SRAM blocks that store activations and intermediate results. The SRAM controller supports simultaneous read and write through an AXI-Lite interface with separate read/write channels. Address decoding uses the bottom 2 bits for bank selection and the upper bits for the intra bank address.
+**On-Chip SRAM**: 2 Banks of eight SRAM blocks each. One stores activations, scalar data, and intermediate results, and the other stores weights. We interface with these banks via an atomic memory interface unit. 
 
 **Off-Chip DRAM**: Full model weights and potentially activation tensors will live in external DRAM. The design will interface with DRAM through a LiteDRAM controller exposing a Wishbone B4 port.
+
 
 ### Host Interface
 
