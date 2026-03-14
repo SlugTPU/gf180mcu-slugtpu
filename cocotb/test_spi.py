@@ -154,7 +154,7 @@ tests = [
 ]
 
 
-proj_path = [Path("./src").resolve()]
+proj_path = Path("./src").resolve()
 sources = [proj_path / "spi_slave.sv"]
 
 
