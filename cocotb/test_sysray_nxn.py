@@ -7,6 +7,10 @@ from shared import clock_start, reset_sequence
 from runner import run_test
 
 
+# ---------------------------------------------------------------------------
+# Reference model
+# ---------------------------------------------------------------------------
+
 def vec_mat_mul_ref(acts, weights):
     """C[j] = sum_i acts[i] * weights[i][j]  (vector @ matrix, column outputs)"""
     N = len(acts)
@@ -20,7 +24,7 @@ def mat_mat_mul_ref(act_matrix, weights):
 
 def tiled_matmul_ref(act_banks, weight_banks):
     """
-    Reference for a tiled matmul accumulating over K inner-dimension tiles.
+    Reference for one N×N output tile, accumulating over K inner-dimension tiles.
 
     Computes: C = sum_k act_banks[k] @ weight_banks[k]
 
@@ -38,6 +42,26 @@ def tiled_matmul_ref(act_banks, weight_banks):
                 result[m][j] += partial[m][j]
     return result
 
+
+def full_matmul_ref(A, W):
+    """
+    Reference for a full (T*N) × (T*N) matrix multiply, computed directly.
+
+    A and W are 2D lists of shape (T*N) × (T*N).
+    Returns C = A @ W as a 2D list of the same shape.
+    """
+    rows = len(A)
+    cols = len(W[0])
+    inner = len(W)
+    return [
+        [sum(A[r][k] * W[k][c] for k in range(inner)) for c in range(cols)]
+        for r in range(rows)
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Hardware drivers
+# ---------------------------------------------------------------------------
 
 async def load_weights(dut, N, weights, sel=0):
     """
@@ -140,25 +164,19 @@ async def stream_activation_banks_tiled(dut, N, act_banks):
     Returns a single N×N accumulated result matrix.
     """
     K = len(act_banks)
-    # Output appears for the very last bank (k = K-1) at the same output timing
-    # as a single-bank stream, but offset by (K-1)*N cycles because all K banks
-    # are streamed contiguously. We therefore run for K*N + 2*N - 1 cycles total
-    # (K*N to push all activations in, plus the N + N - 1 drain tail).
     result = [[None] * N for _ in range(N)]
 
+    # K*N cycles to push all activations in, plus the N + N - 1 drain tail.
     total_cycles = K * N + 2 * N - 1
 
     for cycle in range(total_cycles):
         await FallingEdge(dut.clk_i)
 
         # Drive activations: all K banks streamed back-to-back, staggered per row.
-        # Row i of bank k enters at global cycle k*N + i (before the per-row stagger).
-        # With the diagonal stagger, row i sees its data at global cycle k*N + m
-        # offset by i, so col/row i of vector m in bank k fires when cycle - i == k*N + m.
         for i in range(N):
-            t = cycle - i       # diagonal-corrected time for row i
-            k = t // N          # which bank
-            m = t % N           # which row within that bank
+            t = cycle - i   # diagonal-corrected time for row i
+            k = t // N      # which bank
+            m = t % N       # which row within that bank
 
             if 0 <= t < K * N:
                 dut.act_sel_n_i[i].value   = k % 2
@@ -170,17 +188,13 @@ async def stream_activation_banks_tiled(dut, N, act_banks):
 
         await ReadOnly()
 
-        # Capture output: the accumulated result drains out after all K banks have
-        # passed through the array. Output row m at column j appears at global cycle
-        # K*N + m + j (i.e. N cycles after the last activation of that row, plus j
-        # for the column stagger). Rearranging: m = cycle - K*N - j.
+        # Capture output: accumulated result drains N cycles after the last bank.
+        # Output row m at column j: m = cycle - K*N - j.
         for j in range(N):
             if dut.psum_out_valid_n_o[j].value == 1:
                 m = cycle - K * N - j
                 if 0 <= m < N:
                     result[m][j] = dut.psum_out_n_o[j].value.to_signed()
-
-    print(result)
 
     for m in range(N):
         for j in range(N):
@@ -190,6 +204,11 @@ async def stream_activation_banks_tiled(dut, N, act_banks):
         cocotb.log.info(f"  → accumulated output row {m}: {row_out}")
     return result
 
+
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
 
 @cocotb.test()
 async def reset_test(dut):
@@ -236,7 +255,7 @@ async def test_tiled_matmul_k(dut):
     Tiled matmul along the K (inner) dimension with automatic on-chip accumulation.
 
     Computes one N×N output tile C of a larger matrix multiply where both A and W
-    have been partitioned into K tiles along their shared inner dimension:
+    have been partitioned into K=8 tiles along their shared inner dimension:
 
         C = A_0 @ W_0  +  A_1 @ W_1  +  ...  +  A_{K-1} @ W_{K-1}
 
@@ -247,7 +266,7 @@ async def test_tiled_matmul_k(dut):
     reference.
     """
     N = dut.N.value.to_unsigned()
-    K = 16  # number of tiles along the inner (reduction) dimension
+    K = 8  # number of tiles along the inner (reduction) dimension
 
     await clock_start(dut.clk_i)
     await reset_sequence(dut.clk_i, dut.rst_i)
@@ -264,7 +283,7 @@ async def test_tiled_matmul_k(dut):
 
     cocotb.start_soon(load_weight_banks(dut, N, weight_banks))
     for _ in range(N):
-        await FallingEdge(dut.clk_i)   # wait for bank 0, col 0 to finish loading
+        await FallingEdge(dut.clk_i)
     result = await stream_activation_banks_tiled(dut, N, act_banks)
 
     cocotb.log.info(f"hardware accumulated result={result}")
@@ -278,17 +297,93 @@ async def test_tiled_matmul_k(dut):
     await FallingEdge(dut.clk_i)
 
 
+@cocotb.test()
+async def test_full_square_matmul(dut):
+    """
+    Full (T*N) × (T*N) square matrix multiply, computed as T×T independent output tiles.
+
+    For each output tile C[i][j]:
+      - Load weight banks W[0][j] .. W[T-1][j] (the j-th column of weight tiles)
+      - Stream activation banks A[i][0] .. A[i][T-1] back-to-back (the i-th row of act tiles)
+      - DUT accumulates internally → one N×N result tile
+
+    This is exactly the test_tiled_matmul_k flow, repeated T×T times.
+    """
+    N = dut.N.value.to_unsigned()
+    T = 4  # tile grid dimension: full matrix is (T*N) × (T*N)
+
+    await clock_start(dut.clk_i)
+    await reset_sequence(dut.clk_i, dut.rst_i)
+
+    # Generate full matrices and slice into N×N tiles.
+    # A_tile[i][k]: rows i*N..i*N+N-1, cols k*N..k*N+N-1
+    # W_tile[k][j]: rows k*N..k*N+N-1, cols j*N..j*N+N-1
+    A_full = [[random.randint(-7, 7) for _ in range(T * N)] for _ in range(T * N)]
+    W_full = [[random.randint(-7, 7) for _ in range(T * N)] for _ in range(T * N)]
+
+    A_tile = [
+        [
+            [A_full[i * N + m][k * N : k * N + N] for m in range(N)]
+            for k in range(T)
+        ]
+        for i in range(T)
+    ]
+    W_tile = [
+        [
+            [W_full[k * N + r][j * N : j * N + N] for r in range(N)]
+            for j in range(T)
+        ]
+        for k in range(T)
+    ]
+
+    C_ref = full_matmul_ref(A_full, W_full)
+    C_hw  = [[None] * T for _ in range(T)]
+
+    cocotb.log.info(f"N={N}, T={T}, full matrix size={T*N}×{T*N}")
+
+    for i in range(T):
+        for j in range(T):
+            cocotb.log.info(f"--- tile [{i}][{j}] ---")
+
+            # Load the T weight banks for this output tile column j
+            weight_banks = [W_tile[k][j] for k in range(T)]
+            cocotb.start_soon(load_weight_banks(dut, N, weight_banks))
+            for _ in range(N):
+                await FallingEdge(dut.clk_i)
+
+            # Stream the T activation banks for this output tile row i
+            act_banks = [A_tile[i][k] for k in range(T)]
+            C_hw[i][j] = await stream_activation_banks_tiled(dut, N, act_banks)
+
+            cocotb.log.info(f"  C_hw[{i}][{j}] = {C_hw[i][j]}")
+
+    for i in range(T):
+        for j in range(T):
+            for m in range(N):
+                for n in range(N):
+                    got = C_hw[i][j][m][n]
+                    exp = C_ref[i * N + m][j * N + n]
+                    assert got == exp, (
+                        f"C[{i*N+m}][{j*N+n}] (tile [{i}][{j}] row {m} col {n}): "
+                        f"expected {exp}, got {got}"
+                    )
+
+    cocotb.log.info("test_full_square_matmul PASSED")
+    await FallingEdge(dut.clk_i)
+
+
 tests = [
     "reset_test",
     "test_random_matmul_matrix",
     "test_tiled_matmul_k",
+    "test_full_square_matmul",
 ]
 
 proj_path = Path("./src/sysray").resolve()
 SOURCES   = [proj_path / "sysray_nxn.sv", proj_path / "pe.sv"]
 
 
-@pytest.mark.parametrize("N", [8])
+@pytest.mark.parametrize("N", [2, 8])
 @pytest.mark.parametrize("testcase", tests)
 def test_sysray_nxn_each(N, testcase):
     run_test(
@@ -301,11 +396,12 @@ def test_sysray_nxn_each(N, testcase):
     )
 
 
-# @pytest.mark.parametrize("N", [2, 8])
-# def test_sysray_nxn_all(N):
-#     run_test(
-#         sources=SOURCES,
-#         module_name="test_sysray_nxn",
-#         hdl_toplevel="sysray_nxn",
-#         parameters={"N": N},
-#     )
+@pytest.mark.parametrize("N", [2, 8])
+def test_sysray_nxn_all(N):
+    run_test(
+        sources=SOURCES,
+        module_name="test_sysray_nxn",
+        hdl_toplevel="sysray_nxn",
+        parameters={"N": N},
+        sims=['icarus']
+    )
