@@ -39,8 +39,8 @@ module memory_transaction #(
     //     addr_q <= addr_d;
     // end
 
-    always @(addr_q) sram_addr_o = #150 addr_q;
-    always @(rw_mode_q) sram_rw_mode_o = #200 rw_mode_q;
+    always @(addr_q) sram_addr_o =  addr_q;
+    always @(rw_mode_q) sram_rw_mode_o = rw_mode_q;
 
     assign load_ready_o = ~in_use;
 
@@ -74,6 +74,7 @@ module memory_transaction #(
             in_use <= '1; 
             addr_q <= addr_i;
             rw_mode <= transaction_rw_mode_i;
+            rd_valid_o <= ready_o & ~transaction_rw_mode_i;
         end else begin
             current_count_q <= current_count_d;           
             addr_q <= addr_d;
