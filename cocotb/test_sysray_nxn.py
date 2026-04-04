@@ -282,7 +282,7 @@ tests = [
     "test_shadow_buffer_3",
 ]
 
-proj_path = Path("./src").resolve()
+proj_path = Path("./src/sysray").resolve()
 SOURCES   = [proj_path / "sysray_nxn.sv", proj_path / "pe.sv"]
 
 

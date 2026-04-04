@@ -119,7 +119,7 @@ sim-sysray-nxn:
 sim-activation-sram:
 	python3 -m pytest cocotb/test_activation_sram.py -s
 
-sim_scalar_stage_sram:
+sim-scalar-stage-sram:
 	python3 -m pytest cocotb/test_scalar_stage_sram.py -s
 
 sim-gl: ## Run gate-level simulation with cocotb (after copy-final)
