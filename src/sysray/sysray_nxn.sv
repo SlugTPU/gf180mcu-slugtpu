@@ -25,8 +25,8 @@ module sysray_nxn #(
   input logic  signed [DATA_WIDTH-1:0]  weight_n_i            [N-1:0],
   input logic                    weight_sel_n_i        [N-1:0],  // one select bit per column
 
-  input logic                    psum_valid_n_i        [N-1:0],
-  input logic  signed [ACC_WIDTH-1:0]   psum_n_i              [N-1:0],
+  // input logic                    psum_valid_n_i        [N-1:0],
+  // input logic  signed [ACC_WIDTH-1:0]   psum_n_i              [N-1:0],
 
   output logic signed [ACC_WIDTH-1:0]   psum_out_n_o          [N-1:0],
   output logic                   psum_out_valid_n_o    [N-1:0]
@@ -39,7 +39,7 @@ logic                  w_valid_conn    [N:0][N:0];
 logic [DATA_WIDTH:0]   a_conn          [N:0][N:0];
 logic                  a_valid_conn    [N:0][N:0];
 logic [ACC_WIDTH-1:0]  psum_conn       [N:0][N:0];
-logic                  psum_valid_conn [N:0][N:0];
+// logic                  psum_valid_conn [N:0][N:0];
 
 genvar i, j;
 generate
@@ -49,10 +49,10 @@ generate
         assign w_conn[i][j] = {weight_sel_n_i[j], weight_n_i[j]};
         assign w_valid_conn[i][j] = weight_valid_n_i[j];
         assign psum_conn[i][j] = '0;
-        assign psum_valid_conn[i][j] = 1'b1;
+        // assign psum_valid_conn[i][j] = 1'b1;
       end else if (i == N-1) begin
         assign psum_out_n_o[j]       = psum_conn[i+1][j];
-        assign psum_out_valid_n_o[j] = psum_valid_conn[i+1][j];
+        assign psum_out_valid_n_o[j] = a_valid_conn[i][j+1];
       end
       if (j == 0) begin
         assign a_conn[i][j] = {act_sel_n_i[i], act_n_i[i]};
@@ -71,9 +71,9 @@ generate
         .act_valid_i(a_valid_conn[i][j]),
         .act_valid_o(a_valid_conn[i][j+1]),
         .psum_i(psum_conn[i][j]),
-        .psum_valid_i(psum_valid_conn[i][j]),
-        .psum_o(psum_conn[i+1][j]),
-        .psum_valid_o(psum_valid_conn[i+1][j])
+        // .psum_valid_i(psum_valid_conn[i][j]),
+        .psum_o(psum_conn[i+1][j])
+        // .psum_valid_o(psum_valid_conn[i+1][j])
       );
     end  
   end
