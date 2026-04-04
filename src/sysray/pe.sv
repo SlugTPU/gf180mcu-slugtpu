@@ -38,9 +38,7 @@ module pe #(
     output logic act_valid_o,
 
     input  logic signed [ACC_WIDTH-1:0]  psum_i,
-    // input  logic psum_valid_i,
     output logic signed [ACC_WIDTH-1:0]  psum_o
-    // output  logic psum_valid_o
 );
 
     logic weight_sel, act_sel, weight_edge, prev_weight_sel;
@@ -83,13 +81,10 @@ module pe #(
     always_ff @(posedge clk_i) begin
         if (rst_i) begin
             psum_o <= '0;
-            // psum_valid_o <= 1'b0;
-        end else if (act_valid_i) begin // only update psum if both inputs are valid
+        end else if (act_valid_i) begin
             psum_o <= $signed(psum_i) + ACC_WIDTH'(s_product);
-            // psum_valid_o <= 1'b1;
         end else begin
             psum_o <= '0;
-            // psum_valid_o <= 1'b0;
         end
     end
 
@@ -103,8 +98,6 @@ module pe #(
             act_valid_o <= act_valid_i;
         end
     end
-
-    //assign psum_valid_o = act_valid_o;
 
     // output from the previously-settled bank so downstream always sees stable data
     assign weight_o = weight_buf[prev_weight_sel];
