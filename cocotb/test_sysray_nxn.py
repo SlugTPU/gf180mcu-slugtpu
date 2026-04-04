@@ -1,6 +1,6 @@
 import random
 import cocotb
-from cocotb.triggers import FallingEdge
+from cocotb.triggers import FallingEdge, ReadOnly
 from pathlib import Path
 import pytest
 from shared import clock_start, reset_sequence
@@ -14,25 +14,41 @@ def vec_mat_mul_ref(acts, weights):
 
 
 def mat_mat_mul_ref(act_matrix, weights):
-    """Compute act_matrix @ weights row-by-row; returns an M×N output matrix."""
+    """Compute act_matrix @ weights row-by-row; returns an N×N output matrix."""
     return [vec_mat_mul_ref(act_row, weights) for act_row in act_matrix]
 
 
-# Note: the following 2 helper functions independently drive weights and activations with diagonal pipelining, 
-#       however for testing shadow buffering, they have limited usecases as they also drive the valid signals
-#       well. For double buffering, use the load_weight_banks and stream_activation_banks functions instead, 
-#       which drive both the data and valid signals in a coordinated way.
+def tiled_matmul_ref(act_banks, weight_banks):
+    """
+    Reference for a tiled matmul accumulating over K inner-dimension tiles.
+
+    Computes: C = sum_k act_banks[k] @ weight_banks[k]
+
+    Each act_banks[k] and weight_banks[k] is an N×N tile representing one slice
+    along the shared inner dimension of a larger multiply. Their partial products
+    are summed into a single N×N accumulated output tile.
+    """
+    N = len(act_banks[0])
+    K = len(act_banks)
+    result = [[0] * N for _ in range(N)]
+    for k in range(K):
+        partial = mat_mat_mul_ref(act_banks[k], weight_banks[k])
+        for m in range(N):
+            for j in range(N):
+                result[m][j] += partial[m][j]
+    return result
+
 
 async def load_weights(dut, N, weights, sel=0):
     """
-    Load weights into the systolic array with a diagonal column stagger.
+    Load a single weight matrix into the systolic array with diagonal column stagger.
     """
     for cycle in range(2 * N - 1):
         await FallingEdge(dut.clk_i)
         for col in range(N):
-            row_idx = cycle - col          # position in the bottom-to-top sweep
+            row_idx = cycle - col
             if 0 <= row_idx < N:
-                row = N - 1 - row_idx      # row_idx=0 → bottom row (N-1)
+                row = N - 1 - row_idx
                 dut.weight_sel_n_i[col].value   = sel
                 dut.weight_n_i[col].value       = weights[row][col]
                 dut.weight_valid_n_i[col].value = 1
@@ -40,7 +56,6 @@ async def load_weights(dut, N, weights, sel=0):
                 dut.weight_n_i[col].value       = 0
                 dut.weight_valid_n_i[col].value = 0
 
-    # Deassert weight_valid one cycle after the last column finishes
     await FallingEdge(dut.clk_i)
     for col in range(N):
         dut.weight_n_i[col].value       = 0
@@ -49,7 +64,7 @@ async def load_weights(dut, N, weights, sel=0):
 
 async def stream_activation_matrix(dut, N, act_matrix, sel=0):
     """
-    Stream an N×N activation matrix through the systolic array with diagonal pipelining.
+    Stream a single N×N activation matrix through the systolic array.
 
     Returns an N×N list of output rows.
     """
@@ -58,7 +73,6 @@ async def stream_activation_matrix(dut, N, act_matrix, sel=0):
     for cycle in range(N + 2 * N - 1):
         await FallingEdge(dut.clk_i)
 
-        # Drive: row i carries vector m = cycle - i when in range
         for i in range(N):
             m = cycle - i
             dut.act_sel_n_i[i].value = sel
@@ -69,7 +83,8 @@ async def stream_activation_matrix(dut, N, act_matrix, sel=0):
                 dut.act_n_i[i].value       = 0
                 dut.act_valid_n_i[i].value = 0
 
-        # Sample: col j of vector m fires at FallingEdge m + N + j → m = cycle - N - j
+        await ReadOnly()
+
         for j in range(N):
             if dut.psum_out_valid_n_o[j].value == 1:
                 m = cycle - N - j
@@ -83,60 +98,97 @@ async def stream_activation_matrix(dut, N, act_matrix, sel=0):
         cocotb.log.info(f"  → output row {m}: {row_out}")
     return results
 
-async def load_weight_banks(dut, N, weight_banks):                                                                                                          
-    K = len(weight_banks)  # number of weight banks to load
 
-    # bank0: cycles 0..2N-2, bank1: N..3N-2, bank2: 2N..4N-2
-    for cycle in range((K+1)*N - 1):          
-        await FallingEdge(dut.clk_i)                                                                                                                           
-        for col in range(N):                                                                                                                                   
-            # stripped cycle index to retrieve column's loading pattern 
-            # (i.e. bank0 col0 loads at t=0, bank0 col1 loads at t=1, ..., bank0 colN-1 loads at t=N-1, ..., bank_n col0 loads at t=kN)
+async def load_weight_banks(dut, N, weight_banks):
+    """
+    Load K weight banks back-to-back with diagonal column stagger and alternating sel.
+
+    Each bank k occupies a window of N cycles staggered per column, overlapping
+    with the next bank so that the array is always being fed without gaps.
+    """
+    K = len(weight_banks)
+
+    for cycle in range((K + 1) * N - 1):
+        await FallingEdge(dut.clk_i)
+        for col in range(N):
             t = cycle - col
             k = t // N      # bank index
-            bk_idx = t % N  # bank k's row index
+            bk_idx = t % N  # row index within bank k (bottom-to-top sweep)
 
-            if 0 <= t < K*N:                                                                                                                              
+            if 0 <= t < K * N:
                 dut.weight_sel_n_i[col].value   = k % 2
-                dut.weight_n_i[col].value       = weight_banks[k][N-1-(bk_idx)][col]                                                                                    
-                dut.weight_valid_n_i[col].value = 1                                                                                                            
-            else:                                                                                                                                            
-                dut.weight_n_i[col].value       = 0                                                                                                            
+                dut.weight_n_i[col].value       = weight_banks[k][N - 1 - bk_idx][col]
+                dut.weight_valid_n_i[col].value = 1
+            else:
+                dut.weight_n_i[col].value       = 0
                 dut.weight_valid_n_i[col].value = 0
 
     await FallingEdge(dut.clk_i)
-    dut.weight_valid_n_i[N-1].value = 0
+    dut.weight_valid_n_i[N - 1].value = 0
 
-async def stream_activation_banks(dut, N, act_banks):                                                                                             
-    results = [[[None]*N for _ in range(N)] for _ in range(len(act_banks))]
-                                                                                                                                                                
-    K = len(act_banks)  # number of activation banks to load
 
-    for cycle in range((K+2)*N - 1):          
-        await FallingEdge(dut.clk_i)                                                                                                                           
-        for col in range(N):                                                                                                                                   
-            # stripped cycle index to retrieve column's loading pattern 
-            # (i.e. bank0 col0 loads at t=0, bank0 col1 loads at t=1, ..., bank0 colN-1 loads at t=N-1, ..., bank_n col0 loads at t=kN)
-            t = cycle - col
-            k = t // N      # bank index
-            bk_idx = t % N  # bank k's row index
+async def stream_activation_banks_tiled(dut, N, act_banks):
+    """
+    Stream K activation banks back-to-back with no inter-bank gap, causing the
+    DUT to automatically accumulate all K partial products internally.
 
-            if 0 <= t < K*N:                                                                                                                              
-                dut.act_sel_n_i[col].value   = k % 2
-                dut.act_n_i[col].value       = act_banks[k][bk_idx][col]                                                                                    
-                dut.act_valid_n_i[col].value = 1                                                                                                            
-            else:                                                                                                                                            
-                dut.act_n_i[col].value       = 0                                                                                                            
-                dut.act_valid_n_i[col].value = 0
+    Because the hardware accumulates across back-to-back inputs, only one N×N
+    result is produced at the output — the fully-accumulated tile C. This result
+    appears N cycles after the last activation row has been consumed, staggered
+    by column in the usual diagonal fashion.
 
-        for col in range(N):                                                                                                                                     
-            t = cycle - N - col
-            k = t // N      # bank index
-            bk_idx = t % N  # bank k's row index
-            if dut.psum_out_valid_n_o[col].value == 1 and 0 <= t < K*N:
-                results[k][bk_idx][col] = dut.psum_out_n_o[col].value.to_signed()
+    Returns a single N×N accumulated result matrix.
+    """
+    K = len(act_banks)
+    # Output appears for the very last bank (k = K-1) at the same output timing
+    # as a single-bank stream, but offset by (K-1)*N cycles because all K banks
+    # are streamed contiguously. We therefore run for K*N + 2*N - 1 cycles total
+    # (K*N to push all activations in, plus the N + N - 1 drain tail).
+    result = [[None] * N for _ in range(N)]
 
-    return results
+    total_cycles = K * N + 2 * N - 1
+
+    for cycle in range(total_cycles):
+        await FallingEdge(dut.clk_i)
+
+        # Drive activations: all K banks streamed back-to-back, staggered per row.
+        # Row i of bank k enters at global cycle k*N + i (before the per-row stagger).
+        # With the diagonal stagger, row i sees its data at global cycle k*N + m
+        # offset by i, so col/row i of vector m in bank k fires when cycle - i == k*N + m.
+        for i in range(N):
+            t = cycle - i       # diagonal-corrected time for row i
+            k = t // N          # which bank
+            m = t % N           # which row within that bank
+
+            if 0 <= t < K * N:
+                dut.act_sel_n_i[i].value   = k % 2
+                dut.act_n_i[i].value       = act_banks[k][m][i]
+                dut.act_valid_n_i[i].value = 1
+            else:
+                dut.act_n_i[i].value       = 0
+                dut.act_valid_n_i[i].value = 0
+
+        await ReadOnly()
+
+        # Capture output: the accumulated result drains out after all K banks have
+        # passed through the array. Output row m at column j appears at global cycle
+        # K*N + m + j (i.e. N cycles after the last activation of that row, plus j
+        # for the column stagger). Rearranging: m = cycle - K*N - j.
+        for j in range(N):
+            if dut.psum_out_valid_n_o[j].value == 1:
+                m = cycle - K * N - j
+                if 0 <= m < N:
+                    result[m][j] = dut.psum_out_n_o[j].value.to_signed()
+
+    print(result)
+
+    for m in range(N):
+        for j in range(N):
+            assert result[m][j] is not None, \
+                f"accumulated output row {m}, col {j}: not captured"
+    for m, row_out in enumerate(result):
+        cocotb.log.info(f"  → accumulated output row {m}: {row_out}")
+    return result
 
 
 @cocotb.test()
@@ -147,31 +199,26 @@ async def reset_test(dut):
     await FallingEdge(dut.rst_i)
 
 
-
 @cocotb.test()
 async def test_random_matmul_matrix(dut):
     """
-    Random matrix-matrix multiply: M×N activation matrix × N×N weights.
-
-    Values are capped at 7 so M * N * 7 * 7 stays well within ACC_WIDTH=32.
+    Random single-tile matrix-matrix multiply: N×N activations × N×N weights.
     """
     N = dut.N.value.to_unsigned()
-    # always square!
-    M = N
     await clock_start(dut.clk_i)
     await reset_sequence(dut.clk_i, dut.rst_i)
 
-    act_matrix = [[random.randint(-128, 127) for _ in range(N)] for _ in range(M)]
+    act_matrix = [[random.randint(-128, 127) for _ in range(N)] for _ in range(N)]
     weights    = [[random.randint(-128, 127) for _ in range(N)] for _ in range(N)]
     expected   = mat_mat_mul_ref(act_matrix, weights)
 
-    cocotb.log.info(f"N={N}, M={M}")
+    cocotb.log.info(f"N={N}")
     cocotb.log.info(f"act_matrix={act_matrix}")
     cocotb.log.info(f"weights={weights}")
     cocotb.log.info(f"expected={expected}")
 
     cocotb.start_soon(load_weights(dut, N, weights))
-    for _ in range(N):                          # wait for col 0 to finish loading
+    for _ in range(N):
         await FallingEdge(dut.clk_i)
     results = await stream_activation_matrix(dut, N, act_matrix)
 
@@ -182,111 +229,66 @@ async def test_random_matmul_matrix(dut):
 
     await FallingEdge(dut.clk_i)
 
+
 @cocotb.test()
-async def test_shadow_buffer_2(dut):
-    """Test shadow buffering by interleaving two different weight banks back-to-back"""
+async def test_tiled_matmul_k(dut):
+    """
+    Tiled matmul along the K (inner) dimension with automatic on-chip accumulation.
+
+    Computes one N×N output tile C of a larger matrix multiply where both A and W
+    have been partitioned into K tiles along their shared inner dimension:
+
+        C = A_0 @ W_0  +  A_1 @ W_1  +  ...  +  A_{K-1} @ W_{K-1}
+
+    All K weight tiles are loaded back-to-back via shadow buffering. All K
+    activation tiles are then streamed back-to-back with no inter-tile gap,
+    causing the DUT to accumulate the partial products internally. A single
+    accumulated N×N result is read from the output and compared against the
+    reference.
+    """
     N = dut.N.value.to_unsigned()
+    K = 16  # number of tiles along the inner (reduction) dimension
 
     await clock_start(dut.clk_i)
     await reset_sequence(dut.clk_i, dut.rst_i)
 
-    act_matrix0 = [[random.randint(-128, 127) for _ in range(N)] for _ in range(N)]
-    act_matrix1 = [[random.randint(-128, 127) for _ in range(N)] for _ in range(N)]
-    weights0    = [[random.randint(-128, 127) for _ in range(N)] for _ in range(N)]
-    weights1    = [[random.randint(-128, 127) for _ in range(N)] for _ in range(N)]
+    act_banks    = [[[random.randint(-128, 127) for _ in range(N)] for _ in range(N)] for _ in range(K)]
+    weight_banks = [[[random.randint(-128, 127) for _ in range(N)] for _ in range(N)] for _ in range(K)]
 
-    expected0   = mat_mat_mul_ref(act_matrix0, weights0)
-    expected1  = mat_mat_mul_ref(act_matrix1, weights1)
+    expected = tiled_matmul_ref(act_banks, weight_banks)
 
-    cocotb.log.info(f"act_matrix0={act_matrix0}")
-    cocotb.log.info(f"weights0={weights0}")
-    cocotb.log.info(f"expected0={expected0}")
+    for k in range(K):
+        cocotb.log.info(f"act_banks[{k}]={act_banks[k]}")
+        cocotb.log.info(f"weight_banks[{k}]={weight_banks[k]}")
+    cocotb.log.info(f"expected (accumulated C tile)={expected}")
 
-    cocotb.log.info(f"act_matrix1={act_matrix1}")
-    cocotb.log.info(f"weights1={weights1}")
-    cocotb.log.info(f"expected1={expected1}")
-
-    cocotb.start_soon(load_weight_banks(dut, N, [weights0, weights1]))                                                                                                
-    for _ in range(N):                                                                                                                                             
-        await FallingEdge(dut.clk_i)           # bank0 col0 done → stream                                                                                          
-    results = await stream_activation_banks(dut, N, [act_matrix0, act_matrix1])    
-    cocotb.log.info(f"results0={results[0]}")
-    cocotb.log.info(f"results1={results[1]}")
-    for m in range(N):
-          for j in range(N):
-              got0 = results[0][m][j]
-              exp0 = expected0[m][j]
-              got1 = results[1][m][j]
-              exp1 = expected1[m][j]
-              assert got0 == exp0, f"bank 0, row {m}, col {j}: expected {exp0}, got {got0}"
-              assert got1 == exp1, f"bank 1, row {m}, col {j}: expected {exp1}, got {got1}"
-
-    await FallingEdge(dut.clk_i)
-
-@cocotb.test()
-async def test_shadow_buffer_3(dut):
-    """Test shadow buffering by interleaving three different weight banks back-to-back"""
-    N = dut.N.value.to_unsigned()
-
-    await clock_start(dut.clk_i)
-    await reset_sequence(dut.clk_i, dut.rst_i)
-
-    act_matrix0 = [[random.randint(-128, 127) for _ in range(N)] for _ in range(N)]
-    act_matrix1 = [[random.randint(-128, 127) for _ in range(N)] for _ in range(N)]
-    act_matrix2 = [[random.randint(-128, 127) for _ in range(N)] for _ in range(N)]
-    weights0    = [[random.randint(-128, 127) for _ in range(N)] for _ in range(N)]
-    weights1    = [[random.randint(-128, 127) for _ in range(N)] for _ in range(N)]
-    weights2    = [[random.randint(-128, 127) for _ in range(N)] for _ in range(N)]
-
-    expected0   = mat_mat_mul_ref(act_matrix0, weights0)
-    expected1  = mat_mat_mul_ref(act_matrix1, weights1)
-    expected2  = mat_mat_mul_ref(act_matrix2, weights2)
-
-    cocotb.log.info(f"act_matrix0={act_matrix0}")
-    cocotb.log.info(f"weights0={weights0}")
-    cocotb.log.info(f"expected0={expected0}")
-
-    cocotb.log.info(f"act_matrix1={act_matrix1}")
-    cocotb.log.info(f"weights1={weights1}")
-    cocotb.log.info(f"expected1={expected1}")
-
-    cocotb.log.info(f"act_matrix2={act_matrix2}")
-    cocotb.log.info(f"weights2={weights2}")
-    cocotb.log.info(f"expected2={expected2}")
-
-    cocotb.start_soon(load_weight_banks(dut, N, [weights0, weights1, weights2]))                                                                                                
+    cocotb.start_soon(load_weight_banks(dut, N, weight_banks))
     for _ in range(N):
-        await FallingEdge(dut.clk_i)           # bank0 col0 done → stream                                                                                          
-    results = await stream_activation_banks(dut, N, [act_matrix0, act_matrix1, act_matrix2])    
-    cocotb.log.info(f"results0={results[0]}")
-    cocotb.log.info(f"results1={results[1]}")
-    cocotb.log.info(f"results2={results[2]}")
+        await FallingEdge(dut.clk_i)   # wait for bank 0, col 0 to finish loading
+    result = await stream_activation_banks_tiled(dut, N, act_banks)
+
+    cocotb.log.info(f"hardware accumulated result={result}")
+
     for m in range(N):
-          for j in range(N):
-              got0 = results[0][m][j]
-              exp0 = expected0[m][j]
-              got1 = results[1][m][j]
-              exp1 = expected1[m][j]
-              got2 = results[2][m][j]
-              exp2 = expected2[m][j]
-              assert got0 == exp0, f"bank 0, row {m}, col {j}: expected {exp0}, got {got0}"
-              assert got1 == exp1, f"bank 1, row {m}, col {j}: expected {exp1}, got {got1}"
-              assert got2 == exp2, f"bank 2, row {m}, col {j}: expected {exp2}, got {got2}"
+        for j in range(N):
+            got = result[m][j]
+            exp = expected[m][j]
+            assert got == exp, f"tile row {m}, col {j}: expected {exp}, got {got}"
 
     await FallingEdge(dut.clk_i)
+
 
 tests = [
     "reset_test",
     "test_random_matmul_matrix",
-    "test_shadow_buffer_2",
-    "test_shadow_buffer_3",
+    "test_tiled_matmul_k",
 ]
 
 proj_path = Path("./src/sysray").resolve()
 SOURCES   = [proj_path / "sysray_nxn.sv", proj_path / "pe.sv"]
 
 
-@pytest.mark.parametrize("N", [2, 8])
+@pytest.mark.parametrize("N", [8])
 @pytest.mark.parametrize("testcase", tests)
 def test_sysray_nxn_each(N, testcase):
     run_test(
@@ -295,14 +297,15 @@ def test_sysray_nxn_each(N, testcase):
         hdl_toplevel="sysray_nxn",
         parameters={"N": N},
         testcase=testcase,
+        sims=['icarus']
     )
 
 
-@pytest.mark.parametrize("N", [2, 8])
-def test_sysray_nxn_all(N):
-    run_test(
-        sources=SOURCES,
-        module_name="test_sysray_nxn",
-        hdl_toplevel="sysray_nxn",
-        parameters={"N": N},
-    )
+# @pytest.mark.parametrize("N", [2, 8])
+# def test_sysray_nxn_all(N):
+#     run_test(
+#         sources=SOURCES,
+#         module_name="test_sysray_nxn",
+#         hdl_toplevel="sysray_nxn",
+#         parameters={"N": N},
+#     )

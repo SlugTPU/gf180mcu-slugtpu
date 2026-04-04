@@ -40,6 +40,7 @@ logic [DATA_WIDTH:0]   a_conn          [N:0][N:0];
 logic                  a_valid_conn    [N:0][N:0];
 logic [ACC_WIDTH-1:0]  psum_conn       [N:0][N:0];
 // logic                  psum_valid_conn [N:0][N:0];
+logic      psum_out_valid_intermediate    [N-1:0];
 
 genvar i, j;
 generate
@@ -48,11 +49,17 @@ generate
       if (i == 0) begin
         assign w_conn[i][j] = {weight_sel_n_i[j], weight_n_i[j]};
         assign w_valid_conn[i][j] = weight_valid_n_i[j];
-        assign psum_conn[i][j] = '0;
+        always_comb begin : psum_tiling
+          if (psum_out_valid_intermediate[j] == '1)
+            psum_conn[i][j] = psum_out_n_o[j];
+          else
+            psum_conn[i][j] = '0;
+        end
         // assign psum_valid_conn[i][j] = 1'b1;
       end else if (i == N-1) begin
-        assign psum_out_n_o[j]       = psum_conn[i+1][j];
-        assign psum_out_valid_n_o[j] = a_valid_conn[i][j+1];
+        assign psum_out_n_o[j] = psum_conn[i+1][j];
+        assign psum_out_valid_intermediate[j] = a_valid_conn[i][j+1];
+        assign psum_out_valid_n_o[j] = psum_out_valid_intermediate[j] & ~act_valid_n_i[j];
       end
       if (j == 0) begin
         assign a_conn[i][j] = {act_sel_n_i[i], act_n_i[i]};
