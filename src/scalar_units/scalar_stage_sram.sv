@@ -41,7 +41,7 @@ module scalar_stage_sram #(
     //SRAM Control Signals
     //ASSUME NO DATA RACES
     logic sram_downstream_ready_in;
-    assign sram_downstream_ready_in = rd_ready_i | wr_valid_i | quantized_valid;
+    assign sram_downstream_ready_in = rd_ready_i | wr_valid_i | quantized_valid | load_bias_en_i | load_zp_en_i | load_scale_en_i;
     logic sram_downstream_ready_out;
     assign downstream_ready_o = sram_downstream_ready_out;
 

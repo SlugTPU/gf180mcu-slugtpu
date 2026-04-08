@@ -26,21 +26,8 @@ module memory_transaction #(
     logic [address_width-1:0] addr_d, addr_q;
     logic in_use, rw_mode, rw_mode_q;
 
-    // assign sram_addr_o = addr_q;
-    
-    // always_ff @( negedge clk_i ) begin
-    //     sram_addr_o <= addr_q;
-    //     sram_rw_mode_o <= rw_mode;
-    // end
-
-    // //sram_addr_o is the input to the SRAM macro on the A port
-    // always @(addr_q) sram_addr_o = #200 addr_q;
-    // always_ff @( posedge clk_i ) begin
-    //     addr_q <= addr_d;
-    // end
-
-    always @(addr_q) sram_addr_o =  addr_q;
-    always @(rw_mode_q) sram_rw_mode_o = rw_mode_q;
+    assign sram_addr_o = addr_q;
+    assign sram_rw_mode_o = rw_mode_q;
 
     assign load_ready_o = ~in_use;
 
