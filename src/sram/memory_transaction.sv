@@ -68,7 +68,6 @@ module memory_transaction #(
             rd_valid_o <= ready_o & ~rw_mode;
 
             if (in_use & downstream_ready_i &
-                // if it is a read transaction, we add one for some reason I used to know
                 (current_count_d  == transaction_amount_q)) begin
                 in_use <= 1'b0;
                 rw_mode <= '0;
