@@ -1,3 +1,6 @@
 [submodule "ip/gf180mcu_ocd_ip_sram.git"]
 	path = ip/gf180mcu_ocd_ip_sram.git
 	url = https://github.com/RTimothyEdwards/gf180mcu_ocd_ip_sram.git
+[submodule "ip/mem_ctrl"]
+	path = ip/mem_ctrl
+	url = https://github.com/freecores/mem_ctrl
