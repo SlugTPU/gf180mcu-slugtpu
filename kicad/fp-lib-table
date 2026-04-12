@@ -1,0 +1,4 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "esp32-c3-mini-1-n4x")(type "KiCad")(uri "${KIPRJMOD}/footprints/esp32-c3-mini-1-n4x")(options "")(descr ""))
+)
