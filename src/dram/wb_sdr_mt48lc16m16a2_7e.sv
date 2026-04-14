@@ -117,7 +117,7 @@ module wb_sdr_mt48lc16m16a_7e #(
    always_ff @(posedge clk_i) begin
       if (rst_i) begin
          // on reset, we go through the initialization process
-         wait_counter_q <= init_wait_us_lp;
+         wait_counter_q <= init_wait_us_lp - 1'b1;
       end else begin
          wait_counter_q <= wait_counter_d;
       end
@@ -126,7 +126,7 @@ module wb_sdr_mt48lc16m16a_7e #(
    /** auto refresh counter after dram is initialized */
    always_comb begin
       if (!dram_initialized || auto_refresh_counter_q == 0) begin
-         auto_refresh_counter_d = tREF_dist_us_lp;
+         auto_refresh_counter_d = tREF_dist_us_lp - 1'b1;
       end else begin
          auto_refresh_counter_d = auto_refresh_counter_q - 1'b1;
       end
@@ -136,7 +136,7 @@ module wb_sdr_mt48lc16m16a_7e #(
       if (rst_i) begin
          auto_refresh_counter_q <= '0;
       end else begin
-         auto_refresh_counter_q <= auto_refresh_counter_d;
+         auto_refresh_counter_q <= auto_refresh_counter_d - 1'b1;
       end
    end
 
