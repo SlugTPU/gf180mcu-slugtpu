@@ -1150,54 +1150,6 @@
 				)
 			)
 			(symbol "ESP32-C3-MINI-1-N4_0_1"
-				(polyline
-					(pts
-						(xy 7.62 5.08) (xy 7.62 -81.28)
-					)
-					(stroke
-						(width 0.127)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 7.62 -81.28) (xy 33.02 -81.28)
-					)
-					(stroke
-						(width 0.127)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 33.02 5.08) (xy 7.62 5.08)
-					)
-					(stroke
-						(width 0.127)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 33.02 -81.28) (xy 33.02 5.08)
-					)
-					(stroke
-						(width 0.127)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
 				(pin power_out line
 					(at 0 0 0)
 					(length 7.62)
@@ -2294,6 +2246,19 @@
 								(size 1.27 1.27)
 							)
 						)
+					)
+				)
+			)
+			(symbol "ESP32-C3-MINI-1-N4_1_1"
+				(rectangle
+					(start 7.62 2.54)
+					(end 33.02 -78.74)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type background)
 					)
 				)
 			)
@@ -3421,7 +3386,7 @@
 		(fields_autoplaced yes)
 		(uuid "caf17167-47d0-421d-b865-2f689ebffe15")
 		(property "Reference" "U3"
-			(at 55.88 24.13 0)
+			(at 55.88 26.67 0)
 			(effects
 				(font
 					(size 1.524 1.524)
@@ -3429,7 +3394,7 @@
 			)
 		)
 		(property "Value" "ESP32-C3-MINI-1-N4"
-			(at 55.88 26.67 0)
+			(at 55.88 29.21 0)
 			(effects
 				(font
 					(size 1.524 1.524)
