@@ -268,7 +268,6 @@ module wb_sdr_mt48lc16m16a_7e #(
          dram_initialized = 1'b0;
          set_cmd_NOP();
          state_d = state_q;
-         $fatal("At an invalid state!");
       end
       endcase
    end
