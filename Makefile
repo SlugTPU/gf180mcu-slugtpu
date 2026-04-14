@@ -100,6 +100,9 @@ sim-scale-n:
 
 sim-sram:
 	python3 -m pytest cocotb/test_sram.py -s
+
+sim-house:
+	python3 -m pytest cocotb/test_house.py -s
 	
 sim-tri:
 	python3 -m pytest cocotb/test_tri.py -s
