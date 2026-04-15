@@ -55,17 +55,14 @@ module wb_sdr_mt48lc16m16a_7e #(
    localparam tREF_dist_wait_cycles = sys_clk_mhz_p * tREF_dist_us_lp;
    localparam tRCD_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRCD_us_lp));
 
-   typedef enum logic [4:0] {
+   typedef enum {
        INIT_WAIT,
+       WAIT,
        INIT_NOP,
        INIT_PRECHARGE,
-       INIT_PRECHARGE_WAIT,
        INIT_REFRESH_1,
-       INIT_REFRESH_1_WAIT,
        INIT_REFRESH_2,
-       INIT_REFRESH_2_WAIT,
        INIT_LOAD_MODE,
-       INIT_LOAD_MODE_WAIT,
        AUTO_REFRESH,
        ACTIVE,
        READ,
@@ -117,6 +114,14 @@ module wb_sdr_mt48lc16m16a_7e #(
         $error("Invalid burst length given. Valid burst lengths are 1, 2, 4, and 8");
    end
 
+   always_ff @(posedge clk_i) begin
+      if (rst_i) begin
+         saved_state_q <= INIT_WAIT;
+      end else begin
+         saved_state_q <= saved_state_d;
+      end
+   end
+
    /** wait counter */
    always_ff @(posedge clk_i) begin
       if (rst_i) begin
@@ -149,6 +154,8 @@ module wb_sdr_mt48lc16m16a_7e #(
       s_cke_o = 1;
       wait_counter_d = '0;
       s_addr_o = '0;
+      dram_initialized = 1'b0;
+      saved_state_d = saved_state_q;
 
       case (state_q)
       /** The init process
@@ -162,7 +169,7 @@ module wb_sdr_mt48lc16m16a_7e #(
        8. Wait tMRD before any further commands
       **/
       INIT_WAIT: begin
-         dram_initialized = 1'b0;
+         // special case of WAIT for init where cke is held low
          s_cke_o = 0;
          set_cmd_NOP();
 
@@ -171,6 +178,16 @@ module wb_sdr_mt48lc16m16a_7e #(
             wait_counter_d = wait_counter_q - 1'b1;
          end else begin
             state_d = INIT_NOP;
+         end
+      end
+      WAIT: begin
+         set_cmd_NOP();
+
+         if (wait_counter_q > 0) begin
+            state_d = state_q;
+            wait_counter_d = wait_counter_q - 1'b1;
+         end else begin
+            state_d = saved_state_q;
          end
       end
       INIT_NOP: begin
@@ -182,35 +199,25 @@ module wb_sdr_mt48lc16m16a_7e #(
       INIT_PRECHARGE: begin
          dram_initialized = 1'b0;
          set_cmd_PRECHARGE_ALL();
+         // set A10 high for precharge all
+         s_addr_o = 13'b0_0100_0000_0000;
 
-         state_d = INIT_PRECHARGE_WAIT;
-         wait_counter_d = tRP_wait_cycles_lp - 1'b1;
-      end
-      INIT_PRECHARGE_WAIT: begin
-         dram_initialized = 1'b0;
-         set_cmd_NOP();
-
-         if (wait_counter_q > 0) begin
-            wait_counter_d = wait_counter_q - 1'b1;
-            state_d = state_q;
+         if (tRP_wait_cycles_lp - 1'b1 > 0) begin
+            state_d = WAIT;
+            saved_state_d = INIT_REFRESH_1;
+            wait_counter_d = tRP_wait_cycles_lp - 1'b1;
          end else begin
-            state_d = INIT_REFRESH_1;
+            saved_state_d = INIT_REFRESH_1;
          end
       end
       INIT_REFRESH_1: begin
          dram_initialized = 1'b0;
          set_cmd_AUTO_REFRESH();
 
-         state_d = INIT_REFRESH_1_WAIT;
-         wait_counter_d = tRFC_wait_cycles_lp - 1'b1;
-      end
-      INIT_REFRESH_1_WAIT: begin
-         dram_initialized = 1'b0;
-         set_cmd_NOP();
-
-         if (wait_counter_q > 0) begin
-            wait_counter_d = wait_counter_q - 1'b1;
-            state_d = state_q;
+         if (tRFC_wait_cycles_lp - 1'b1 > 0) begin
+            state_d = WAIT;
+            saved_state_d = INIT_REFRESH_2;
+            wait_counter_d = tRFC_wait_cycles_lp - 1'b1;
          end else begin
             state_d = INIT_REFRESH_2;
          end
@@ -219,16 +226,10 @@ module wb_sdr_mt48lc16m16a_7e #(
          dram_initialized = 1'b0;
          set_cmd_AUTO_REFRESH();
 
-         state_d = INIT_REFRESH_2_WAIT;
-         wait_counter_d = tRFC_wait_cycles_lp- 1'b1;
-      end
-      INIT_REFRESH_2_WAIT: begin
-         dram_initialized = 1'b0;
-         set_cmd_NOP();
-
-         if (wait_counter_q > 0) begin
-            wait_counter_d = wait_counter_q - 1'b1;
-            state_d = state_q;
+         if (tRFC_wait_cycles_lp - 1'b1 > 0) begin
+            state_d = WAIT;
+            saved_state_d = INIT_LOAD_MODE;
+            wait_counter_d = tRFC_wait_cycles_lp - 1'b1;
          end else begin
             state_d = INIT_LOAD_MODE;
          end
@@ -246,18 +247,11 @@ module wb_sdr_mt48lc16m16a_7e #(
           **/
          s_addr_o = {1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, CL_lp[2:0], 1'b0, burst_p[2:0]};
 
-         state_d = INIT_LOAD_MODE_WAIT;
-         wait_counter_d = tMRD_wait_cycles_lp - 1'b1;
-      end
-      INIT_LOAD_MODE_WAIT: begin
-         dram_initialized = 1'b0;
-         set_cmd_NOP();
-
-         if (wait_counter_q > 0) begin
-            wait_counter_d = wait_counter_q - 1'b1;
-            state_d = state_q;
+         if (tMRD_wait_cycles_lp - 1'b1 > 0) begin
+            state_d = WAIT;
+            saved_state_d = IDLE;
+            wait_counter_d = tMRD_wait_cycles_lp - 1'b1;
          end else begin
-            state_d = IDLE;
          end
       end
       IDLE: begin
