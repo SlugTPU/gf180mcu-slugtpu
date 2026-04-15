@@ -38,6 +38,7 @@ module wb_sdr_mt48lc16m16a_7e #(
    localparam tRFC_us_lp = 0.066;
    // One distributed refresh every 7.8125us, which we round down to 7
    localparam tREF_dist_us_lp = 7;
+   localparam tRCD_us_lp = 0.015;
    localparam init_wait_us_lp = 100;
    // minimum clock period is 7ns, and 1/7.0ns ~= 142MHz
    localparam min_period_mhz_lp = 142;
@@ -52,6 +53,7 @@ module wb_sdr_mt48lc16m16a_7e #(
    localparam tRP_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRP_us_lp));
    localparam tRFC_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRFC_us_lp));
    localparam tREF_dist_wait_cycles = sys_clk_mhz_p * tREF_dist_us_lp;
+   localparam tRCD_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRCD_us_lp));
 
    typedef enum logic [4:0] {
        INIT_WAIT,
