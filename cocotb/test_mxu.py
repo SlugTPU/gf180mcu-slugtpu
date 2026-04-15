@@ -81,9 +81,6 @@ async def stream_activation_banks_tiled(dut, N, act_banks):
     result = [[None] * N for _ in range(N)]
     rows_captured = 0
 
-    for _ in range(8):
-        await FallingEdge(dut.clk_i)
-
     async def drive_inputs():
         for cycle in range(K * N):
             await FallingEdge(dut.clk_i)
@@ -149,7 +146,9 @@ async def single_matmul_test(dut):
         cocotb.log.info(f"  {row}")
 
     # Wrap in single-bank lists so the tiled functions handle them
-    await load_weight_banks(dut, N, [weight])
+    cocotb.start_soon(load_weight_banks(dut, N, [weight]))
+    for _ in range(8):
+        await FallingEdge(dut.clk_i)
     result = await stream_activation_banks_tiled(dut, N, [act])
 
     expected = tiled_matmul_ref([act], [weight])
@@ -167,9 +166,61 @@ async def single_matmul_test(dut):
 
     cocotb.log.info("single_matmul_test PASSED")
 
+@cocotb.test()
+async def tiled_matmul_test(dut):
+    """Test tiled matrix multiply: C = sum_k A_k @ W_k, K=4 tiles"""
+    N = 8
+    K = 4  # number of tiles along inner dimension
+
+    await clock_start(dut.clk_i)
+    await reset_sequence(dut.clk_i, dut.rst_i)
+    await FallingEdge(dut.rst_i)
+
+    dut.act_enable_i.value    = 0
+    dut.weight_enable_i.value = 0
+
+    # Generate K random N×N tiles for weights and activations
+    weight_banks = [
+        [[random.randint(-32, 31) for _ in range(N)] for _ in range(N)]
+        for _ in range(K)
+    ]
+    act_banks = [
+        [[random.randint(-32, 31) for _ in range(N)] for _ in range(N)]
+        for _ in range(K)
+    ]
+
+    for k in range(K):
+        cocotb.log.info(f"Weight bank {k}:")
+        for row in weight_banks[k]:
+            cocotb.log.info(f"  {row}")
+        cocotb.log.info(f"Activation bank {k}:")
+        for row in act_banks[k]:
+            cocotb.log.info(f"  {row}")
+
+    cocotb.start_soon(load_weight_banks(dut, N, weight_banks))
+    for _ in range(8):
+        await FallingEdge(dut.clk_i)
+
+    result   = await stream_activation_banks_tiled(dut, N, act_banks)
+    expected = tiled_matmul_ref(act_banks, weight_banks)
+
+    cocotb.log.info("Expected:")
+    for m, row in enumerate(expected):
+        cocotb.log.info(f"  row {m}: {row}")
+
+    for m in range(N):
+        for j in range(N):
+            assert result[m][j] == expected[m][j], (
+                f"Tiled mismatch at output[{m}][{j}]: "
+                f"got {result[m][j]}, expected {expected[m][j]}"
+            )
+
+    cocotb.log.info("tiled_matmul_test PASSED")
+
 tests = [
     "reset_test",
-    "single_matmul_test"
+    "single_matmul_test",
+    "tiled_matmul_test",
 ]
 
 proj_path = Path("./src/").resolve()

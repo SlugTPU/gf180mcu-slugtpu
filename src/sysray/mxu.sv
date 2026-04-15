@@ -34,7 +34,7 @@ module mxu #(
 );
 
     logic [3:0] activation_count, weight_count;
-    logic act_valid_l, weight_valid_l, act_select, weight_select;
+    logic act_valid_l, weight_valid_l, act_select, weight_select, shift_en;
     assign act_valid_l = act_enable_i & act_valid_i;
     assign weight_valid_l = weight_enable_i & weight_valid_i;
 
@@ -60,6 +60,13 @@ module mxu #(
 
     assign weight_select = weight_count[3];
     assign act_select = activation_count[3];
+
+    always_comb begin
+        shift_en = '1;
+        // if(weight_count == 4'b0111 && ~act_valid_l)
+        //     shift_en = '0;
+    end
+    assign weight_ready_o = shift_en;
 
 
     logic [DATA_WIDTH+1:0] act_shift_in [N-1:0];
@@ -93,7 +100,7 @@ module mxu #(
         .clk(clk_i),
         .rst(rst_i),
         .data_i(act_shift_in),
-        .enable_i('1),
+        .enable_i(shift_en),
         .data_o(act_shift_out)
     );
 
@@ -104,7 +111,7 @@ module mxu #(
         .clk(clk_i),
         .rst(rst_i),
         .data_i(weight_shift_in),
-        .enable_i('1),
+        .enable_i(shift_en),
         .data_o(weight_shift_out)
     );
 
