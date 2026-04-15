@@ -6,9 +6,9 @@ module tri_shift #(
 )(
     input  logic                 clk,
     input  logic                 rst,
-    input  logic [DATA_W-1:0]    data_i   [N],
+    input  logic [DATA_W-1:0]    data_i   [N-1:0],
     input  logic                 enable_i,
-    output logic [DATA_W-1:0]    data_o   [N]
+    output logic [DATA_W-1:0]    data_o   [N-1:0]
 );
 
     genvar lane;

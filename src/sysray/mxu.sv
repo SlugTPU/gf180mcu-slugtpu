@@ -1,7 +1,7 @@
 // Matrix Multiply Unit
 // Inputs: 2 NxN Matrices of DATA_WIDTH wide elements
 // Output: NxN Matrix of ACC_WIDTH wide elements 
-// Inputs are K major, output is row major
+// All matrices are row major
 
 //TODO: weight ready, activation ready logic and weight stall logic
 
@@ -27,16 +27,19 @@ module mxu #(
     output weight_ready_o,
 
     output logic [ACC_WIDTH-1:0] psum_o [N-1:0],
-    output logic psum_valid_o [N-1:0]
+    output logic psum_valid_o [N-1:0],
+
+    output [(ACC_WIDTH)*8-1:0] debug_output,
+    output [(DATA_WIDTH+2)*N-1:0] activation_debug
 );
 
     logic [3:0] activation_count, weight_count;
     logic act_valid_l, weight_valid_l, act_select, weight_select;
     assign act_valid_l = act_enable_i & act_valid_i;
-    assign weight_valid_l = weight_enable & weight_valid;
+    assign weight_valid_l = weight_enable_i & weight_valid_i;
 
     counter #(
-        width_p = 4
+        .width_p(4)
     ) weight_counter(
         .clk_i(clk_i),
         .rst_i(rst_i | ~weight_enable_i),
@@ -46,7 +49,7 @@ module mxu #(
     );
 
     counter #(
-        width_p = 4
+        .width_p(4)
     ) activation_counter(
         .clk_i(clk_i),
         .rst_i(rst_i | ~act_enable_i),
@@ -63,15 +66,15 @@ module mxu #(
     logic [DATA_WIDTH+1:0] act_shift_out [N-1:0];
     logic [DATA_WIDTH+1:0] weight_shift_out [N-1:0];
     logic [DATA_WIDTH+1:0] weight_shift_in [N-1:0];
-    logic [DATA_WIDTH-1:0] act_data_n [N-1:0];
-    logic [DATA_WIDTH-1:0] weight_data_n [N-1:0];
-    logic [N-1:0] act_valid_n, weight_valid_n, act_select_n, weight_select_n; 
+    logic signed [DATA_WIDTH-1:0] act_data_n [N-1:0];
+    logic signed [DATA_WIDTH-1:0] weight_data_n [N-1:0];
+    logic act_valid_n [N-1:0], weight_valid_n[N-1:0], act_select_n[N-1:0], weight_select_n [N-1:0]; 
 
     genvar i;
     generate
         for (i = 0; i < N; ++i) begin
-            assign act_shift_in[i]      = { act_select, act_valid_l, act_bus_i[(i+1)*N - 1 : i*N] };
-            assign weight_shift_in[i]   = { weight_select, weight_valid_l, weight_bus_i[(i+1)*N - 1 : i*N] };
+            assign act_shift_in[i]      = (act_valid_l) ? { act_select, act_valid_l, act_bus_i[(i+1)*N - 1 : i*N] } : '0;
+            assign weight_shift_in[i]   = (weight_valid_l) ? { weight_select, weight_valid_l, weight_bus_i[(i+1)*N - 1 : i*N] } : '0;
 
             assign act_select_n[i]      = act_shift_out[i][DATA_WIDTH+1];
             assign act_valid_n[i]       = act_shift_out[i][DATA_WIDTH];
@@ -90,7 +93,7 @@ module mxu #(
         .clk(clk_i),
         .rst(rst_i),
         .data_i(act_shift_in),
-        .enable_i(1),
+        .enable_i('1),
         .data_o(act_shift_out)
     );
 
@@ -101,9 +104,12 @@ module mxu #(
         .clk(clk_i),
         .rst(rst_i),
         .data_i(weight_shift_in),
-        .enable_i(1),
+        .enable_i('1),
         .data_o(weight_shift_out)
     );
+
+    logic signed [ACC_WIDTH-1:0]   sys_out [N-1:0];
+    logic sys_valid_out[N-1:0];
 
     sysray_nxn #(
         .DATA_WIDTH(DATA_WIDTH),
@@ -128,12 +134,14 @@ module mxu #(
     logic [ACC_WIDTH:0] output_flipped [N-1:0];
     logic [ACC_WIDTH:0] mxu_out [N-1:0];
 
-    genvar i;
     generate
         for (i = 0; i < N; i = i + 1) begin
             assign output_flipped[i] = {sys_valid_out[N-1-i], sys_out[N-1-i]};
-            assign psum_o[i] = mxu_out[ACC_WIDTH-1:0];
-            assign psum_valid_o[i] = mxu_out[ACC_WIDTH];
+            assign psum_o[i] = mxu_out[N-1-i][ACC_WIDTH-1:0];
+            assign psum_valid_o[i] = mxu_out[N-1-i][ACC_WIDTH];
+
+            assign debug_output[(i+1)*ACC_WIDTH-1:i*ACC_WIDTH] = sys_out[i];
+            assign activation_debug[(i+1)*(DATA_WIDTH+2)-1:i*(DATA_WIDTH+2)] = act_shift_out[i];
         end
     endgenerate
     
@@ -144,9 +152,10 @@ module mxu #(
         .clk(clk_i),
         .rst(rst_i),
         .data_i(output_flipped),
-        .enable_i(1),
+        .enable_i('1),
         .data_o(mxu_out)        
     );
+    
     
 endmodule
 
