@@ -2,6 +2,8 @@
 module wb_sdr_mt48lc16m16a_7e #(
     parameter sys_clk_mhz_p = 67
    ,parameter burst_p = 4
+   // number of independent dram modules in parallel
+   ,parameter parallel_p = 1
    // below should never be modified
    ,parameter _data_bits_p = 16
    ,parameter _addr_bits_p = 13
@@ -11,11 +13,11 @@ module wb_sdr_mt48lc16m16a_7e #(
    ,input rst_i
 
    ,input [_addr_bits_p - 1:0]  m_adr_i
-   ,input [_data_bits_p * burst_p - 1:0]  m_dat_i // input to bus
+   ,input [_data_bits_p * burst_p * parallel_p - 1:0]  m_dat_i // input to bus
    ,input m_we_i, m_stb_i, m_cyc_i
    ,input [(_data_bits_p * burst_p) / 8 - 1:0]  m_sel_i
    ,output logic m_ack
-   ,output logic [_data_bits_p * burst_p - 1:0]  m_dat_o // output to bus
+   ,output logic [_data_bits_p * burst_p * parallel_p - 1:0]  m_dat_o // output to bus
 
    // for SDRAM
    ,output logic [_data_bits_p - 1:0] s_dq_o
@@ -279,5 +281,7 @@ module wb_sdr_mt48lc16m16a_7e #(
          state_q <= state_d;
       end
    end
+
+   // TODO: implement parallel dram modules
 
 endmodule
