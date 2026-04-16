@@ -30,7 +30,7 @@ VERILOG_FILES:
 - dir::../src/chip_core.sv
 
 # Enable plugin for better SystemVerilog support
-# USE_SLANG: True
+USE_SLANG: True
 # SLANG_ARGUMENTS: ['--keep-hierarchy']
 
 # Slightly smaller file sizes

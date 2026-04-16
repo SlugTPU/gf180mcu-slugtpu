@@ -4,6 +4,8 @@ meta:
 
 DESIGN_NAME: mxu
 
+USE_SLANG: true
+
 VERILOG_FILES:
   - dir::../../src/common/shift.sv
   - dir::../../src/common/counter.sv
