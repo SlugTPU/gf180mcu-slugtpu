@@ -1,4 +1,4 @@
-// wb control register facing host. 0 gives bus to SPI and 1 gives it to TPU
+// wb control register facing host
 
 module wb_ctrl_reg (
     input  logic        clk_i,
