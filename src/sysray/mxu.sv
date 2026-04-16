@@ -18,7 +18,7 @@ module mxu #(
     input act_enable_i, // from control
     input act_valid_i,  // from sram
     input [BUS_WIDTH-1:0] act_bus_i,
-    output act_ready_o,
+    // output act_ready_o, // may be uneeded, we could have perma 1 for activation sram
 
     //weights
     input weight_enable_i,
@@ -61,6 +61,12 @@ module mxu #(
     assign weight_select = weight_count[3];
     assign act_select = activation_count[3];
 
+    /*
+    INCOMPLETE
+    easier to reason about w/complete compute core/mem behavior
+    shift_en should be flip flopped
+    ready_o should be combinatational
+    */
     always_comb begin
         shift_en = '1;
         // if(weight_count == 4'b0111 && ~act_valid_l)

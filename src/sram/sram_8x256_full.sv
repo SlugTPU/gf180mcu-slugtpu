@@ -1,4 +1,4 @@
-module activation_sram 
+module sram_8x256_full
 #(
     parameter counter_width = 8,
     parameter address_width = 8,
@@ -26,7 +26,7 @@ module activation_sram
     logic sram_rw_mode;
 
     sram_8x256
-    activation_sram_inst(
+    sram_inst(
         .clk_i(clk_i),
         .rst_i(rst_i),
         .addr_i(sram_addr),
