@@ -241,12 +241,12 @@ def test_sysray_nxn_each(N, testcase):
     )
 
 
-# @pytest.mark.parametrize("N", [2, 8])
-# def test_sysray_nxn_all(N):
-#     run_test(
-#         sources=SOURCES,
-#         module_name="test_sysray_nxn",
-#         hdl_toplevel="sysray_nxn",
-#         parameters={"N": N},
-#         sims=['icarus']
-#     )
+@pytest.mark.parametrize("N", [8])
+def test_sysray_nxn_all(N):
+    run_test(
+        sources=SOURCES,
+        module_name="test_mxu",
+        hdl_toplevel="mxu",
+        parameters={"N": N},
+        sims=['icarus']
+    )

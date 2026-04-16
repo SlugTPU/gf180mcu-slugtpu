@@ -179,7 +179,7 @@ sources = [
     proj_path / "common/elastic.sv",
     proj_path / "common/shift.sv",
     proj_path / "sram/memory_transaction.sv",
-    proj_path / "sram/activation_sram.sv",
+    proj_path / "sram/sram_8x256_full.sv",
     proj_path / "sram/sram_8x256.sv",
     "./ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1.v",
 ]

@@ -62,7 +62,7 @@ module scalar_stage_sram #(
             sram_wr_data = wr_data_i;
     end
 
-    activation_sram
+    sram_8x256_full
         #()
     activation_sram_inst (
         .clk_i(clk_i),
