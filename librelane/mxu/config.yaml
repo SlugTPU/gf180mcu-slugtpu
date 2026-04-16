@@ -2,11 +2,15 @@ meta:
   version: 3
   flow: Classic
 
-DESIGN_NAME: sysray_nxn
+DESIGN_NAME: mxu
 
 VERILOG_FILES:
+  - dir::../../src/common/shift.sv
+  - dir::../../src/common/counter.sv
+  - dir::../../src/tri_shift.sv
   - dir::../../src/sysray/pe.sv
   - dir::../../src/sysray/sysray_nxn.sv
+  - dir::../../src/sysray/mxu.sv
 
 # Power / ground nets
 VDD_NETS:
