@@ -1,0 +1,33 @@
+meta:
+  version: 3
+  flow: Classic
+
+DESIGN_NAME: sysray_nxn
+
+VERILOG_FILES:
+  - dir::../../src/sysray/pe.sv
+  - dir::../../src/sysray/sysray_nxn.sv
+
+# Power / ground nets
+VDD_NETS:
+  - VDD
+GND_NETS:
+  - VSS
+
+# Clock - match top-level chip (25 MHz)
+CLOCK_PORT: clk_i
+CLOCK_PERIOD: 40
+
+# Let the tool auto-size the floorplan based on cell area.
+# Increase FP_CORE_UTIL if placement fails due to overflow.
+FP_SIZING: relative
+FP_CORE_UTIL: 40
+
+# Target placement density (%)
+PL_TARGET_DENSITY_PCT: 40
+
+# Fix hold violations
+PL_RESIZER_HOLD_SLACK_MARGIN: 0.35
+GRT_RESIZER_HOLD_SLACK_MARGIN: 0.3
+
+GRT_ALLOW_CONGESTION: true
