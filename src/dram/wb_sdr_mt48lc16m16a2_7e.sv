@@ -42,7 +42,57 @@ module wb_sdr_mt48lc16m16a_7e #(
    localparam tRP_us_lp = 0.015;
    localparam tRFC_us_lp = 0.066;
    // One distributed refresh every 7.8125us, which we round down to 7
-   locRESH();
+   localparam tREF_dist_us_lp = 7;
+   localparam tRCD_us_lp = 0.015;
+   localparam init_wait_us_lp = 100;
+   // minimum clock period is 7ns, and 1/7.0ns ~= 142MHz
+   localparam min_period_mhz_lp = 142;
+   localparam tMRD_wait_cycles_lp = 2;
+
+   /* parameterized parameters */
+   // For 7E, the minimum clock period for CL=2 is 7.5ns, or 133MHz.
+   // The minimum clock period for CL=3 is 7.0ns
+   localparam CL_lp = (sys_clk_mhz_p <= 133) ? 2 : 3;
+   // cycles needed to wait for 100us
+   localparam init_wait_cycles_lp = sys_clk_mhz_p * init_wait_us_lp;
+   localparam tRP_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRP_us_lp));
+   localparam tRFC_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRFC_us_lp));
+   localparam tREF_dist_wait_cycles = sys_clk_mhz_p * tREF_dist_us_lp;
+   localparam tRCD_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRCD_us_lp));
+
+   localparam n_reg_lp = 3;
+
+   typedef enum {
+       INIT_WAIT,
+       WAIT,
+       INIT_NOP,
+       INIT_PRECHARGE,
+       INIT_REFRESH_1,
+       INIT_REFRESH_2,
+       INIT_LOAD_MODE,
+       AUTO_REFRESH,
+       ACTIVE,
+       READ,
+       WRITE,
+       PRECHARGE,
+       IDLE
+   } state_t;
+
+   task automatic set_cmd_NOP ();
+      s_cs_no = 1'b0;
+      s_ras_no = 1'b1;
+      s_cas_no = 1'b1;
+      s_we_no  = 1'b1;
+   endtask
+
+   task automatic set_cmd_PRECHARGE_ALL ();
+      s_cs_no = 1'b0;
+      s_ras_no = 1'b0;
+      s_cas_no = 1'b1;
+      s_we_no  = 1'b0;
+   endtask
+
+   task automatic set_cmd_AUTO_REFRESH();
       s_cs_no  = 1'b0;
       s_ras_no = 1'b0;
       s_cas_no = 1'b0;
@@ -79,7 +129,7 @@ module wb_sdr_mt48lc16m16a_7e #(
    endtask
 
    task automatic reset_registers();
-      for (i = 0; i < n_reg_lp; i++) begin
+      for (int i = 0; i < n_reg_lp; i++) begin
          r_d[i] = 1'b0;
       end
    endtask
@@ -371,7 +421,7 @@ module wb_sdr_mt48lc16m16a_7e #(
           **/
          dram_initialized = 1'b1;
 
-         if (!r[0]) begin
+         if (!r_q[0]) begin
             set_cmd_ACTIVE();
             wait_counter_d = tRCD_wait_cycles_lp - 1'b1;
             r_d[0] = 1'b1;
