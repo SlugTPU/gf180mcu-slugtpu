@@ -228,14 +228,6 @@ module wb_sdr_mt48lc16m16a_7e #(
       end
    endgenerate
 
-   always_ff @(posedge clk_i) begin
-      if (rst_i) begin
-         saved_state_q <= INIT_WAIT;
-      end else begin
-         saved_state_q <= saved_state_d;
-      end
-   end
-
    /** wait counter */
    always_ff @(posedge clk_i) begin
       if (rst_i) begin
@@ -264,6 +256,15 @@ module wb_sdr_mt48lc16m16a_7e #(
    end
 
    /** state machine */
+
+   always_ff @(posedge clk_i) begin
+      if (rst_i) begin
+         saved_state_q <= INIT_WAIT;
+      end else begin
+         saved_state_q <= saved_state_d;
+      end
+   end
+
    always_comb begin
       s_cke_o = 1;
       wait_counter_d = '0;
