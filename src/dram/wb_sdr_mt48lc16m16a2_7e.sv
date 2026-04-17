@@ -6,22 +6,26 @@ module wb_sdr_mt48lc16m16a_7e #(
    ,parameter parallel_p = 1
    // below should never be modified
    ,parameter _data_bits_p = 16
-   ,parameter _addr_bits_p = 13
+   ,parameter _rows_p = 8192
+   ,parameter _cols_p = 512
    ,parameter _banks_p = 4
+   ,parameter _sdr_addr_bits_p = 13
+   ,parameter _usr_addr_bits_p = $clog2(_rows_p) +  $clog2(_banks_p) + $clog2(_cols_p) - $clog2(burst_p)
 ) (
     input clk_i
    ,input rst_i
 
-   ,input [_addr_bits_p - 1:0]  m_adr_i
-   ,input [_data_bits_p * burst_p * parallel_p - 1:0]  m_dat_i // input to bus
+   ,input [_usr_addr_bits_p - 1:0]  m_adr_i
+   ,input [_data_bits_p * parallel_p * burst_p - 1:0]  m_dat_i // input to bus
    ,input m_we_i, m_stb_i, m_cyc_i
    ,input [(_data_bits_p * burst_p) / 8 - 1:0]  m_sel_i
-   ,output logic m_ack
-   ,output logic [_data_bits_p * burst_p * parallel_p - 1:0]  m_dat_o // output to bus
+   ,output logic m_ack_o
+   ,output logic [_data_bits_p * parallel_p * burst_p - 1:0]  m_dat_o // output to bus
 
    // for SDRAM
-   ,output logic [_data_bits_p - 1:0] s_dq_o
-   ,output logic [_addr_bits_p - 1:0] s_addr_o
+   ,input  [_data_bits_p * parallel_p - 1 :0] s_dq_i
+   ,output logic [_data_bits_p * parallel_p - 1:0] s_dq_o
+   ,output logic [_sdr_addr_bits_p - 1:0] s_addr_o
    ,output logic [1:0] s_ba_o
    ,output logic s_cke_o
    ,output logic s_cs_no
@@ -29,9 +33,10 @@ module wb_sdr_mt48lc16m16a_7e #(
    ,output logic s_cas_no
    ,output logic s_we_no
    ,output logic s_dqm_o
-   ,input  logic s_dq_i
-);
 
+    // output enable signal to mux bidirectional pin
+   ,output logic oe_o
+);
 
    /** raw dram parameters from datasheet with unit conversions and maybe a bit of rounding */
    localparam tRP_us_lp = 0.015;
@@ -47,13 +52,15 @@ module wb_sdr_mt48lc16m16a_7e #(
    /* parameterized parameters */
    // For 7E, the minimum clock period for CL=2 is 7.5ns, or 133MHz.
    // The minimum clock period for CL=3 is 7.0ns
-   localparam CL_lp = (sys_clk_mhz_p <= 133) ? 3'd2 : 3'd3;
+   localparam CL_lp = (sys_clk_mhz_p <= 133) ? 2 : 3;
    // cycles needed to wait for 100us
    localparam init_wait_cycles_lp = sys_clk_mhz_p * init_wait_us_lp;
    localparam tRP_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRP_us_lp));
    localparam tRFC_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRFC_us_lp));
    localparam tREF_dist_wait_cycles = sys_clk_mhz_p * tREF_dist_us_lp;
    localparam tRCD_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRCD_us_lp));
+
+   localparam n_reg_lp = 3;
 
    typedef enum {
        INIT_WAIT,
@@ -83,8 +90,6 @@ module wb_sdr_mt48lc16m16a_7e #(
       s_ras_no = 1'b0;
       s_cas_no = 1'b1;
       s_we_no  = 1'b0;
-      // set A10 high for precharge all
-      s_addr_o = 13'b0_0100_0000_0000;
    endtask
 
    task automatic set_cmd_AUTO_REFRESH();
@@ -101,10 +106,76 @@ module wb_sdr_mt48lc16m16a_7e #(
       s_we_no = 1'b0;
    endtask
 
+   task automatic set_cmd_ACTIVE();
+      s_cs_no = 1'b0;
+      s_ras_no = 1'b0;
+      s_cas_no = 1'b1;
+      s_we_no = 1'b1;
+      // do remember to set address for bank/row!
+   endtask
+
+   task automatic set_cmd_READ();
+      s_cs_no = 1'b0;
+      s_ras_no = 1'b1;
+      s_cas_no = 1'b0;
+      s_we_no = 1'b1;
+   endtask
+
+   task automatic set_cmd_WRITE();
+      s_cs_no = 1'b0;
+      s_ras_no = 1'b1;
+      s_cas_no = 1'b0;
+      s_we_no = 1'b0;
+   endtask
+
+   function automatic is_valid_i();
+      begin
+         is_valid_i = m_cyc_i && m_stb_i;
+      end
+   endfunction
+
+   function automatic [$clog2(_rows_p) - 1 : 0] row_addr();
+      begin
+         row_addr = m_adr_i[_usr_addr_bits_p - 1:_usr_addr_bits_p - $clog2(_rows_p)];
+      end
+   endfunction
+
+   function automatic [$clog2(_banks_p) - 1 : 0] bank_addr();
+      begin
+         bank_addr = m_adr_i[($clog2(_cols_p) - $clog2(burst_p)) + $clog2(_banks_p) - 1 :
+                            $clog2(_cols_p) - $clog2(burst_p)];
+      end
+   endfunction
+
+   function automatic is_same_bank();
+      begin
+         is_same_bank = (bank_addr() ^ prev_bank_q) == '0;
+      end
+   endfunction
+
+   function automatic is_same_row();
+      begin
+         is_same_row = (row_addr() ^ prev_row_addr_q) == '0;
+      end
+   endfunction
+
+
    int wait_counter_d, wait_counter_q;
    int auto_refresh_counter_d, auto_refresh_counter_q;
    logic dram_initialized;
-   state_t state_d, state_q;
+   wire [_data_bits_p * parallel_p - 1:0] read_shifter_data[burst_p - 1];
+   // TODO: Possibly deprecate saved_state
+   state_t state_d, state_q, saved_state_d, saved_state_q;
+   // General purpose registers for managing sub-states in each state.
+   //   (Beware of collisions in non-mutually exclusive states!)
+   logic                                  r_d[3], r_q[3];
+
+   // save previous bank/row address for handling precharging and activation
+   logic                                        valid_prev_d, valid_prev_q;
+   logic [$clog2(_banks_p) - 1:0]               prev_bank_d, prev_bank_q;
+   logic [$clog2(_rows_p) - 1:0]                prev_row_addr_d, prev_row_addr_q;
+
+   logic                                        shift_enable;
 
    initial begin
       assert(sys_clk_mhz_p <= min_period_mhz_lp) else
@@ -113,6 +184,49 @@ module wb_sdr_mt48lc16m16a_7e #(
       assert(burst_p == 1 || burst_p == 2 || burst_p == 4 || burst_p == 8) else
         $error("Invalid burst length given. Valid burst lengths are 1, 2, 4, and 8");
    end
+
+   assign oe_o = (state_q == WRITE) ? 1'b1 : 1'b0;
+
+
+   /** general state registers */
+   generate
+      for (genvar i = 0; i < n_reg_lp; i++) begin
+         always_ff @(posedge clk_i) begin
+            if (rst_i) begin
+               r_q[i] <= '0;
+            end else begin
+               r_q[i] <= r_d[i];
+            end
+         end
+      end
+   endgenerate
+
+   always_ff @(posedge clk_i) begin
+      if (rst_i) begin
+         valid_prev_q <= '0;
+         prev_row_addr_q <= '0;
+         prev_bank_q <= '0;
+      end else begin
+         valid_prev_q <= valid_prev_d;
+         prev_row_addr_q <= prev_row_addr_d;
+         prev_bank_q <= prev_bank_d;
+      end
+   end
+
+   shift
+     #(.width_p(_data_bits_p * parallel_p), .depth_p(burst_p - 1))
+   read_shifter (.clk_i(clk_i),
+                  .reset_i(rst_i),
+                  .data_i(s_dq_i),
+                  .data_o(read_shifter_data),
+                  .enable_i(shift_enable));
+
+   assign m_dat_o[_data_bits_p * parallel_p * burst_p - 1 -: _data_bits_p * parallel_p] = s_dq_i;
+   generate
+      for (genvar i = 0; i < burst_p - 1; i++) begin
+         assign m_dat_o[_data_bits_p * parallel_p * (burst_p - 1 - i) - 1 -: _data_bits_p * parallel_p] = read_shifter_data[i];
+      end
+   endgenerate
 
    always_ff @(posedge clk_i) begin
       if (rst_i) begin
@@ -145,7 +259,7 @@ module wb_sdr_mt48lc16m16a_7e #(
       if (rst_i) begin
          auto_refresh_counter_q <= '0;
       end else begin
-         auto_refresh_counter_q <= auto_refresh_counter_d - 1'b1;
+         auto_refresh_counter_q <= auto_refresh_counter_d;
       end
    end
 
@@ -156,6 +270,14 @@ module wb_sdr_mt48lc16m16a_7e #(
       s_addr_o = '0;
       dram_initialized = 1'b0;
       saved_state_d = saved_state_q;
+      m_ack_o = 1'b0;
+      r_d[0] = r_q[0];
+      r_d[1] = r_q[1];
+      r_d[2] = r_q[2];
+      shift_enable = 1'b0;
+      prev_row_addr_d = prev_row_addr_q;
+      prev_bank_d = prev_bank_q;
+      valid_prev_d = valid_prev_q;
 
       case (state_q)
       /** The init process
@@ -239,7 +361,7 @@ module wb_sdr_mt48lc16m16a_7e #(
          set_cmd_LOAD_MODE_REGISTER();
          /**
           A[12:10] = Reserved
-          A[9]     = Write Burst Mode { 0 = Programmed Burst Length }
+          A[9]     = Write Burst Mode {}
           A[8:7]   = Op Mode { 0 = Standard Operation }
           A[6:4]   = CAS Latency
           A[3]     = Burst Type { 0 = Sequential }
@@ -256,14 +378,78 @@ module wb_sdr_mt48lc16m16a_7e #(
       end
       IDLE: begin
          dram_initialized = 1'b1;
+         r_d[0] = '0;
+         r_d[1] = '0;
+         r_d[2] = '0;
+
          set_cmd_NOP();
+
          if (auto_refresh_counter_q == 0) begin
             state_d = AUTO_REFRESH;
+         end else if (!valid_prev_q || (is_same_row() && !is_same_bank())) begin
+            state_d = ACTIVE;
+         end else if (!is_same_row()) begin
+            state_d = PRECHARGE;
+         end else if (is_same_row() && is_same_bank()) begin
+            state_d = (m_we_i) ? WRITE : READ;
+         end else begin
+            state_d = state_q;
          end
+      end
+      ACTIVE: begin
+         dram_initialized = 1'b1;
+
+         set_cmd_ACTIVE();
+
+         if (tRCD_wait_cycles_lp - 1 > 0) begin
+            state_d = WAIT;
+            wait_counter_d = tRCD_wait_cycles_lp - 1'b1;
+            if (m_we_i) saved_state_d = WRITE;
+              else saved_state_d = READ;
+         end else begin
+            state_d = (m_we_i) ? WRITE : READ;
+            if (m_we_i) saved_state_d = WRITE;
+              else saved_state_d = READ;
+         end
+      end
+      READ: begin // issue read command
+         /** Register map:
+          r[0]: Sent READ command and waited for CL cycles
+          r[1]: All data read out
+          **/
+         dram_initialized = 1'b1;
+
          state_d = state_q;
+         if (wait_counter_q > 0) begin
+            wait_counter_d = wait_counter_q - 1;
+         end else if (!r_q[0]) begin
+            set_cmd_READ();
+            r_d[0] = 1'b1;
+            wait_counter_d = CL_lp - 1'b1;
+         end else if (!r_q[1]) begin
+            set_cmd_NOP();
+            shift_enable = 1'b1;
+            wait_counter_d = burst_p - 1'b1;
+            r_d[1] = 1'b1;
+         end else begin
+            // done
+            m_ack_o = 1'b1;
+            state_d = IDLE;
+         end
+      end
+      WRITE: begin
+        dram_initialized = 1'b1;
+
+        state_d = state_q;
+      end
+      AUTO_REFRESH: begin
+         dram_initialized = 1'b1;
+
+         set_cmd_AUTO_REFRESH();
       end
       default: begin
          dram_initialized = 1'b0;
+
          set_cmd_NOP();
          state_d = state_q;
       end
@@ -279,5 +465,6 @@ module wb_sdr_mt48lc16m16a_7e #(
    end
 
    // TODO: implement parallel dram modules
+   // TODO: maybe move wait counter logic outside of state machine logic?
 
 endmodule
