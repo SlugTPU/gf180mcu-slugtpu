@@ -1,7 +1,7 @@
 // SDRAM controller for mt48lc16m16a, with speed grade of 7e
 module wb_sdr_mt48lc16m16a_7e #(
     parameter sys_clk_mhz_p = 67
-   ,parameter burst_p = 4
+   ,parameter dram_burst_p = 4
    // number of independent dram modules in parallel
    ,parameter parallel_p = 1
    // below should never be modified
@@ -10,17 +10,17 @@ module wb_sdr_mt48lc16m16a_7e #(
    ,parameter _cols_p = 512
    ,parameter _banks_p = 4
    ,parameter _sdr_addr_bits_p = 13
-   ,parameter _usr_addr_bits_p = $clog2(_rows_p) +  $clog2(_banks_p) + $clog2(_cols_p) - $clog2(burst_p)
+   ,parameter _usr_addr_bits_p = $clog2(_rows_p) +  $clog2(_banks_p) + $clog2(_cols_p) - $clog2(dram_burst_p)
 ) (
     input clk_i
    ,input rst_i
 
    ,input [_usr_addr_bits_p - 1:0]  m_adr_i
-   ,input [_data_bits_p * parallel_p * burst_p - 1:0]  m_dat_i // input to bus
+   ,input [_data_bits_p * parallel_p * dram_burst_p - 1:0]  m_dat_i // input to bus
    ,input m_we_i, m_stb_i, m_cyc_i
-   ,input [(_data_bits_p * burst_p) / 8 - 1:0]  m_sel_i
+   ,input [(_data_bits_p * dram_burst_p) / 8 - 1:0]  m_sel_i
    ,output logic m_ack_o
-   ,output logic [_data_bits_p * parallel_p * burst_p - 1:0]  m_dat_o // output to bus
+   ,output logic [_data_bits_p * parallel_p * dram_burst_p - 1:0]  m_dat_o // output to bus
 
    // for SDRAM
    ,input  [_data_bits_p * parallel_p - 1 :0] s_dq_i
@@ -42,57 +42,7 @@ module wb_sdr_mt48lc16m16a_7e #(
    localparam tRP_us_lp = 0.015;
    localparam tRFC_us_lp = 0.066;
    // One distributed refresh every 7.8125us, which we round down to 7
-   localparam tREF_dist_us_lp = 7;
-   localparam tRCD_us_lp = 0.015;
-   localparam init_wait_us_lp = 100;
-   // minimum clock period is 7ns, and 1/7.0ns ~= 142MHz
-   localparam min_period_mhz_lp = 142;
-   localparam tMRD_wait_cycles_lp = 2;
-
-   /* parameterized parameters */
-   // For 7E, the minimum clock period for CL=2 is 7.5ns, or 133MHz.
-   // The minimum clock period for CL=3 is 7.0ns
-   localparam CL_lp = (sys_clk_mhz_p <= 133) ? 2 : 3;
-   // cycles needed to wait for 100us
-   localparam init_wait_cycles_lp = sys_clk_mhz_p * init_wait_us_lp;
-   localparam tRP_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRP_us_lp));
-   localparam tRFC_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRFC_us_lp));
-   localparam tREF_dist_wait_cycles = sys_clk_mhz_p * tREF_dist_us_lp;
-   localparam tRCD_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRCD_us_lp));
-
-   localparam n_reg_lp = 3;
-
-   typedef enum {
-       INIT_WAIT,
-       WAIT,
-       INIT_NOP,
-       INIT_PRECHARGE,
-       INIT_REFRESH_1,
-       INIT_REFRESH_2,
-       INIT_LOAD_MODE,
-       AUTO_REFRESH,
-       ACTIVE,
-       READ,
-       WRITE,
-       PRECHARGE,
-       IDLE
-   } state_t;
-
-   task automatic set_cmd_NOP ();
-      s_cs_no = 1'b0;
-      s_ras_no = 1'b1;
-      s_cas_no = 1'b1;
-      s_we_no  = 1'b1;
-   endtask
-
-   task automatic set_cmd_PRECHARGE_ALL ();
-      s_cs_no = 1'b0;
-      s_ras_no = 1'b0;
-      s_cas_no = 1'b1;
-      s_we_no  = 1'b0;
-   endtask
-
-   task automatic set_cmd_AUTO_REFRESH();
+   locRESH();
       s_cs_no  = 1'b0;
       s_ras_no = 1'b0;
       s_cas_no = 1'b0;
@@ -128,6 +78,12 @@ module wb_sdr_mt48lc16m16a_7e #(
       s_we_no = 1'b0;
    endtask
 
+   task automatic reset_registers();
+      for (i = 0; i < n_reg_lp; i++) begin
+         r_d[i] = 1'b0;
+      end
+   endtask
+
    function automatic is_valid_i();
       begin
          is_valid_i = m_cyc_i && m_stb_i;
@@ -142,8 +98,8 @@ module wb_sdr_mt48lc16m16a_7e #(
 
    function automatic [$clog2(_banks_p) - 1 : 0] bank_addr();
       begin
-         bank_addr = m_adr_i[($clog2(_cols_p) - $clog2(burst_p)) + $clog2(_banks_p) - 1 :
-                            $clog2(_cols_p) - $clog2(burst_p)];
+         bank_addr = m_adr_i[($clog2(_cols_p) - $clog2(dram_burst_p)) + $clog2(_banks_p) - 1 :
+                            $clog2(_cols_p) - $clog2(dram_burst_p)];
       end
    endfunction
 
@@ -159,16 +115,28 @@ module wb_sdr_mt48lc16m16a_7e #(
       end
    endfunction
 
+   function automatic state_t to_read_or_write();
+      begin
+         if (m_we_i) begin
+            to_read_or_write = WRITE;
+         end else begin
+            to_read_or_write = READ;
+         end
+      end
+   endfunction
+
 
    int wait_counter_d, wait_counter_q;
    int auto_refresh_counter_d, auto_refresh_counter_q;
    logic dram_initialized;
-   wire [_data_bits_p * parallel_p - 1:0] read_shifter_data[burst_p - 1];
+   wire [_data_bits_p * parallel_p - 1:0] read_shifter_data[dram_burst_p - 1];
    // TODO: Possibly deprecate saved_state
    state_t state_d, state_q, saved_state_d, saved_state_q;
    // General purpose registers for managing sub-states in each state.
    //   (Beware of collisions in non-mutually exclusive states!)
-   logic                                  r_d[3], r_q[3];
+   logic                                  r_d[n_reg_lp], r_q[n_reg_lp];
+   // Single register for handling autorefresh
+   //   Auto refresh
 
    // save previous bank/row address for handling precharging and activation
    logic                                        valid_prev_d, valid_prev_q;
@@ -181,7 +149,7 @@ module wb_sdr_mt48lc16m16a_7e #(
       assert(sys_clk_mhz_p <= min_period_mhz_lp) else
           $error("sys_clk_mhz_p exceeds minimum clock period of 7ns!");
 
-      assert(burst_p == 1 || burst_p == 2 || burst_p == 4 || burst_p == 8) else
+      assert(dram_burst_p == 1 || dram_burst_p == 2 || dram_burst_p == 4 || dram_burst_p == 8) else
         $error("Invalid burst length given. Valid burst lengths are 1, 2, 4, and 8");
    end
 
@@ -214,17 +182,17 @@ module wb_sdr_mt48lc16m16a_7e #(
    end
 
    shift
-     #(.width_p(_data_bits_p * parallel_p), .depth_p(burst_p - 1))
+     #(.width_p(_data_bits_p * parallel_p), .depth_p(dram_burst_p - 1))
    read_shifter (.clk_i(clk_i),
                   .reset_i(rst_i),
                   .data_i(s_dq_i),
                   .data_o(read_shifter_data),
                   .enable_i(shift_enable));
 
-   assign m_dat_o[_data_bits_p * parallel_p * burst_p - 1 -: _data_bits_p * parallel_p] = s_dq_i;
+   assign m_dat_o[_data_bits_p * parallel_p * dram_burst_p - 1 -: _data_bits_p * parallel_p] = s_dq_i;
    generate
-      for (genvar i = 0; i < burst_p - 1; i++) begin
-         assign m_dat_o[_data_bits_p * parallel_p * (burst_p - 1 - i) - 1 -: _data_bits_p * parallel_p] = read_shifter_data[i];
+      for (genvar i = 0; i < dram_burst_p - 1; i++) begin
+         assign m_dat_o[_data_bits_p * parallel_p * (dram_burst_p - 1 - i) - 1 -: _data_bits_p * parallel_p] = read_shifter_data[i];
       end
    endgenerate
 
@@ -272,13 +240,14 @@ module wb_sdr_mt48lc16m16a_7e #(
       dram_initialized = 1'b0;
       saved_state_d = saved_state_q;
       m_ack_o = 1'b0;
-      r_d[0] = r_q[0];
-      r_d[1] = r_q[1];
-      r_d[2] = r_q[2];
       shift_enable = 1'b0;
       prev_row_addr_d = prev_row_addr_q;
       prev_bank_d = prev_bank_q;
       valid_prev_d = valid_prev_q;
+
+      for (int i = 0; i < n_reg_lp; i++) begin
+         r_d[i] = r_q[i];
+      end
 
       case (state_q)
       /** The init process
@@ -368,7 +337,7 @@ module wb_sdr_mt48lc16m16a_7e #(
           A[3]     = Burst Type { 0 = Sequential }
           A[2:0]   = Burst Length
           **/
-         s_addr_o = {1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, CL_lp[2:0], 1'b0, burst_p[2:0]};
+         s_addr_o = {1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, CL_lp[2:0], 1'b0, dram_burst_p[2:0]};
 
          if (tMRD_wait_cycles_lp - 1'b1 > 0) begin
             state_d = WAIT;
@@ -379,11 +348,10 @@ module wb_sdr_mt48lc16m16a_7e #(
       end
       IDLE: begin
          dram_initialized = 1'b1;
-         r_d[0] = '0;
-         r_d[1] = '0;
-         r_d[2] = '0;
 
          set_cmd_NOP();
+
+         reset_registers();
 
          if (auto_refresh_counter_q == 0) begin
             state_d = AUTO_REFRESH;
@@ -398,25 +366,29 @@ module wb_sdr_mt48lc16m16a_7e #(
          end
       end
       ACTIVE: begin
+         /** Register map:
+          r[0]: Sent ACTIVE command
+          **/
          dram_initialized = 1'b1;
 
-         set_cmd_ACTIVE();
-
-         if (tRCD_wait_cycles_lp - 1 > 0) begin
-            state_d = WAIT;
+         if (!r[0]) begin
+            set_cmd_ACTIVE();
             wait_counter_d = tRCD_wait_cycles_lp - 1'b1;
-            if (m_we_i) saved_state_d = WRITE;
-              else saved_state_d = READ;
+            r_d[0] = 1'b1;
          end else begin
-            state_d = (m_we_i) ? WRITE : READ;
-            if (m_we_i) saved_state_d = WRITE;
-              else saved_state_d = READ;
+            set_cmd_NOP();
+            if (wait_counter_q > '0) begin
+               state_d = state_q;
+               wait_counter_d = wait_counter_q - 1'b1;
+            end else begin
+               state_d = to_read_or_write();
+            end
          end
       end
       READ: begin // issue read command
          /** Register map:
           r[0]: Sent READ command and waited for CL cycles
-          r[1]: All data read out
+          r[1]: Data has been read
           **/
          dram_initialized = 1'b1;
 
@@ -430,7 +402,7 @@ module wb_sdr_mt48lc16m16a_7e #(
          end else if (!r_q[1]) begin
             set_cmd_NOP();
             shift_enable = 1'b1;
-            wait_counter_d = burst_p - 1'b1;
+            wait_counter_d = dram_burst_p - 1'b1;
             r_d[1] = 1'b1;
          end else begin
             // done
@@ -441,12 +413,84 @@ module wb_sdr_mt48lc16m16a_7e #(
       WRITE: begin
         dram_initialized = 1'b1;
 
+         // TODO
         state_d = state_q;
       end
       AUTO_REFRESH: begin
+         /** Register map:
+          r[0]: ARG: Was called from precharge?
+          r[1]: Auto refresh command sent?
+          **/
+
          dram_initialized = 1'b1;
 
-         set_cmd_AUTO_REFRESH();
+         // precharge if not already
+         if (!r_q[0]) begin
+            reset_registers();
+
+            state_d = PRECHARGE;
+         end else begin
+            if (!r_q[1]) begin
+               set_cmd_AUTO_REFRESH();
+
+               r_d[1] = 1'b1;
+
+               // skip wait if period implicitly meetings tRFC
+               if (tRFC_wait_cycles_lp - 1'b1 == 1'b0) begin
+                  state_d = IDLE;
+               end else begin
+                  wait_counter_d = tRFC_wait_cycles_lp - 1'b1;
+                  state_d = state_q;
+               end
+            end else begin
+               set_cmd_NOP();
+
+               if (wait_counter_q > 0) begin
+                  wait_counter_d = wait_counter_q - 1'b1;
+                  state_d = state_q;
+               end else begin
+                  reset_reigsters();
+
+                  state_d = IDLE;
+               end
+            end
+         end
+      end
+      PRECHARGE: begin
+         /** Register map:
+          r[0]: ARG: Was called from autorefresh?
+          r[1]: Sent PRECHARGE command
+          **/
+
+         // on precharge, we can no longer "cache" previous row and bank
+         valid_prev_d = '0;
+
+         // Always precharges ALL banks
+         if (!r_q[1]) begin
+            dram_initialized = 1'b0;
+            set_cmd_PRECHARGE_ALL();
+            // set A10 high for precharge all
+            s_addr_o = 13'b0_0100_0000_0000;
+            r_d[1] = 1'b1;
+            wait_counter_d = tRP_wait_cycles_lp - 1'b1;
+
+            state_d = state_q;
+         end else begin
+            if (wait_counter_q > 0) begin
+               wait_counter_d = wait_counter_q - 1'b1;
+
+               state_d = state_q;
+            end else begin
+               reset_registers();
+
+               if (r_q[0]) begin
+                  r_d[0] = 1'b1;
+                  state_d = AUTO_REFRESH;
+               end else begin
+                  state_d = IDLE;
+               end
+            end
+         end
       end
       default: begin
          dram_initialized = 1'b0;
