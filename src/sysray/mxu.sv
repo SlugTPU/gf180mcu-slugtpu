@@ -26,7 +26,7 @@ module mxu #(
     input [BUS_WIDTH-1:0] weight_bus_i,
     output weight_ready_o,
 
-    output logic [ACC_WIDTH-1:0] psum_o [N-1:0],
+    output logic signed [ACC_WIDTH-1:0] psum_o [N-1:0],
     output logic psum_valid_o [N-1:0],
 
     output [(ACC_WIDTH)*8-1:0] debug_output,
@@ -153,7 +153,7 @@ module mxu #(
             assign psum_o[i] = mxu_out[N-1-i][ACC_WIDTH-1:0];
             assign psum_valid_o[i] = mxu_out[N-1-i][ACC_WIDTH];
 
-            assign debug_output[(i+1)*ACC_WIDTH-1:i*ACC_WIDTH] = sys_out[i];
+            assign debug_output[(i+1)*ACC_WIDTH-1:i*ACC_WIDTH] = mxu_out[i];
             assign activation_debug[(i+1)*(DATA_WIDTH+2)-1:i*(DATA_WIDTH+2)] = act_shift_out[i];
         end
     endgenerate
