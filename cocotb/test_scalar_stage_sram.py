@@ -175,7 +175,7 @@ sources = [
     proj_path / "scalar_units/scale_n.sv",
     proj_path / "scalar_units/relu_n.sv",
     proj_path / "scalar_units/load_data.sv",
-    proj_path / "quantizer_mul.sv",
+    proj_path / "scalar_units/quantizer_mul.sv",
     proj_path / "common/elastic.sv",
     proj_path / "common/shift.sv",
     proj_path / "sram/memory_transaction.sv",
