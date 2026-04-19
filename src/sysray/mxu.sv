@@ -30,13 +30,14 @@ module mxu #(
     output logic psum_valid_o [N-1:0],
 
     output [(ACC_WIDTH)*8-1:0] debug_output,
-    output [(DATA_WIDTH+2)*N-1:0] activation_debug
+    output [(DATA_WIDTH+2)*N-1:0] activation_debug,
+    output [N-1:0] debug_valids
 );
 
     logic [3:0] activation_count, weight_count;
     logic act_valid_l, weight_valid_l, act_select, weight_select, shift_en;
     assign act_valid_l = act_enable_i & act_valid_i & act_ready_o;
-    assign weight_valid_l = weight_enable_i & weight_valid_i;
+    assign weight_valid_l = weight_enable_i & weight_valid_i ;
 
     counter #(
         .width_p(4)
@@ -69,13 +70,19 @@ module mxu #(
     */
     always_comb begin
         shift_en = '1;
-        // if(weight_count == 4'b0111 && ~act_valid_l)
-        //     shift_en = '0;
+        if(weight_count >= 4'b1000 & ~act_valid_l)
+            shift_en = '0;
     end
+    // always_ff @(posedge clk_i) begin
+    //     if (rst_i | ~weight_enable_i)
+    //         shift_en <= '1;
+    //     else if(weight_count >= 4'b0111 & ~act_valid_l)
+    //         shift_en <= '0;
+    // end
     assign weight_ready_o = shift_en;
 
     always_ff @( posedge clk_i ) begin
-        if(rst_i | ~act_enable_i)
+        if(rst_i | (~act_enable_i & ~weight_enable_i))
             act_ready_o <= '0;
         else if(weight_count == 4'b0110)
             act_ready_o <= '1;
@@ -103,6 +110,8 @@ module mxu #(
             assign weight_select_n[i]   = weight_shift_out[i][DATA_WIDTH+1];
             assign weight_valid_n[i]    = weight_shift_out[i][DATA_WIDTH];
             assign weight_data_n[i]     = weight_shift_out[i][DATA_WIDTH-1:0];
+
+            assign debug_valids[i]      = weight_shift_out[i][DATA_WIDTH];
         end
     endgenerate
 
@@ -124,7 +133,8 @@ module mxu #(
         .clk(clk_i),
         .rst(rst_i),
         .data_i(weight_shift_in),
-        .enable_i(shift_en),
+        //.enable_i(shift_en),
+        .enable_i('1),
         .data_o(weight_shift_out)
     );
 
@@ -161,7 +171,7 @@ module mxu #(
             assign psum_valid_o[i] = mxu_out[N-1-i][ACC_WIDTH];
 
             assign debug_output[(i+1)*ACC_WIDTH-1:i*ACC_WIDTH] = mxu_out[i];
-            assign activation_debug[(i+1)*(DATA_WIDTH+2)-1:i*(DATA_WIDTH+2)] = act_shift_out[i];
+            assign activation_debug[(i+1)*(DATA_WIDTH+2)-1:i*(DATA_WIDTH+2)] = weight_shift_out[i];
         end
     endgenerate
     
