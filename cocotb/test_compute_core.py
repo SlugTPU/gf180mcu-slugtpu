@@ -220,10 +220,10 @@ async def stream_acts_and_capture(dut, N, act_banks, expected_output, start_addr
 
     dut.act_enable_i.value = 1
     await a_mem.load_address('r', start_addr, total_act_words)
-    await a_mem.read_data_no_ready(all_act_packed)
+    # await a_mem.read_data_no_ready(all_act_packed)
 
-    if dut.act_load_ready_o.value != 1:
-        await RisingEdge(dut.act_load_ready_o)
+    while dut.act_load_ready_o.value != 1:
+        await FallingEdge(dut.clk_i)
     await FallingEdge(dut.clk_i)
     dut.act_enable_i.value = 0
     await a_mem.load_address('w', write_addr, N)
@@ -321,10 +321,14 @@ async def test_single_matmul(dut):
     await load_scalar_values(dut, scalar_params, 0)
 
     cocotb.start_soon(load_weight_banks_via_sram(dut, N, [weight]))
-    for _ in range(9):
+    for _ in range(2):
         await FallingEdge(dut.clk_i)
     await stream_acts_and_capture(dut, N, [act], expected, 12, 100)
-    # for _ in range(30):
+    # cocotb.start_soon(stream_acts_and_capture(dut, N, [act], expected, 12, 100))
+    # for _ in range(2):
+    #     await FallingEdge(dut.clk_i)
+    # await load_weight_banks_via_sram(dut, N, [weight])
+    # for _ in range(40):
     #     await FallingEdge(dut.clk_i)
     await FallingEdge(dut.clk_i)
 

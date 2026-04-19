@@ -18,7 +18,7 @@ module mxu #(
     input act_enable_i, // from control
     input act_valid_i,  // from sram
     input [BUS_WIDTH-1:0] act_bus_i,
-    // output act_ready_o, // may be uneeded, we could have perma 1 for activation sram
+    output logic act_ready_o,
 
     //weights
     input weight_enable_i,
@@ -35,7 +35,7 @@ module mxu #(
 
     logic [3:0] activation_count, weight_count;
     logic act_valid_l, weight_valid_l, act_select, weight_select, shift_en;
-    assign act_valid_l = act_enable_i & act_valid_i;
+    assign act_valid_l = act_enable_i & act_valid_i & act_ready_o;
     assign weight_valid_l = weight_enable_i & weight_valid_i;
 
     counter #(
@@ -73,6 +73,13 @@ module mxu #(
         //     shift_en = '0;
     end
     assign weight_ready_o = shift_en;
+
+    always_ff @( posedge clk_i ) begin
+        if(rst_i | ~act_enable_i)
+            act_ready_o <= '0;
+        else if(weight_count == 4'b0110)
+            act_ready_o <= '1;
+    end
 
 
     logic [DATA_WIDTH+1:0] act_shift_in [N-1:0];

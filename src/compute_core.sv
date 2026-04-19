@@ -48,7 +48,7 @@ module compute_core #(
     input weight_rd_ready_i
 );
 
-    logic weight_downstream_ready_i, weight_ready_l;
+    logic weight_downstream_ready_i, weight_ready_l, act_ready_l;
     assign weight_downstream_ready_i = weight_wr_valid_i | weight_ready_l | weight_rd_ready_i;
 
     logic signed [ACC_WIDTH-1:0] psum [N-1:0];
@@ -101,7 +101,7 @@ module compute_core #(
 
         .rd_data_o(act_rd_data_o),
         .rd_valid_o(act_rd_valid_o),
-        .rd_ready_i(act_rd_ready_i | act_enable_i),
+        .rd_ready_i(act_rd_ready_i | act_ready_l),
 
         .wr_data_i(act_wr_data_i),
         .wr_valid_i(act_wr_valid_i),
@@ -116,6 +116,7 @@ module compute_core #(
         .act_enable_i(act_enable_i),
         .act_valid_i(act_rd_valid_o),
         .act_bus_i(act_rd_data_o),
+        .act_ready_o(act_ready_l),
 
         .weight_enable_i(weight_enable_i),
         .weight_valid_i(weight_rd_valid_o),
