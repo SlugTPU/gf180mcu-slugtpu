@@ -233,11 +233,14 @@ async def stream_acts_and_capture(dut, N, act_banks, expected_output, start_addr
         await FallingEdge(dut.clk_i)
     await FallingEdge(dut.clk_i)
     dut.act_enable_i.value = 0
+    await FallingEdge(dut.clk_i)
+    await FallingEdge(dut.clk_i)
     await a_mem.load_address('w', write_addr, N)
 
     if dut.act_load_ready_o.value != 1:
         await RisingEdge(dut.act_load_ready_o)
     await FallingEdge(dut.clk_i)
+    
 
     # Verify the results were actually written back to SRAM
     await a_mem.load_address('r', write_addr, N)
@@ -368,6 +371,39 @@ async def test_tiled_matmul(dut):
     await stream_acts_and_capture(dut, N, act_banks, expected, start_addr=12, write_addr=100)
     await FallingEdge(dut.clk_i)
 
+@cocotb.test()
+async def test_multiple_tiled_matmul(dut):
+
+    await do_reset(dut)
+    N = 8
+    K = 2  # number of tiles
+
+ 
+    bias = [0] * N
+    zp   = [0] * N
+    mul  = [1 << 16] * N
+    scalar_params = {'bias': bias, 'zp': zp, 'mul': mul}
+ 
+    await load_scalar_values(dut, scalar_params, 0)
+
+    act_banks    = [[[random.randint(0, 3) for _ in range(N)] for _ in range(N)] for _ in range(K)]
+    weight_banks = [[[random.randint(0, 3) for _ in range(N)] for _ in range(N)] for _ in range(K)]
+
+    expected = tiled_matmul_saturating_ref(act_banks, weight_banks)
+    for row in expected:
+        print('expected: ', row)
+
+    for iter in range(2):
+
+    
+        cocotb.start_soon(load_weight_banks_via_sram(dut, N, weight_banks))
+        for _ in range(5):
+            await FallingEdge(dut.clk_i)
+    
+        await stream_acts_and_capture(dut, N, act_banks, expected, start_addr=12, write_addr=100)
+        await FallingEdge(dut.clk_i)
+        print("iter = ", iter, "COMPLETE")
+
 tests = [
     'test_reset',
     'test_act_sram_write_read',
@@ -375,6 +411,7 @@ tests = [
     'test_weight_load_matrix',
     'test_single_matmul',
     'test_tiled_matmul',
+    'test_multiple_tiled_matmul',
 ]
 
 proj_path = Path("./src").resolve()
