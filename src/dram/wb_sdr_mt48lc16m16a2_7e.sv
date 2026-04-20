@@ -18,6 +18,7 @@ module wb_sdr_mt48lc16m16a_7e #(
    ,input [_usr_addr_bits_p - 1:0]  m_adr_i
    ,input [_data_bits_p * parallel_p * dram_burst_p - 1:0]  m_dat_i // input to bus
    ,input m_we_i, m_stb_i, m_cyc_i
+   // NOTE: not implemented!
    ,input [(_data_bits_p * dram_burst_p) / 8 - 1:0]  m_sel_i
    ,output logic m_ack_o
    ,output logic [_data_bits_p * parallel_p * dram_burst_p - 1:0]  m_dat_o // output to bus
@@ -46,6 +47,7 @@ module wb_sdr_mt48lc16m16a_7e #(
    // One distributed refresh every 7.8125us, which we round down to 7
    localparam tREF_dist_us_lp = 7;
    localparam tRCD_us_lp = 0.015;
+   // localparam tWR_extra_us_lp = 0.007;
    localparam init_wait_us_lp = 100;
    // minimum clock period is 7ns, and 1/7.0ns ~= 142MHz
    localparam min_period_mhz_lp = 142;
@@ -60,8 +62,9 @@ module wb_sdr_mt48lc16m16a_7e #(
    localparam tRP_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRP_us_lp));
    localparam tRFC_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRFC_us_lp));
    localparam tREF_dist_wait_cycles = sys_clk_mhz_p * tREF_dist_us_lp;
-   localparam autorefresh_cycles_lp = sys_clk_mhz_p * tREF_dist_us_lp;
+   // localparam tWR_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tWR_us_lp));
    localparam tRCD_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRCD_us_lp));
+   localparam autorefresh_cycles_lp = sys_clk_mhz_p * tREF_dist_us_lp;
 
    localparam n_reg_lp = 3;
 
@@ -528,10 +531,39 @@ module wb_sdr_mt48lc16m16a_7e #(
          end
       end
       WRITE: begin
-        dram_initialized = 1'b1;
+         /** Register map:
+          r[0]: Sent WRITE command already AND need to wait
+          **/
+         dram_initialized = 1'b1;
 
-         // TODO
-        state_d = state_q;
+         // NOTE: If precharge is needed, tWR is implicitly met
+         //       from state transition from to IDLE->PRECHARGE = 2 cycles.
+         //       We never need > 2 cycles because the minimum period is 7ns
+
+         if (!r_q[0]) begin
+            set_cmd_WRITE();
+            s_addr_o = _sdr_addr_bits_p'({ '0, 1'b0, addr_col_w });
+            s_ba_o = addr_bank_w;
+
+            if (dram_burst_p - 1 > 0) begin
+               r_d[0] = 1'b1;
+               wait_counter_d = dram_burst_p - 2;
+               state_d = state_q;
+            end else begin
+               reset_registers();
+               state_d = IDLE;
+            end
+         end else begin
+            set_cmd_NOP();
+
+            if (wait_counter_q > 0) begin
+               wait_counter_d = wait_counter_q - 1;
+               state_d = state_q;
+            end else begin
+               reset_registers();
+               state_d = IDLE;
+            end
+         end
       end
       AUTO_REFRESH: begin
          /** Register map:
