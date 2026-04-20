@@ -151,6 +151,10 @@ module wb_sdr_mt48lc16m16a_7e #(
 
    logic                                        shift_enable;
 
+   wire [$clog2(_rows_p) - 1 : 0]  addr_row_w;
+   wire [$clog2(_banks_p) - 1 : 0] addr_bank_w;
+   wire [$clog2(_cols_p) - 1 : 0]  addr_col_w;
+
    task automatic reset_registers();
       for (int i = 0; i < n_reg_lp; i++) begin
          r_d[i] = 1'b0;
@@ -163,16 +167,10 @@ module wb_sdr_mt48lc16m16a_7e #(
       end
    endfunction
 
-   logic [$clog2(_rows_p) - 1 : 0]  row_addr_w;
-   logic [$clog2(_banks_p) - 1 : 0] bank_addr_w;
-
-   assign row_addr_w  = m_adr_i[_usr_addr_bits_p - 1 -: $clog2(_rows_p)];
-   assign bank_addr_w = m_adr_i[($clog2(_cols_p) - $clog2(dram_burst_p)) + $clog2(_banks_p) - 1 -: $clog2(_banks_p)];
-
    function automatic is_same_bank();
       begin
          if (valid_prev_q) begin
-            is_same_bank = (bank_addr_w ^ prev_bank_q) == '0;
+            is_same_bank = (addr_bank_w ^ prev_bank_q) == '0;
          end else begin
             is_same_bank = '0;
          end
@@ -182,7 +180,7 @@ module wb_sdr_mt48lc16m16a_7e #(
    function automatic is_same_row();
       begin
          if (valid_prev_q) begin
-            is_same_row = (row_addr_w ^ prev_row_addr_q) == '0;
+            is_same_row = (addr_row_w ^ prev_row_addr_q) == '0;
          end else begin
             is_same_row = '0;
          end
@@ -208,6 +206,10 @@ module wb_sdr_mt48lc16m16a_7e #(
    end
 
    assign oe_o = (state_q == WRITE) ? 1'b1 : 1'b0;
+
+   assign addr_row_w  = m_adr_i[_usr_addr_bits_p - 1 -: $clog2(_rows_p)];
+   assign addr_bank_w = m_adr_i[($clog2(_cols_p) - $clog2(dram_burst_p)) + $clog2(_banks_p) - 1 -: $clog2(_banks_p)];
+   assign addr_col_w = m_adr_i[$clog2(_cols_p) - 1 :0];
 
 
    /** general state registers */
