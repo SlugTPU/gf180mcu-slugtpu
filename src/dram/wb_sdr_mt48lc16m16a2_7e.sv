@@ -38,6 +38,8 @@ module wb_sdr_mt48lc16m16a_7e #(
    ,output logic oe_o
 );
 
+   // ASSUMPTION: Assumes the worst path from IDLE nevere exceeds 64ms
+
    /** raw dram parameters from datasheet with unit conversions and maybe a bit of rounding */
    localparam tRP_us_lp = 0.015;
    localparam tRFC_us_lp = 0.066;
@@ -58,8 +60,8 @@ module wb_sdr_mt48lc16m16a_7e #(
    localparam tRP_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRP_us_lp));
    localparam tRFC_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRFC_us_lp));
    localparam tREF_dist_wait_cycles = sys_clk_mhz_p * tREF_dist_us_lp;
-   // the real cycles until autorefresh needed, including the time needed to precharge the rows
-   localparam autorefresh_cycles_lp = tREF_dist_us_lp - tRP_wait_cycles_lp;
+   // // the real cycles until autorefresh needed, including the time needed to precharge the rows
+   localparam autorefresh_cycles_lp = tREF_dist_us_lp;
    localparam tRCD_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRCD_us_lp));
 
    localparam n_reg_lp = 3;
@@ -132,7 +134,8 @@ module wb_sdr_mt48lc16m16a_7e #(
    endtask
 
    int wait_counter_d, wait_counter_q;
-   int auto_refresh_counter_d, auto_refresh_counter_q;
+   logic [$clog2(autorefresh_cycles_lp) - 1:0] auto_refresh_counter_d, auto_refresh_counter_q;
+   logic [$clog2(_rows_p) - 1:0]               auto_refreshes_needed_d, auto_refreshes_needed_q;
    logic dram_initialized;
    wire [_data_bits_p * parallel_p - 1:0] read_shifter_data[dram_burst_p - 1];
    // TODO: Possibly deprecate saved_state
@@ -260,14 +263,10 @@ module wb_sdr_mt48lc16m16a_7e #(
 
    /** auto refresh counter after dram is initialized */
    always_comb begin
-      if (!dram_initialized || (auto_refresh_counter_q == 0)) begin
+      if (!dram_initialized || state_q == AUTO_REFRESH || (auto_refresh_counter_q == 0)) begin
          auto_refresh_counter_d = autorefresh_cycles_lp - 1;
       end else begin
-         if (state_q != AUTO_REFRESH) begin
-            auto_refresh_counter_d = auto_refresh_counter_q - 1'b1;
-         end else begin
-            auto_refresh_counter_d  = auto_refresh_counter_q;
-         end
+         auto_refresh_counter_d = auto_refresh_counter_q - 1'b1;
       end
    end
 
@@ -276,6 +275,25 @@ module wb_sdr_mt48lc16m16a_7e #(
          auto_refresh_counter_q <= '0;
       end else begin
          auto_refresh_counter_q <= auto_refresh_counter_d;
+      end
+   end
+
+   always_comb begin
+      if (dram_initialized && auto_refresh_counter_q == 0) begin
+         auto_refreshes_needed_d = auto_refreshes_needed_q + 1;
+      end else if (dram_initialized && state_q == AUTO_REFRESH && r_q[0] != 1) begin
+         // at AUTO_REFRESH state, and is not just waiting
+         auto_refreshes_needed_d = auto_refreshes_needed_q - 1;
+      end else begin
+         auto_refreshes_needed_d = auto_refreshes_needed_q;
+      end
+   end
+
+   always_ff @(posedge clk_i)  begin
+      if (rst_i) begin
+         auto_refreshes_needed_q <= '0;
+      end else begin
+         auto_refreshes_needed_q <= auto_refreshes_needed_d;
       end
    end
 
@@ -409,9 +427,9 @@ module wb_sdr_mt48lc16m16a_7e #(
 
          reset_registers();
 
-         if (auto_refresh_counter_q == 0) begin
+         if (auto_refreshes_needed_q > 0) begin
             // need to precharge if not already
-            if (!valid_prev_q) begin
+            if (valid_prev_q) begin
                r_d[0] = 1'b1;
                state_d = PRECHARGE;
             end else begin
@@ -437,6 +455,7 @@ module wb_sdr_mt48lc16m16a_7e #(
             set_cmd_ACTIVE();
             // TODO:
             wait_counter_d = tRCD_wait_cycles_lp - 2;
+            valid_prev_d = 1'b1;
             r_d[0] = 1'b1;
          end else begin
             set_cmd_NOP();
@@ -524,7 +543,8 @@ module wb_sdr_mt48lc16m16a_7e #(
                wait_counter_d = tRFC_wait_cycles_lp - 2;
                state_d = state_q;
             end else begin // skip wait if period implicitly meetings tRFC
-               state_d = IDLE;
+               reset_registers();
+               state_d = state_t'((auto_refreshes_needed_q > 0) ? AUTO_REFRESH : IDLE);
             end
          end else begin
             set_cmd_NOP();
@@ -534,8 +554,7 @@ module wb_sdr_mt48lc16m16a_7e #(
                state_d = state_q;
             end else begin
                reset_registers();
-
-               state_d = IDLE;
+               state_d = state_t'((auto_refreshes_needed_q > 0) ? AUTO_REFRESH : IDLE);
             end
          end
       end
