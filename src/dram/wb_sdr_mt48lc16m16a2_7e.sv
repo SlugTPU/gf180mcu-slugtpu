@@ -60,8 +60,7 @@ module wb_sdr_mt48lc16m16a_7e #(
    localparam tRP_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRP_us_lp));
    localparam tRFC_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRFC_us_lp));
    localparam tREF_dist_wait_cycles = sys_clk_mhz_p * tREF_dist_us_lp;
-   // // the real cycles until autorefresh needed, including the time needed to precharge the rows
-   localparam autorefresh_cycles_lp = tREF_dist_us_lp;
+   localparam autorefresh_cycles_lp = sys_clk_mhz_p * tREF_dist_us_lp;
    localparam tRCD_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRCD_us_lp));
 
    localparam n_reg_lp = 3;
@@ -264,7 +263,8 @@ module wb_sdr_mt48lc16m16a_7e #(
    /** auto refresh counter after dram is initialized */
    always_comb begin
       if (!dram_initialized || state_q == AUTO_REFRESH || (auto_refresh_counter_q == 0)) begin
-         auto_refresh_counter_d = autorefresh_cycles_lp - 1;
+         // include the extra cycle needed to switch to AUTO_REFRESH state
+         auto_refresh_counter_d = ($clog2(autorefresh_cycles_lp))'(autorefresh_cycles_lp - 1);
       end else begin
          auto_refresh_counter_d = auto_refresh_counter_q - 1'b1;
       end
@@ -279,7 +279,8 @@ module wb_sdr_mt48lc16m16a_7e #(
    end
 
    always_comb begin
-      if (dram_initialized && auto_refresh_counter_q == 0) begin
+      // should be at AUTO_REFRESH when counter hits 0
+      if (dram_initialized && auto_refresh_counter_q == 2) begin
          auto_refreshes_needed_d = auto_refreshes_needed_q + 1;
       end else if (dram_initialized && state_q == AUTO_REFRESH && r_q[0] != 1) begin
          // at AUTO_REFRESH state, and is not just waiting
