@@ -517,6 +517,7 @@ module wb_sdr_mt48lc16m16a_7e #(
             wait_counter_d = wait_counter_q - 1;
          end else begin
             m_ack_o = 1'b1;
+            shift_enable = 1'b0;
 
             reset_registers();
             state_d = IDLE;
