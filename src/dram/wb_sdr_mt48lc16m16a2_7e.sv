@@ -311,16 +311,15 @@ module wb_sdr_mt48lc16m16a_7e #(
    end
 
    always_comb begin
-      s_cke_o = 1;
       wait_counter_d = '0;
-      s_addr_o = '0;
       dram_initialized = 1'b0;
       saved_state_d = saved_state_q;
-      m_ack_o = 1'b0;
       shift_enable = 1'b0;
       prev_row_addr_d = prev_row_addr_q;
       prev_bank_d = prev_bank_q;
       valid_prev_d = valid_prev_q;
+      m_ack_o = 1'b0;
+      s_cke_o = 1;
 
       for (int i = 0; i < n_reg_lp; i++) begin
          r_d[i] = r_q[i];
@@ -478,6 +477,9 @@ module wb_sdr_mt48lc16m16a_7e #(
          dram_initialized = 1'b1;
 
          set_cmd_READ();
+         // disable auto-precharge; A[10] = 0
+         s_addr_o = _sdr_addr_bits_p'({ '0, 1'b0, addr_col_w });
+         s_ba_o = addr_bank_w;
 
          if (CL_lp - 1 == 0) begin
             reset_registers();
