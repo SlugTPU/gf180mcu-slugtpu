@@ -58,6 +58,8 @@ module wb_sdr_mt48lc16m16a_7e #(
    localparam tRP_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRP_us_lp));
    localparam tRFC_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRFC_us_lp));
    localparam tREF_dist_wait_cycles = sys_clk_mhz_p * tREF_dist_us_lp;
+   // the real cycles until autorefresh needed, including the time needed to precharge the rows
+   localparam autorefresh_cycles_lp = tREF_dist_us_lp - tRP_wait_cycles_lp;
    localparam tRCD_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRCD_us_lp));
 
    localparam n_reg_lp = 3;
@@ -128,6 +130,24 @@ module wb_sdr_mt48lc16m16a_7e #(
       s_we_no = 1'b0;
    endtask
 
+   int wait_counter_d, wait_counter_q;
+   int auto_refresh_counter_d, auto_refresh_counter_q;
+   logic dram_initialized;
+   wire [_data_bits_p * parallel_p - 1:0] read_shifter_data[dram_burst_p - 1];
+   // TODO: Possibly deprecate saved_state
+   state_t state_d, state_q, saved_state_d, saved_state_q;
+   // General purpose registers for managing sub-states in each state.
+   //   (Beware of collisions in non-mutually exclusive states!)
+   logic                                  r_d[n_reg_lp], r_q[n_reg_lp];
+   // Single register for handling autorefresh
+
+   // save previous bank/row address for handling precharging and activation
+   logic                                        valid_prev_d, valid_prev_q;
+   logic [$clog2(_banks_p) - 1:0]               prev_bank_d, prev_bank_q;
+   logic [$clog2(_rows_p) - 1:0]                prev_row_addr_d, prev_row_addr_q;
+
+   logic                                        shift_enable;
+
    task automatic reset_registers();
       for (int i = 0; i < n_reg_lp; i++) begin
          r_d[i] = 1'b0;
@@ -140,28 +160,21 @@ module wb_sdr_mt48lc16m16a_7e #(
       end
    endfunction
 
-   function automatic [$clog2(_rows_p) - 1 : 0] row_addr();
-      begin
-         row_addr = m_adr_i[_usr_addr_bits_p - 1:_usr_addr_bits_p - $clog2(_rows_p)];
-      end
-   endfunction
+   logic [$clog2(_rows_p) - 1 : 0]  row_addr_w;
+   logic [$clog2(_banks_p) - 1 : 0] bank_addr_w;
 
-   function automatic [$clog2(_banks_p) - 1 : 0] bank_addr();
-      begin
-         bank_addr = m_adr_i[($clog2(_cols_p) - $clog2(dram_burst_p)) + $clog2(_banks_p) - 1 :
-                            $clog2(_cols_p) - $clog2(dram_burst_p)];
-      end
-   endfunction
+   assign row_addr_w  = m_adr_i[_usr_addr_bits_p - 1 -: $clog2(_rows_p)];
+   assign bank_addr_w = m_adr_i[($clog2(_cols_p) - $clog2(dram_burst_p)) + $clog2(_banks_p) - 1 -: $clog2(_banks_p)];
 
    function automatic is_same_bank();
       begin
-         is_same_bank = (bank_addr() ^ prev_bank_q) == '0;
+         is_same_bank = (bank_addr_w ^ prev_bank_q) == '0;
       end
    endfunction
 
    function automatic is_same_row();
       begin
-         is_same_row = (row_addr() ^ prev_row_addr_q) == '0;
+         is_same_row = (row_addr_w ^ prev_row_addr_q) == '0;
       end
    endfunction
 
@@ -174,26 +187,6 @@ module wb_sdr_mt48lc16m16a_7e #(
          end
       end
    endfunction
-
-
-   int wait_counter_d, wait_counter_q;
-   int auto_refresh_counter_d, auto_refresh_counter_q;
-   logic dram_initialized;
-   wire [_data_bits_p * parallel_p - 1:0] read_shifter_data[dram_burst_p - 1];
-   // TODO: Possibly deprecate saved_state
-   state_t state_d, state_q, saved_state_d, saved_state_q;
-   // General purpose registers for managing sub-states in each state.
-   //   (Beware of collisions in non-mutually exclusive states!)
-   logic                                  r_d[n_reg_lp], r_q[n_reg_lp];
-   // Single register for handling autorefresh
-   //   Auto refresh
-
-   // save previous bank/row address for handling precharging and activation
-   logic                                        valid_prev_d, valid_prev_q;
-   logic [$clog2(_banks_p) - 1:0]               prev_bank_d, prev_bank_q;
-   logic [$clog2(_rows_p) - 1:0]                prev_row_addr_d, prev_row_addr_q;
-
-   logic                                        shift_enable;
 
    initial begin
       assert(sys_clk_mhz_p <= min_period_mhz_lp) else
@@ -258,10 +251,14 @@ module wb_sdr_mt48lc16m16a_7e #(
 
    /** auto refresh counter after dram is initialized */
    always_comb begin
-      if (!dram_initialized || auto_refresh_counter_q == 0) begin
-         auto_refresh_counter_d = tREF_dist_us_lp - 1'b1;
+      if (!dram_initialized || (auto_refresh_counter_q == 0)) begin
+         auto_refresh_counter_d = autorefresh_cycles_lp - 1;
       end else begin
-         auto_refresh_counter_d = auto_refresh_counter_q - 1'b1;
+         if (state_q != AUTO_REFRESH) begin
+            auto_refresh_counter_d = auto_refresh_counter_q - 1'b1;
+         end else begin
+            auto_refresh_counter_d  = auto_refresh_counter_q;
+         end
       end
    end
 
@@ -344,10 +341,10 @@ module wb_sdr_mt48lc16m16a_7e #(
          // set A10 high for precharge all
          s_addr_o = 13'b0_0100_0000_0000;
 
-         if (tRP_wait_cycles_lp - 1'b1 > 0) begin
+         if (tRP_wait_cycles_lp - 1 > 0) begin
             state_d = WAIT;
             saved_state_d = INIT_REFRESH_1;
-            wait_counter_d = tRP_wait_cycles_lp - 1'b1;
+            wait_counter_d = tRP_wait_cycles_lp - 2;
          end else begin
             saved_state_d = INIT_REFRESH_1;
          end
@@ -356,10 +353,10 @@ module wb_sdr_mt48lc16m16a_7e #(
          dram_initialized = 1'b0;
          set_cmd_AUTO_REFRESH();
 
-         if (tRFC_wait_cycles_lp - 1'b1 > 0) begin
+         if (tRFC_wait_cycles_lp - 1 > 0) begin
             state_d = WAIT;
             saved_state_d = INIT_REFRESH_2;
-            wait_counter_d = tRFC_wait_cycles_lp - 1'b1;
+            wait_counter_d = tRFC_wait_cycles_lp - 2;
          end else begin
             state_d = INIT_REFRESH_2;
          end
@@ -368,10 +365,10 @@ module wb_sdr_mt48lc16m16a_7e #(
          dram_initialized = 1'b0;
          set_cmd_AUTO_REFRESH();
 
-         if (tRFC_wait_cycles_lp - 1'b1 > 0) begin
+         if (tRFC_wait_cycles_lp - 1 > 0) begin
             state_d = WAIT;
             saved_state_d = INIT_LOAD_MODE;
-            wait_counter_d = tRFC_wait_cycles_lp - 1'b1;
+            wait_counter_d = tRFC_wait_cycles_lp - 2;
          end else begin
             state_d = INIT_LOAD_MODE;
          end
@@ -404,13 +401,21 @@ module wb_sdr_mt48lc16m16a_7e #(
          reset_registers();
 
          if (auto_refresh_counter_q == 0) begin
-            state_d = AUTO_REFRESH;
+            // need to precharge if not already
+            if (!valid_prev_q) begin
+               r_d[0] = 1'b1;
+               state_d = PRECHARGE;
+            end else begin
+               state_d = AUTO_REFRESH;
+            end
+         end else if (!m_cyc_i || !m_stb_i) begin
+            state_d = state_q;
          end else if (!valid_prev_q || (is_same_row() && !is_same_bank())) begin
             state_d = ACTIVE;
          end else if (!is_same_row()) begin
             state_d = PRECHARGE;
          end else if (is_same_row() && is_same_bank()) begin
-            state_d = (m_we_i) ? WRITE : READ;
+            state_d = state_t'((m_we_i) ? WRITE : READ);
          end else begin
             state_d = state_q;
          end
@@ -423,13 +428,14 @@ module wb_sdr_mt48lc16m16a_7e #(
 
          if (!r_q[0]) begin
             set_cmd_ACTIVE();
-            wait_counter_d = tRCD_wait_cycles_lp - 1'b1;
+            // TODO:
+            wait_counter_d = tRCD_wait_cycles_lp - 2;
             r_d[0] = 1'b1;
          end else begin
             set_cmd_NOP();
-            if (wait_counter_q > '0) begin
+            if (wait_counter_q > 0) begin
                state_d = state_q;
-               wait_counter_d = wait_counter_q - 1'b1;
+               wait_counter_d = wait_counter_q - 1;
             end else begin
                state_d = to_read_or_write();
             end
@@ -468,47 +474,38 @@ module wb_sdr_mt48lc16m16a_7e #(
       end
       AUTO_REFRESH: begin
          /** Register map:
-          r[0]: ARG: Was called from precharge?
-          r[1]: Auto refresh command sent?
+          r[0]: Auto refresh command sent?
           **/
 
          dram_initialized = 1'b1;
 
-         // precharge if not already
          if (!r_q[0]) begin
-            reset_registers();
+            set_cmd_AUTO_REFRESH();
 
-            state_d = PRECHARGE;
+            r_d[0] = 1'b1;
+
+            if (tRFC_wait_cycles_lp - 1 > 0) begin
+               wait_counter_d = tRFC_wait_cycles_lp - 2;
+               state_d = state_q;
+            end else begin // skip wait if period implicitly meetings tRFC
+               state_d = IDLE;
+            end
          end else begin
-            if (!r_q[1]) begin
-               set_cmd_AUTO_REFRESH();
+            set_cmd_NOP();
 
-               r_d[1] = 1'b1;
-
-               // skip wait if period implicitly meetings tRFC
-               if (tRFC_wait_cycles_lp - 1'b1 == 1'b0) begin
-                  state_d = IDLE;
-               end else begin
-                  wait_counter_d = tRFC_wait_cycles_lp - 1'b1;
-                  state_d = state_q;
-               end
+            if (wait_counter_q > 0) begin
+               wait_counter_d = wait_counter_q - 1'b1;
+               state_d = state_q;
             end else begin
-               set_cmd_NOP();
+               reset_registers();
 
-               if (wait_counter_q > 0) begin
-                  wait_counter_d = wait_counter_q - 1'b1;
-                  state_d = state_q;
-               end else begin
-                  reset_reigsters();
-
-                  state_d = IDLE;
-               end
+               state_d = IDLE;
             end
          end
       end
       PRECHARGE: begin
          /** Register map:
-          r[0]: ARG: Was called from autorefresh?
+          r[0]: ARG: Go to auto refresh next?
           r[1]: Sent PRECHARGE command
           **/
 
@@ -522,19 +519,32 @@ module wb_sdr_mt48lc16m16a_7e #(
             // set A10 high for precharge all
             s_addr_o = 13'b0_0100_0000_0000;
             r_d[1] = 1'b1;
-            wait_counter_d = tRP_wait_cycles_lp - 1'b1;
 
-            state_d = state_q;
+            if (tRP_wait_cycles_lp - 1 > 0) begin
+               // TODO: Fix other one offs
+               wait_counter_d = tRP_wait_cycles_lp - 2;
+               state_d = state_q;
+            end else begin
+               reset_registers();
+
+               if (r_q[0]) begin
+                  // r_d[0] = 1'b1;
+                  state_d = AUTO_REFRESH;
+               end else begin
+                  state_d = IDLE;
+               end
+            end
+
          end else begin
             if (wait_counter_q > 0) begin
-               wait_counter_d = wait_counter_q - 1'b1;
+               wait_counter_d = wait_counter_q - 1;
 
                state_d = state_q;
             end else begin
                reset_registers();
 
                if (r_q[0]) begin
-                  r_d[0] = 1'b1;
+                  // r_d[0] = 1'b1;
                   state_d = AUTO_REFRESH;
                end else begin
                   state_d = IDLE;
