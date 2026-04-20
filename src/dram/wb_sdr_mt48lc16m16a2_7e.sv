@@ -550,6 +550,7 @@ module wb_sdr_mt48lc16m16a_7e #(
                wait_counter_d = dram_burst_p - 2;
                state_d = state_q;
             end else begin
+               m_ack_o = 1'b1;
                reset_registers();
                state_d = IDLE;
             end
@@ -560,6 +561,7 @@ module wb_sdr_mt48lc16m16a_7e #(
                wait_counter_d = wait_counter_q - 1;
                state_d = state_q;
             end else begin
+               m_ack_o = 1'b1;
                reset_registers();
                state_d = IDLE;
             end
