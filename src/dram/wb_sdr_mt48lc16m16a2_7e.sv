@@ -74,7 +74,8 @@ module wb_sdr_mt48lc16m16a_7e #(
        INIT_LOAD_MODE,
        AUTO_REFRESH,
        ACTIVE,
-       READ,
+       READ_BEGIN,
+       READ_OUT,
        WRITE,
        PRECHARGE,
        IDLE
@@ -168,13 +169,21 @@ module wb_sdr_mt48lc16m16a_7e #(
 
    function automatic is_same_bank();
       begin
-         is_same_bank = (bank_addr_w ^ prev_bank_q) == '0;
+         if (valid_prev_q) begin
+            is_same_bank = (bank_addr_w ^ prev_bank_q) == '0;
+         end else begin
+            is_same_bank = '0;
+         end
       end
    endfunction
 
    function automatic is_same_row();
       begin
-         is_same_row = (row_addr_w ^ prev_row_addr_q) == '0;
+         if (valid_prev_q) begin
+            is_same_row = (row_addr_w ^ prev_row_addr_q) == '0;
+         end else begin
+            is_same_row = '0;
+         end
       end
    endfunction
 
@@ -183,7 +192,7 @@ module wb_sdr_mt48lc16m16a_7e #(
          if (m_we_i) begin
             to_read_or_write = WRITE;
          end else begin
-            to_read_or_write = READ;
+            to_read_or_write = READ_BEGIN;
          end
       end
    endfunction
@@ -410,14 +419,12 @@ module wb_sdr_mt48lc16m16a_7e #(
             end
          end else if (!m_cyc_i || !m_stb_i) begin
             state_d = state_q;
-         end else if (!valid_prev_q || (is_same_row() && !is_same_bank())) begin
+         end else if (!valid_prev_q || is_same_bank()) begin
             state_d = ACTIVE;
          end else if (!is_same_row()) begin
             state_d = PRECHARGE;
-         end else if (is_same_row() && is_same_bank()) begin
-            state_d = state_t'((m_we_i) ? WRITE : READ);
          end else begin
-            state_d = state_q;
+            state_d = state_t'((m_we_i) ? WRITE : READ_BEGIN);
          end
       end
       ACTIVE: begin
@@ -437,32 +444,61 @@ module wb_sdr_mt48lc16m16a_7e #(
                state_d = state_q;
                wait_counter_d = wait_counter_q - 1;
             end else begin
+               reset_registers();
                state_d = to_read_or_write();
             end
          end
       end
-      READ: begin // issue read command
+      READ_BEGIN: begin // issue read command
          /** Register map:
-          r[0]: Sent READ command and waited for CL cycles
-          r[1]: Data has been read
+          r[0]: Sent READ command AND should wait
           **/
          dram_initialized = 1'b1;
 
-         state_d = state_q;
-         if (wait_counter_q > 0) begin
-            wait_counter_d = wait_counter_q - 1;
+         set_cmd_READ();
+
+         if (CL_lp - 1 == 0) begin
+            reset_registers();
+            state_d = READ_OUT;
          end else if (!r_q[0]) begin
-            set_cmd_READ();
             r_d[0] = 1'b1;
-            wait_counter_d = CL_lp - 1'b1;
-         end else if (!r_q[1]) begin
-            set_cmd_NOP();
-            shift_enable = 1'b1;
-            wait_counter_d = dram_burst_p - 1'b1;
-            r_d[1] = 1'b1;
+            wait_counter_d = CL_lp - 2;
+         end else if (wait_counter_q - 1 > 0) begin
+            state_d = state_q;
+            wait_counter_d = wait_counter_q - 1;
          end else begin
-            // done
+            reset_registers();
+            state_d = READ_OUT;
+         end
+      end
+      READ_OUT: begin
+         /** Register map:
+          r[0]: Need to wait AND has began waiting
+          **/
+         dram_initialized = 1'b1;
+         // TODO: Autorefresh counter assert needs fixing
+
+         set_cmd_NOP();
+
+         shift_enable = 1'b1;
+
+         if (dram_burst_p - 1 == 0) begin
             m_ack_o = 1'b1;
+
+            reset_registers();
+            state_d = IDLE;
+         end else if (!r_q[0]) begin
+            r_d[0] = 1'b1;
+            wait_counter_d = dram_burst_p - 1;
+
+            state_d = state_q;
+         end else if (wait_counter_q > 0) begin
+            state_d = state_q;
+            wait_counter_d = wait_counter_q - 1;
+         end else begin
+            m_ack_o = 1'b1;
+
+            reset_registers();
             state_d = IDLE;
          end
       end
