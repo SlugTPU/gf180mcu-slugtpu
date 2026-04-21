@@ -459,6 +459,8 @@ module wb_sdr_mt48lc16m16a_7e #(
           r[0]: Sent ACTIVE command
           **/
          dram_initialized = 1'b1;
+         s_addr_o = (_sdr_addr_bits_p)'({'0, addr_row_w});
+         s_ba_o = addr_bank_w;
 
          if (!r_q[0]) begin
             set_cmd_ACTIVE();
