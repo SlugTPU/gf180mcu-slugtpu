@@ -50,5 +50,6 @@ def run_test(parameters, sources, module_name, hdl_toplevel, testcase=None, sims
             runner.test(testcase=testcase, test_args=test_args, hdl_toplevel=hdl_toplevel, test_module=module_name, waves=True)
         except BaseException as e:
             import traceback
-            print(f"Test '{case_name}' with {sim} failed: {e}")
+            print(e)
             traceback.print_exc()
+            print(f"Test '{case_name}' with {sim} failed: {e}")
