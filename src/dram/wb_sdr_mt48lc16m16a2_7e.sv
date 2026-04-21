@@ -446,7 +446,7 @@ module wb_sdr_mt48lc16m16a_7e #(
              A[3]     = Burst Type { 0 = Sequential }
              A[2:0]   = Burst Length
              **/
-            s_addr_o = {1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, CL_lp[2:0], 1'b0, dram_burst_p[2:0]};
+            s_addr_o = {1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, CL_lp[2:0], 1'b0, 3'($clog2(dram_burst_p))};
 
             if (tMRD_wait_cycles_lp - 1 > 0 ) begin
                r_d[0] = 1'b1;
@@ -678,6 +678,8 @@ module wb_sdr_mt48lc16m16a_7e #(
             end
 
          end else begin
+            set_cmd_NOP();
+
             if (wait_counter_q > 0) begin
                wait_counter_d = wait_counter_q - 1;
 
