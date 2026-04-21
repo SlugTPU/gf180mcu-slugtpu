@@ -141,7 +141,7 @@ module wb_sdr_mt48lc16m16a_7e #(
    logic [$clog2(autorefresh_cycles_lp) - 1:0] auto_refresh_counter_d, auto_refresh_counter_q;
    logic [$clog2(_rows_p) - 1:0]               auto_refreshes_needed_d, auto_refreshes_needed_q;
    logic dram_initialized;
-   wire [_data_bits_p * parallel_p - 1:0] read_shifter_data[dram_burst_p - 1];
+   wire [_data_bits_p * parallel_p - 1:0] read_shifter_data[dram_burst_p];
    // TODO: Possibly deprecate saved_state
    state_t state_d, state_q, saved_state_d, saved_state_q;
    // General purpose registers for managing sub-states in each state.
@@ -243,17 +243,17 @@ module wb_sdr_mt48lc16m16a_7e #(
    end
 
    shift
-     #(.width_p(_data_bits_p * parallel_p), .depth_p(dram_burst_p - 1))
+     #(.width_p(_data_bits_p * parallel_p), .depth_p(dram_burst_p))
    read_shifter (.clk_i(clk_i),
                   .reset_i(rst_i),
                   .data_i(s_dq_i),
                   .data_o(read_shifter_data),
                   .enable_i(shift_enable));
 
-   assign m_dat_o[_data_bits_p * parallel_p * dram_burst_p - 1 -: _data_bits_p * parallel_p] = s_dq_i;
    generate
-      for (genvar i = 0; i < dram_burst_p - 1; i++) begin
-         assign m_dat_o[_data_bits_p * parallel_p * (dram_burst_p - 1 - i) - 1 -: _data_bits_p * parallel_p] = read_shifter_data[i];
+      for (genvar i = 0; i < dram_burst_p; i++) begin
+         assign m_dat_o[_data_bits_p * parallel_p * (dram_burst_p - i) - 1 -:
+                        _data_bits_p * parallel_p] = read_shifter_data[dram_burst_p - 1 - i];
       end
    endgenerate
 
