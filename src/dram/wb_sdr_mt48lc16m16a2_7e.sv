@@ -140,12 +140,10 @@ module wb_sdr_mt48lc16m16a_7e #(
    logic [$clog2(_rows_p) - 1:0]               auto_refreshes_needed_d, auto_refreshes_needed_q;
    logic dram_initialized;
    wire [_data_bits_p  - 1:0] read_shifter_data[dram_burst_p];
-   // TODO: Possibly deprecate saved_state
-   state_t state_d, state_q, saved_state_d, saved_state_q;
+   state_t state_d, state_q;
    // General purpose registers for managing sub-states in each state.
-   //   (Beware of collisions in non-mutually exclusive states!)
+   //   (Beware of collisions between states! Sometimes, it can be useful (i.e. 'functionn' arguments)
    logic                                  r_d[n_reg_lp], r_q[n_reg_lp];
-   // Single register for handling autorefresh
 
    // save previous bank/row address for handling precharging and activation
    logic                                        valid_prev_d, valid_prev_q;
