@@ -263,7 +263,7 @@ module wb_sdr_mt48lc16m16a_7e #(
    always_ff @(posedge clk_i) begin
       if (rst_i) begin
          // on reset, we go through the initialization process
-         wait_counter_q <= init_wait_us_lp - 1'b1;
+         wait_counter_q <= init_wait_cycles_lp - 1'b1;
       end else begin
          wait_counter_q <= wait_counter_d;
       end
