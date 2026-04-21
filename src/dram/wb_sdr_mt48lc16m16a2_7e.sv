@@ -172,7 +172,7 @@ module wb_sdr_mt48lc16m16a_7e #(
    function automatic is_same_bank();
       begin
          if (valid_prev_q) begin
-            is_same_bank = (addr_bank_w ^ prev_bank_q) == '0;
+            is_same_bank = (addr_bank_w == prev_bank_q);
          end else begin
             is_same_bank = '0;
          end
@@ -182,7 +182,7 @@ module wb_sdr_mt48lc16m16a_7e #(
    function automatic is_same_row();
       begin
          if (valid_prev_q) begin
-            is_same_row = (addr_row_w ^ prev_row_addr_q) == '0;
+            is_same_row = (addr_row_w == prev_row_addr_q);
          end else begin
             is_same_row = '0;
          end
