@@ -523,23 +523,30 @@ module wb_sdr_mt48lc16m16a_7e #(
           **/
          dram_initialized = 1'b1;
 
-         set_cmd_READ();
-         // disable auto-precharge; A[10] = 0
-         s_addr_o = _sdr_addr_bits_p'({ '0, 1'b0, addr_col_w });
-         s_ba_o = addr_bank_w;
+         if (!r_q[0]) begin
+            set_cmd_READ();
+            // disable auto-precharge; A[10] = 0
+            s_addr_o = _sdr_addr_bits_p'({ '0, 1'b0, addr_col_w });
+            s_ba_o = addr_bank_w;
 
-         if (CL_lp - 1 == 0) begin
-            reset_registers();
-            state_d = READ_OUT;
-         end else if (!r_q[0]) begin
             r_d[0] = 1'b1;
-            wait_counter_d = CL_lp - 2;
-         end else if (wait_counter_q - 1 > 0) begin
-            state_d = state_q;
-            wait_counter_d = wait_counter_q - 1;
+
+            if (CL_lp - 1 > 0) begin
+               state_d = state_q;
+               wait_counter_d = CL_lp - 2;
+            end else begin
+               reset_registers();
+               state_d = READ_OUT;
+            end
          end else begin
-            reset_registers();
-            state_d = READ_OUT;
+            set_cmd_NOP();
+            if (wait_counter_q > 0) begin
+               state_d = state_q;
+               wait_counter_d = wait_counter_q - 1;
+            end else begin
+               reset_registers();
+               state_d = READ_OUT;
+            end
          end
       end
       READ_OUT: begin
