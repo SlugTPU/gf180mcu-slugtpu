@@ -484,7 +484,7 @@ module wb_sdr_mt48lc16m16a_7e #(
             end
          end else if (!m_cyc_i || !m_stb_i) begin
             state_d = state_q;
-         end else if (!valid_prev_q || is_same_bank()) begin
+         end else if (!valid_prev_q || !is_same_bank()) begin
             state_d = ACTIVE;
          end else if (!is_same_row()) begin
             state_d = PRECHARGE;
