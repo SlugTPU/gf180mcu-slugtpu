@@ -270,8 +270,8 @@ proj_path = Path("./src").resolve()
 sources = [
     proj_path / "dram" / "wb_sdr_mt48lc16m16a2_7e.sv",
     proj_path / "dram" / "sdram_model_mt48lc16m16a2.v",
-    proj_path / "common" / "shift.sv",
-    proj_path / "tb_wb_sdr_mt48lc16m16a_7e.sv"
+    proj_path / "dram" / "tb_wb_sdr_mt48lc16m16a_7e.sv",
+    proj_path / "common" / "shift.sv"
 ]
 parameters = { "sys_clk_mhz_p": 100 }
 module_name = "test_wb_sdr_mt48lc16m16a2_7e"
