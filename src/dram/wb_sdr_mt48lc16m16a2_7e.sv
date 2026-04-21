@@ -304,18 +304,9 @@ module wb_sdr_mt48lc16m16a_7e #(
 
    /** state machine */
 
-   always_ff @(posedge clk_i) begin
-      if (rst_i) begin
-         saved_state_q <= INIT_WAIT;
-      end else begin
-         saved_state_q <= saved_state_d;
-      end
-   end
-
    always_comb begin
       wait_counter_d = '0;
       dram_initialized = 1'b0;
-      saved_state_d = saved_state_q;
       shift_enable = 1'b0;
       prev_row_addr_d = prev_row_addr_q;
       prev_bank_d = prev_bank_q;
