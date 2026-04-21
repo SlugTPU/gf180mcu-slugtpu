@@ -472,10 +472,12 @@ module wb_sdr_mt48lc16m16a_7e #(
             end
          end else if (!m_cyc_i || !m_stb_i) begin
             state_d = state_q;
-         end else if (!valid_prev_q || !is_same_bank()) begin
+         end else if (!valid_prev_q) begin
             state_d = ACTIVE;
          end else if (!is_same_row()) begin
             state_d = PRECHARGE;
+         end else if (!is_same_bank()) begin
+            state_d = ACTIVE;
          end else begin
             state_d = state_t'((m_we_i) ? WRITE : READ_BEGIN);
          end
@@ -487,6 +489,9 @@ module wb_sdr_mt48lc16m16a_7e #(
          dram_initialized = 1'b1;
          s_addr_o = (_sdr_addr_bits_p)'({'0, addr_row_w});
          s_ba_o = addr_bank_w;
+
+         prev_bank_d = addr_bank_w;
+         prev_row_addr_d = addr_row_w;
 
          if (!r_q[0]) begin
             set_cmd_ACTIVE();
