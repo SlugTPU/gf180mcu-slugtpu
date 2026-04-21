@@ -128,6 +128,12 @@ sim-scalar-stage-sram:
 sim-mxu:
 	python3 -m pytest cocotb/test_mxu.py -s
 
+sim-wb-mux:
+	python3 -m pytest cocotb/test_wb_mux.py -s
+
+sim-wb-dma:
+	python3 -m pytest cocotb/test_wb_dma.py -s
+
 sim-gl: ## Run gate-level simulation with cocotb (after copy-final)
 	cd cocotb; GL=1 PDK_ROOT=${PDK_ROOT} PDK=${PDK} SLOT=${SLOT} python3 chip_top_tb.py
 .PHONY: sim-gl
