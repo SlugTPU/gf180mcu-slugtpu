@@ -135,6 +135,7 @@ module wb_sdr_mt48lc16m16a_7e #(
       s_we_no = 1'b0;
    endtask
 
+   // TODO: int is too big...
    int wait_counter_d, wait_counter_q;
    logic [$clog2(autorefresh_cycles_lp) - 1:0] auto_refresh_counter_d, auto_refresh_counter_q;
    logic [$clog2(_rows_p) - 1:0]               auto_refreshes_needed_d, auto_refreshes_needed_q;
@@ -495,7 +496,6 @@ module wb_sdr_mt48lc16m16a_7e #(
 
          if (!r_q[0]) begin
             set_cmd_ACTIVE();
-            // TODO:
             wait_counter_d = tRCD_wait_cycles_lp - 2;
             valid_prev_d = 1'b1;
             r_d[0] = 1'b1;
@@ -663,7 +663,6 @@ module wb_sdr_mt48lc16m16a_7e #(
             r_d[1] = 1'b1;
 
             if (tRP_wait_cycles_lp - 1 > 0) begin
-               // TODO: Fix other one offs
                wait_counter_d = tRP_wait_cycles_lp - 2;
                state_d = state_q;
             end else begin
@@ -712,8 +711,5 @@ module wb_sdr_mt48lc16m16a_7e #(
          state_q <= state_d;
       end
    end
-
-   // TODO: implement parallel dram modules
-   // TODO: maybe move wait counter logic outside of state machine logic?
 
 endmodule
