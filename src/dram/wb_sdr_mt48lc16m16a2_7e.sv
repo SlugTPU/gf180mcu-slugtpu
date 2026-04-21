@@ -72,21 +72,19 @@ module wb_sdr_mt48lc16m16a_7e #(
 
    localparam n_reg_lp = 3;
 
-   typedef enum logic [13:0] {
-       INIT_WAIT      = 14'b00000000000001,
-       WAIT           = 14'b00000000000010,
-       INIT_NOP       = 14'b00000000000100,
-       INIT_PRECHARGE = 14'b00000000001000,
-       INIT_REFRESH_1 = 14'b00000000010000,
-       INIT_REFRESH_2 = 14'b00000000100000,
-       INIT_LOAD_MODE = 14'b00000001000000,
-       AUTO_REFRESH   = 14'b00000010000000,
-       ACTIVE         = 14'b00000100000000,
-       READ_BEGIN     = 14'b00001000000000,
-       READ_OUT       = 14'b00010000000000,
-       WRITE          = 14'b00100000000000,
-       PRECHARGE      = 14'b01000000000000,
-       IDLE           = 14'b10000000000000
+   typedef enum logic [11:0] {
+       INIT_WAIT      = 12'b000000000001,
+       INIT_NOP       = 12'b000000000010,
+       INIT_PRECHARGE = 12'b000000000100,
+       INIT_REFRESH   = 12'b000000001000,
+       INIT_LOAD_MODE = 12'b000000010000,
+       AUTO_REFRESH   = 12'b000000100000,
+       ACTIVE         = 12'b000001000000,
+       READ_BEGIN     = 12'b000010000000,
+       READ_OUT       = 12'b000100000000,
+       WRITE          = 12'b001000000000,
+       PRECHARGE      = 12'b010000000000,
+       IDLE           = 12'b100000000000
    } state_t;
 
    task automatic set_cmd_NOP ();
@@ -352,81 +350,121 @@ module wb_sdr_mt48lc16m16a_7e #(
             state_d = state_q;
             wait_counter_d = wait_counter_q - 1'b1;
          end else begin
+            reset_registers();
             state_d = INIT_NOP;
-         end
-      end
-      WAIT: begin
-         set_cmd_NOP();
-
-         if (wait_counter_q > 0) begin
-            state_d = state_q;
-            wait_counter_d = wait_counter_q - 1'b1;
-         end else begin
-            state_d = saved_state_q;
          end
       end
       INIT_NOP: begin
          dram_initialized = 1'b0;
          set_cmd_NOP();
 
+         reset_registers();
          state_d = INIT_PRECHARGE;
       end
       INIT_PRECHARGE: begin
+         /** Register map:
+          r[0]: Sent PRECHARGE ALL command AND need to wait
+          **/
          dram_initialized = 1'b0;
-         set_cmd_PRECHARGE_ALL();
-         // set A10 high for precharge all
-         s_addr_o = 13'b0_0100_0000_0000;
 
-         if (tRP_wait_cycles_lp - 1 > 0) begin
-            state_d = WAIT;
-            saved_state_d = INIT_REFRESH_1;
-            wait_counter_d = tRP_wait_cycles_lp - 2;
+         if (!r_q[0]) begin
+            set_cmd_PRECHARGE_ALL();
+            // set A10 high for precharge all
+            s_addr_o = 13'b0_0100_0000_0000;
+            if (tRP_wait_cycles_lp - 1 > 0 ) begin
+               r_d[0] = 1'b1;
+               wait_counter_d = tRP_wait_cycles_lp - 2;
+               state_d = state_q;
+            end else begin
+               reset_registers();
+               state_d = INIT_REFRESH;
+            end
          end else begin
-            saved_state_d = INIT_REFRESH_1;
+            set_cmd_NOP();
+            if (wait_counter_q > 0) begin
+               state_d = state_q;
+               wait_counter_d = wait_counter_q - 1;
+            end else begin
+               reset_registers();
+               state_d = INIT_REFRESH;
+            end
          end
       end
-      INIT_REFRESH_1: begin
+      INIT_REFRESH: begin
+         /** Register map:
+          r[0]: Sent REFRESH command AND need to wait
+          r[1]: Sent 2nd refresh command
+          **/
          dram_initialized = 1'b0;
-         set_cmd_AUTO_REFRESH();
 
-         if (tRFC_wait_cycles_lp - 1 > 0) begin
-            state_d = WAIT;
-            saved_state_d = INIT_REFRESH_2;
-            wait_counter_d = tRFC_wait_cycles_lp - 2;
+         if (!r_q[0]) begin
+            set_cmd_AUTO_REFRESH();
+            if (tRFC_wait_cycles_lp - 1 > 0 ) begin
+               r_d[0] = 1'b1;
+               wait_counter_d = tRFC_wait_cycles_lp - 2;
+               state_d = state_q;
+            end else begin
+               if (!r_d[1]) begin
+                  r_d[1] = 1'b1;
+                  r_d[0] = '0;
+                  state_d = state_q;
+               end else begin
+                  reset_registers();
+                  state_d = INIT_LOAD_MODE;
+               end
+            end
          end else begin
-            state_d = INIT_REFRESH_2;
-         end
-      end
-      INIT_REFRESH_2: begin
-         dram_initialized = 1'b0;
-         set_cmd_AUTO_REFRESH();
-
-         if (tRFC_wait_cycles_lp - 1 > 0) begin
-            state_d = WAIT;
-            saved_state_d = INIT_LOAD_MODE;
-            wait_counter_d = tRFC_wait_cycles_lp - 2;
-         end else begin
-            state_d = INIT_LOAD_MODE;
+            set_cmd_NOP();
+            if (wait_counter_q > 0) begin
+               state_d = state_q;
+               wait_counter_d = wait_counter_q - 1;
+            end else begin
+               if (!r_d[1]) begin
+                  r_d[1] = 1'b1;
+                  r_d[0] = '0;
+                  state_d = state_q;
+               end else begin
+                  reset_registers();
+                  state_d = INIT_LOAD_MODE;
+               end
+            end
          end
       end
       INIT_LOAD_MODE: begin
-         dram_initialized = 1'b0;
-         set_cmd_LOAD_MODE_REGISTER();
-         /**
-          A[12:10] = Reserved
-          A[9]     = Write Burst Mode {}
-          A[8:7]   = Op Mode { 0 = Standard Operation }
-          A[6:4]   = CAS Latency
-          A[3]     = Burst Type { 0 = Sequential }
-          A[2:0]   = Burst Length
+         /** Register map:
+          r[0]: Sent LMR command AND need to wait
           **/
-         s_addr_o = {1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, CL_lp[2:0], 1'b0, dram_burst_p[2:0]};
 
-         if (tMRD_wait_cycles_lp - 1'b1 > 0) begin
-            state_d = WAIT;
-            saved_state_d = IDLE;
-            wait_counter_d = tMRD_wait_cycles_lp - 1'b1;
+         if (!r_q[0]) begin
+            dram_initialized = 1'b0;
+            set_cmd_LOAD_MODE_REGISTER();
+            /**
+             A[12:10] = Reserved
+             A[9]     = Write Burst Mode {}
+             A[8:7]   = Op Mode { 0 = Standard Operation }
+             A[6:4]   = CAS Latency
+             A[3]     = Burst Type { 0 = Sequential }
+             A[2:0]   = Burst Length
+             **/
+            s_addr_o = {1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, CL_lp[2:0], 1'b0, dram_burst_p[2:0]};
+
+            if (tMRD_wait_cycles_lp - 1 > 0 ) begin
+               r_d[0] = 1'b1;
+               wait_counter_d = tMRD_wait_cycles_lp - 2;
+               state_d = state_q;
+            end else begin
+               reset_registers();
+               state_d = IDLE;
+            end
          end else begin
+            set_cmd_NOP();
+            if (wait_counter_q > 0) begin
+               state_d = state_q;
+               wait_counter_d = wait_counter_q - 1;
+            end else begin
+               reset_registers();
+               state_d = IDLE;
+            end
          end
       end
       IDLE: begin
