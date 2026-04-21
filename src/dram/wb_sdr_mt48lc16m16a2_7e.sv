@@ -544,6 +544,7 @@ module wb_sdr_mt48lc16m16a_7e #(
             set_cmd_WRITE();
             s_addr_o = _sdr_addr_bits_p'({ '0, 1'b0, addr_col_w });
             s_ba_o = addr_bank_w;
+            s_dq_o = m_dat_i[_data_bits_p * parallel_p - 1:0];
 
             if (dram_burst_p - 1 > 0) begin
                r_d[0] = 1'b1;
@@ -556,6 +557,8 @@ module wb_sdr_mt48lc16m16a_7e #(
             end
          end else begin
             set_cmd_NOP();
+            s_dq_o = m_dat_i[_data_bits_p * parallel_p * (dram_burst_p - (wait_counter_q + 1)) -:
+                             _data_bits_p * parallel_p];
 
             if (wait_counter_q > 0) begin
                wait_counter_d = wait_counter_q - 1;
