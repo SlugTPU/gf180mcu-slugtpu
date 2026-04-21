@@ -563,7 +563,7 @@ module wb_sdr_mt48lc16m16a_7e #(
             end
          end else begin
             set_cmd_NOP();
-            s_dq_o = m_dat_i[_data_bits_p * parallel_p * (dram_burst_p - (wait_counter_q + 1)) -:
+            s_dq_o = m_dat_i[_data_bits_p * parallel_p * (dram_burst_p - (wait_counter_q)) - 1 -:
                              _data_bits_p * parallel_p];
 
             if (wait_counter_q > 0) begin
