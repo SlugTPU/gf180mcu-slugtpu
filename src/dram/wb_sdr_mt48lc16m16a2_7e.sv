@@ -33,7 +33,7 @@ module wb_sdr_mt48lc16m16a_7e #(
    ,output logic s_ras_no
    ,output logic s_cas_no
    ,output logic s_we_no
-   ,output logic s_dqm_o
+   ,output logic [1:0] s_dqm_o
 
     // output enable signal to mux bidirectional pin
    ,output logic oe_o
@@ -65,6 +65,10 @@ module wb_sdr_mt48lc16m16a_7e #(
    // localparam tWR_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tWR_us_lp));
    localparam tRCD_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRCD_us_lp));
    localparam autorefresh_cycles_lp = sys_clk_mhz_p * tREF_dist_us_lp;
+
+   // not used
+   assign s_dqm_o[0] = '0;
+   assign s_dqm_o[1] = '0;
 
    localparam n_reg_lp = 3;
 
