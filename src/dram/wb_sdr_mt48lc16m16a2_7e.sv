@@ -72,21 +72,21 @@ module wb_sdr_mt48lc16m16a_7e #(
 
    localparam n_reg_lp = 3;
 
-   typedef enum {
-       INIT_WAIT,
-       WAIT,
-       INIT_NOP,
-       INIT_PRECHARGE,
-       INIT_REFRESH_1,
-       INIT_REFRESH_2,
-       INIT_LOAD_MODE,
-       AUTO_REFRESH,
-       ACTIVE,
-       READ_BEGIN,
-       READ_OUT,
-       WRITE,
-       PRECHARGE,
-       IDLE
+   typedef enum logic [13:0] {
+       INIT_WAIT      = 14'b00000000000001,
+       WAIT           = 14'b00000000000010,
+       INIT_NOP       = 14'b00000000000100,
+       INIT_PRECHARGE = 14'b00000000001000,
+       INIT_REFRESH_1 = 14'b00000000010000,
+       INIT_REFRESH_2 = 14'b00000000100000,
+       INIT_LOAD_MODE = 14'b00000001000000,
+       AUTO_REFRESH   = 14'b00000010000000,
+       ACTIVE         = 14'b00000100000000,
+       READ_BEGIN     = 14'b00001000000000,
+       READ_OUT       = 14'b00010000000000,
+       WRITE          = 14'b00100000000000,
+       PRECHARGE      = 14'b01000000000000,
+       IDLE           = 14'b10000000000000
    } state_t;
 
    task automatic set_cmd_NOP ();
