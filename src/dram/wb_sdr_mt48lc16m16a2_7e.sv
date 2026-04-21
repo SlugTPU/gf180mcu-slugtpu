@@ -2,8 +2,6 @@
 module wb_sdr_mt48lc16m16a_7e #(
     parameter sys_clk_mhz_p = 67
    ,parameter dram_burst_p = 4
-   // number of independent dram modules in parallel
-   ,parameter parallel_p = 1
    // below should never be modified
    ,parameter _data_bits_p = 16
    ,parameter _rows_p = 8192
@@ -16,16 +14,16 @@ module wb_sdr_mt48lc16m16a_7e #(
    ,input rst_i
 
    ,input [_usr_addr_bits_p - 1:0]  m_adr_i
-   ,input [_data_bits_p * parallel_p * dram_burst_p - 1:0]  m_dat_i // input to bus
+   ,input [_data_bits_p  * dram_burst_p - 1:0]  m_dat_i // input to bus
    ,input m_we_i, m_stb_i, m_cyc_i
    // NOTE: not implemented!
    ,input [(_data_bits_p * dram_burst_p) / 8 - 1:0]  m_sel_i
    ,output logic m_ack_o
-   ,output logic [_data_bits_p * parallel_p * dram_burst_p - 1:0]  m_dat_o // output to bus
+   ,output logic [_data_bits_p  * dram_burst_p - 1:0]  m_dat_o // output to bus
 
    // for SDRAM
-   ,input  [_data_bits_p * parallel_p - 1 :0] s_dq_i
-   ,output logic [_data_bits_p * parallel_p - 1:0] s_dq_o
+   ,input  [_data_bits_p  - 1 :0] s_dq_i
+   ,output logic [_data_bits_p  - 1:0] s_dq_o
    ,output logic [_sdr_addr_bits_p - 1:0] s_addr_o
    ,output logic [1:0] s_ba_o
    ,output logic s_cke_o
@@ -141,7 +139,7 @@ module wb_sdr_mt48lc16m16a_7e #(
    logic [$clog2(autorefresh_cycles_lp) - 1:0] auto_refresh_counter_d, auto_refresh_counter_q;
    logic [$clog2(_rows_p) - 1:0]               auto_refreshes_needed_d, auto_refreshes_needed_q;
    logic dram_initialized;
-   wire [_data_bits_p * parallel_p - 1:0] read_shifter_data[dram_burst_p];
+   wire [_data_bits_p  - 1:0] read_shifter_data[dram_burst_p];
    // TODO: Possibly deprecate saved_state
    state_t state_d, state_q, saved_state_d, saved_state_q;
    // General purpose registers for managing sub-states in each state.
@@ -243,17 +241,18 @@ module wb_sdr_mt48lc16m16a_7e #(
    end
 
    shift
-     #(.width_p(_data_bits_p * parallel_p), .depth_p(dram_burst_p))
+     #(.width_p(_data_bits_p ), .depth_p(dram_burst_p))
    read_shifter (.clk_i(clk_i),
                   .reset_i(rst_i),
                   .data_i(s_dq_i),
                   .data_o(read_shifter_data),
                   .enable_i(shift_enable));
 
+   assign DEBUG_probe = _data_bits_p  * (dram_burst_p - 0) - 1;
    generate
       for (genvar i = 0; i < dram_burst_p; i++) begin
-         assign m_dat_o[_data_bits_p * parallel_p * (dram_burst_p - i) - 1 -:
-                        _data_bits_p * parallel_p] = read_shifter_data[dram_burst_p - 1 - i];
+         assign m_dat_o[_data_bits_p  * (dram_burst_p - i) - 1 -:
+                        _data_bits_p ] = read_shifter_data[dram_burst_p - 1 - i];
       end
    endgenerate
 
@@ -595,7 +594,7 @@ module wb_sdr_mt48lc16m16a_7e #(
             set_cmd_WRITE();
             s_addr_o = _sdr_addr_bits_p'({ '0, 1'b0, addr_col_w });
             s_ba_o = addr_bank_w;
-            s_dq_o = m_dat_i[_data_bits_p * parallel_p - 1:0];
+            s_dq_o = m_dat_i[_data_bits_p  - 1:0];
 
             if (dram_burst_p - 1 > 0) begin
                r_d[0] = 1'b1;
@@ -608,8 +607,8 @@ module wb_sdr_mt48lc16m16a_7e #(
             end
          end else begin
             set_cmd_NOP();
-            s_dq_o = m_dat_i[_data_bits_p * parallel_p * (dram_burst_p - (wait_counter_q)) - 1 -:
-                             _data_bits_p * parallel_p];
+            s_dq_o = m_dat_i[_data_bits_p  * (dram_burst_p - (wait_counter_q)) - 1 -:
+                             _data_bits_p ];
 
             if (wait_counter_q > 0) begin
                wait_counter_d = wait_counter_q - 1;
