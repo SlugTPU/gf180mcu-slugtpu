@@ -49,7 +49,7 @@ module scalar_stage_sram #(
     genvar i;
     generate
         for (i = 0; i < N ; i++) begin
-            assign quantized_flattened[i*DATA_Q + (DATA_Q-1):i*DATA_Q] = quantized_data[i];
+            assign quantized_flattened[i*DATA_Q + (DATA_Q-1):i*DATA_Q] = (quantized_valid) ? quantized_data[i] : '0;
             //always @(quantized_data[i]) quantized_flattened[i*DATA_Q + (DATA_Q-1):i*DATA_Q] = #200 quantized_data[i];
         end
     endgenerate
@@ -62,7 +62,7 @@ module scalar_stage_sram #(
             sram_wr_data = wr_data_i;
     end
 
-    activation_sram
+    sram_8x256_full
         #()
     activation_sram_inst (
         .clk_i(clk_i),

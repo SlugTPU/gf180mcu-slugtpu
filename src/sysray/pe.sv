@@ -46,7 +46,7 @@ module pe #(
     assign act_sel = act_i[DATA_WIDTH];
 
     // detect a bank switch: any toggle of weight_sel
-    assign weight_edge = prev_weight_sel != weight_sel;
+    assign weight_edge = (prev_weight_sel != weight_sel) & weight_valid_i;
 
     // suppress valid for one cycle on a bank switch so downstream does not
     // latch before the new bank has been written into this PE's buffer

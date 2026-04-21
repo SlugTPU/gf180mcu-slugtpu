@@ -125,6 +125,9 @@ sim-activation-sram:
 sim-scalar-stage-sram:
 	python3 -m pytest cocotb/test_scalar_stage_sram.py -s
 
+sim-compute-core:
+	python3 -m pytest cocotb/test_compute_core.py -s
+
 sim-mxu:
 	python3 -m pytest cocotb/test_mxu.py -s
 

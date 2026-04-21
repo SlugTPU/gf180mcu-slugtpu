@@ -24,7 +24,7 @@ module memory_transaction #(
 
     logic [counter_width-1:0] current_count_q, transaction_amount_q, current_count_d;
     logic [address_width-1:0] addr_d, addr_q;
-    logic in_use, rw_mode, rw_mode_q;
+    logic in_use, rw_mode, rw_mode_q, downstream_valid_last_cycle;
 
     assign sram_addr_o = addr_q;
     assign sram_rw_mode_o = rw_mode_q;
@@ -32,6 +32,7 @@ module memory_transaction #(
     assign load_ready_o = ~in_use;
 
     assign ready_o = in_use;
+
     
     always_comb begin
         addr_d = addr_q;
@@ -61,11 +62,11 @@ module memory_transaction #(
             in_use <= '1; 
             addr_q <= addr_i;
             rw_mode <= transaction_rw_mode_i;
-            rd_valid_o <= ready_o & ~transaction_rw_mode_i;
+            rd_valid_o <= ready_o & ~transaction_rw_mode_i & downstream_ready_i;
         end else begin
             current_count_q <= current_count_d;           
             addr_q <= addr_d;
-            rd_valid_o <= ready_o & ~rw_mode;
+            rd_valid_o <= ready_o & ~rw_mode & downstream_ready_i;
 
             if (in_use & downstream_ready_i &
                 (current_count_d  == transaction_amount_q)) begin
@@ -74,5 +75,4 @@ module memory_transaction #(
             end
         end
     end
-
 endmodule

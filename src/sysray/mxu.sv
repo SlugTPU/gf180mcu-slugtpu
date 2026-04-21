@@ -18,7 +18,7 @@ module mxu #(
     input act_enable_i, // from control
     input act_valid_i,  // from sram
     input [BUS_WIDTH-1:0] act_bus_i,
-    output act_ready_o,
+    output logic act_ready_o,
 
     //weights
     input weight_enable_i,
@@ -26,17 +26,18 @@ module mxu #(
     input [BUS_WIDTH-1:0] weight_bus_i,
     output weight_ready_o,
 
-    output logic [ACC_WIDTH-1:0] psum_o [N-1:0],
+    output logic signed [ACC_WIDTH-1:0] psum_o [N-1:0],
     output logic psum_valid_o [N-1:0],
 
     output [(ACC_WIDTH)*8-1:0] debug_output,
-    output [(DATA_WIDTH+2)*N-1:0] activation_debug
+    output [(DATA_WIDTH+2)*N-1:0] activation_debug,
+    output [N-1:0] debug_valids
 );
 
     logic [3:0] activation_count, weight_count;
     logic act_valid_l, weight_valid_l, act_select, weight_select, shift_en;
-    assign act_valid_l = act_enable_i & act_valid_i;
-    assign weight_valid_l = weight_enable_i & weight_valid_i;
+    assign act_valid_l = act_enable_i & act_valid_i & act_ready_o;
+    assign weight_valid_l = weight_enable_i & weight_valid_i ;
 
     counter #(
         .width_p(4)
@@ -61,12 +62,31 @@ module mxu #(
     assign weight_select = weight_count[3];
     assign act_select = activation_count[3];
 
+    /*
+    INCOMPLETE
+    easier to reason about w/complete compute core/mem behavior
+    shift_en should be flip flopped
+    ready_o should be combinatational
+    */
     always_comb begin
         shift_en = '1;
-        // if(weight_count == 4'b0111 && ~act_valid_l)
-        //     shift_en = '0;
+        if(weight_count >= 4'b1000 & ~act_valid_l)
+            shift_en = '0;
     end
+    // always_ff @(posedge clk_i) begin
+    //     if (rst_i | ~weight_enable_i)
+    //         shift_en <= '1;
+    //     else if(weight_count >= 4'b0111 & ~act_valid_l)
+    //         shift_en <= '0;
+    // end
     assign weight_ready_o = shift_en;
+
+    always_ff @( posedge clk_i ) begin
+        if(rst_i | (~act_enable_i & ~weight_enable_i))
+            act_ready_o <= '0;
+        else if(weight_count == 4'b0110)
+            act_ready_o <= '1;
+    end
 
 
     logic [DATA_WIDTH+1:0] act_shift_in [N-1:0];
@@ -90,6 +110,8 @@ module mxu #(
             assign weight_select_n[i]   = weight_shift_out[i][DATA_WIDTH+1];
             assign weight_valid_n[i]    = weight_shift_out[i][DATA_WIDTH];
             assign weight_data_n[i]     = weight_shift_out[i][DATA_WIDTH-1:0];
+
+            assign debug_valids[i]      = weight_shift_out[i][DATA_WIDTH];
         end
     endgenerate
 
@@ -111,7 +133,8 @@ module mxu #(
         .clk(clk_i),
         .rst(rst_i),
         .data_i(weight_shift_in),
-        .enable_i(shift_en),
+        //.enable_i(shift_en),
+        .enable_i('1),
         .data_o(weight_shift_out)
     );
 
@@ -147,8 +170,8 @@ module mxu #(
             assign psum_o[i] = mxu_out[N-1-i][ACC_WIDTH-1:0];
             assign psum_valid_o[i] = mxu_out[N-1-i][ACC_WIDTH];
 
-            assign debug_output[(i+1)*ACC_WIDTH-1:i*ACC_WIDTH] = sys_out[i];
-            assign activation_debug[(i+1)*(DATA_WIDTH+2)-1:i*(DATA_WIDTH+2)] = act_shift_out[i];
+            assign debug_output[(i+1)*ACC_WIDTH-1:i*ACC_WIDTH] = mxu_out[i];
+            assign activation_debug[(i+1)*(DATA_WIDTH+2)-1:i*(DATA_WIDTH+2)] = weight_shift_out[i];
         end
     endgenerate
     
