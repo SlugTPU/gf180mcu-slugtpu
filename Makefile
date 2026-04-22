@@ -104,9 +104,6 @@ sim-sram:
 sim-house:
 	python3 -m pytest cocotb/test_house.py -s
 
-sim-spisys:
-	python3 -m pytest cocotb/test_spi_system.py -s
-	
 sim-tri:
 	python3 -m pytest cocotb/test_tri.py -s
 
@@ -139,6 +136,9 @@ sim-wb-mux:
 
 sim-wb-dma:
 	python3 -m pytest cocotb/test_wb_dma.py -s
+
+sim-wb-sdr-mt48lc16m16a2:
+	python3 -m pytest cocotb/test_wb_sdr_mt48lc16m16a2_7e.py -s
 
 sim-gl: ## Run gate-level simulation with cocotb (after copy-final)
 	cd cocotb; GL=1 PDK_ROOT=${PDK_ROOT} PDK=${PDK} SLOT=${SLOT} python3 chip_top_tb.py
