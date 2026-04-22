@@ -104,6 +104,9 @@ sim-sram:
 sim-house:
 	python3 -m pytest cocotb/test_house.py -s
 
+sim-spisys:
+	python3 -m pytest cocotb/test_spi_system.py -s
+
 sim-tri:
 	python3 -m pytest cocotb/test_tri.py -s
 
