@@ -101,13 +101,44 @@ module tpu_soc #(
    // -----------------------------------------------------------------------
    // SPI register bus (TODO: connect to instruction decoder)
    // -----------------------------------------------------------------------
-   wire [15:0] spi_oaddr;
-   wire [7:0]  spi_odata;
+
+   // raw async outputs from housekeeping_spi (SCK domain)
+   wire [15:0] spi_oaddr_async;
+   wire [7:0]  spi_odata_async;
    wire [7:0]  spi_idata;
-   wire        spi_rdstb;
-   wire        spi_wrstb;
+   wire        spi_rdstb_async;
+   wire        spi_wrstb_async;
 
    // assign spi_idata = '0;
+
+   // 2-FF synchronizers for strobes (SCK → clk_i)
+   // _meta: first stage, may be metastable; _sync: second stage, resolved
+   logic spi_rdstb_meta, spi_rdstb_sync;
+   logic spi_wrstb_meta, spi_wrstb_sync;
+   always_ff @(posedge clk_i) begin
+      if (rst_i) begin
+         spi_rdstb_meta <= '0;  spi_rdstb_sync <= '0;
+         spi_wrstb_meta <= '0;  spi_wrstb_sync <= '0;
+      end else begin
+         spi_rdstb_meta <= spi_rdstb_async;  spi_rdstb_sync <= spi_rdstb_meta;
+         spi_wrstb_meta <= spi_wrstb_async;  spi_wrstb_sync <= spi_wrstb_meta;
+      end
+   end
+
+   // latch addr/data into clk_i domain while either strobe is active;
+   // safe because SCK << clk_i so oaddr/odata are stable before the strobe arrives
+   logic [15:0] spi_oaddr_s;
+   logic [7:0]  spi_odata_s;
+
+   always_ff @(posedge clk_i) begin
+      if (rst_i) begin
+         spi_oaddr_s <= '0;
+         spi_odata_s <= '0;
+      end else if (spi_rdstb_sync | spi_wrstb_sync) begin
+         spi_oaddr_s <= spi_oaddr_async;
+         spi_odata_s <= spi_odata_async;
+      end
+   end
 
    housekeeping_spi spi (
       .reset               (rst_i),
@@ -117,10 +148,10 @@ module tpu_soc #(
       .CSB                 (spi_cs_ni),
       .sdoenb              (spi_oe_o),
       .idata               (spi_idata),
-      .odata               (spi_odata),
-      .oaddr               (spi_oaddr),
-      .rdstb               (spi_rdstb),
-      .wrstb               (spi_wrstb),
+      .odata               (spi_odata_async),
+      .oaddr               (spi_oaddr_async),
+      .rdstb               (spi_rdstb_async),
+      .wrstb               (spi_wrstb_async),
       .pass_thru_mgmt      (),
       .pass_thru_mgmt_delay(),
       .pass_thru_user      (),
