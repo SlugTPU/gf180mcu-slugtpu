@@ -1,7 +1,7 @@
 module sram_1x256 
     (input clk_i
     ,input rst_i
-    ,input [7:0] addr_i  // every 64 bits is one address - NOT single byte addressable
+    ,input [7:0] addr_i 
     ,input [7:0] wr_data_i
     ,input en_i //chip enable
     ,input rw_mode_i //1 for writing, 0 for reading

@@ -140,6 +140,7 @@ async def do_reset(dut):
     dut.weight_wr_data_i.value             = 0
     dut.weight_wr_valid_i.value            = 0
     dut.weight_rd_ready_i.value            = 0
+    dut.relu_enable_i.value                = 1
 
     await clock_start(dut.clk_i)
     await reset_sequence(dut.clk_i, dut.rst_i)

@@ -5,6 +5,8 @@ module relu_n
     input logic clk_i,
     input logic rst_i,
 
+    input logic relu_enable_i,
+
     input logic signed [width_p-1:0] data_i [N-1:0],
     input logic data_valid_i,
     input logic data_ready_i,
@@ -19,7 +21,9 @@ module relu_n
     genvar i;
     generate
         for (i = 0; i < N; i++) begin : gen_relu
-            assign data_d[i] = data_i[i][width_p-1] ? '0 : data_i[i];
+            assign data_d[i] = relu_enable_i
+                ? (data_i[i][width_p-1] ? '0 : data_i[i])
+                : data_i[i];                                
         end
     endgenerate
 

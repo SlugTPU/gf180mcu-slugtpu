@@ -14,6 +14,7 @@ module scalar_stage #(
     input logic load_bias_en_i,
     input logic load_zp_en_i,
     input logic load_scale_en_i,
+    input logic relu_enable_i,
 
     // dat pipeline input (from systolic array)
     input logic signed [PSUM_W-1:0] data_i[N-1:0],
@@ -88,6 +89,7 @@ module scalar_stage #(
         .bias_i      (bias_w),
         .zero_point_i(zp_w),
         .scale_i     (scale_w),
+        .relu_enable_i(relu_enable_i),
         
         .data_o      (data_o),
         .data_valid_o(data_valid_o),

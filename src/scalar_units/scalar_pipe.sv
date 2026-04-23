@@ -16,6 +16,7 @@ module scalar_pipe #(
     input logic signed [PSUM_W-1:0] bias_i [N-1:0],
     input logic signed [PSUM_W-1:0] zero_point_i [N-1:0],
     input logic signed [M0_W-1:0] scale_i [N-1:0],
+    input logic relu_enable_i,
 
     // quantized 8-bit output
     output logic signed [7:0] data_o [N-1:0],
@@ -74,6 +75,7 @@ module scalar_pipe #(
     ) u_relu (
         .clk_i        (clk_i),
         .rst_i        (rst_i),
+        .relu_enable_i(relu_enable_i),
         .data_i       (bias_data),
         .data_valid_i (bias_valid),
         .data_ready_i (relu_ready),

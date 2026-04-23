@@ -13,6 +13,7 @@ module compute_core #(
     input load_bias_en_i,
     input load_zp_en_i,
     input load_scale_en_i,
+    input relu_enable_i,
     // mxu
     input act_enable_i,
     input weight_enable_i,
@@ -88,6 +89,7 @@ module compute_core #(
         .load_bias_en_i(load_bias_en_i),
         .load_zp_en_i(load_zp_en_i),
         .load_scale_en_i(load_scale_en_i),
+        .relu_enable_i(relu_enable_i),
 
         .data_i(psum),
         .data_valid_i(any_psum_valid),

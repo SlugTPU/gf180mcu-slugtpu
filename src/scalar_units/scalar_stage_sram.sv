@@ -13,6 +13,7 @@ module scalar_stage_sram #(
     input load_bias_en_i,
     input load_zp_en_i,
     input load_scale_en_i,
+    input relu_enable_i,
 
     input signed [DATA_W-1:0] data_i [N-1:0],
     input  data_valid_i,

@@ -60,6 +60,7 @@ async def do_reset(dut):
     dut.rd_ready_i.value = 0
     dut.wr_data_i.value = 0
     dut.wr_valid_i.value = 0
+    dut.relu_enable_i.value = 1
 
 
     await clock_start(dut.clk_i)
