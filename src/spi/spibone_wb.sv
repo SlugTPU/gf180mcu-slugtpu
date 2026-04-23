@@ -127,6 +127,14 @@ module spibone_wb #(
     end
 
     // ------------------------------------------------------------------
+    // ------------------------------------------------------------------
+    // Combinational helpers for FSM
+    // ------------------------------------------------------------------
+    // Next shifted value when a new byte is received into addr_reg / data_reg
+    wire [AdrBits-1:0]  addr_shifted = {addr_reg[AdrBits-9:0], rx_byte_data};
+    wire [DataBits-1:0] data_shifted = {data_reg[DataBits-9:0], rx_byte_data};
+
+    // ------------------------------------------------------------------
     // Main FSM
     // ------------------------------------------------------------------
     typedef enum logic [3:0] {
@@ -201,11 +209,11 @@ module spibone_wb #(
 
                     // ---- Address bytes MSB first (AdrBytes total) ----
                     S_ADDR: if (rx_byte_done) begin
-                        addr_reg <= {addr_reg[AdrBits-9:0], rx_byte_data};
+                        addr_reg <= addr_shifted;
                         addr_cnt <= addr_cnt + 1;
                         if (addr_cnt == AdrCntW'(AdrBytes - 1)) begin
                             if (is_read) begin
-                                wb_adr_o <= {addr_reg[AdrBits-9:0], rx_byte_data}[AdrW-1:0];
+                                wb_adr_o <= addr_shifted[AdrW-1:0];
                                 wb_we_o  <= '0;
                                 wb_stb_o <= '1;
                                 wb_cyc_o <= '1;
@@ -248,10 +256,10 @@ module spibone_wb #(
 
                     // ---- Receive write data bytes MSB first (DataBytes total) ----
                     S_DATA: if (rx_byte_done) begin
-                        data_reg <= {data_reg[DataBits-9:0], rx_byte_data};
+                        data_reg <= data_shifted;
                         data_cnt <= data_cnt + 1;
                         if (data_cnt == DataCntW'(DataBytes - 1)) begin
-                            wb_dat_o <= {data_reg[DataBits-9:0], rx_byte_data}[DataW-1:0];
+                            wb_dat_o <= data_shifted[DataW-1:0];
                             wb_adr_o <= addr_reg[AdrW-1:0];
                             wb_we_o  <= '1;
                             wb_stb_o <= '1;
