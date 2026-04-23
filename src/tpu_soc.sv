@@ -66,9 +66,6 @@ module tpu_soc #(
    wire [dma_data_w_lp/8 - 1:0] mux_s_sel;
    wire                          mux_s_ack;
 
-   // tpu_active: DMA master (m1) has bus when DMA is running; SPI bridge (m0) otherwise
-   wire tpu_active = dma_busy;
-
    // -----------------------------------------------------------------------
    // DMA control (TODO: connect to instruction decoder)
    // -----------------------------------------------------------------------
@@ -78,6 +75,9 @@ module tpu_soc #(
    wire                        dma_start;
    wire                        dma_busy;
    wire                        dma_done;
+
+   // tpu_active: DMA master (m1) has bus when DMA is running; SPI bridge (m0) otherwise
+   wire tpu_active = dma_busy;
 
    // -----------------------------------------------------------------------
    // DMA stream (TODO: connect to systolic-array SRAM)
