@@ -17,9 +17,9 @@ module sram_8x256
     always @(wr_data_i) wr_data_dly = #200 wr_data_i;
     always @(rw_mode_i) rw_mode_dly = #200 rw_mode_i;
 `else
-    always @(addr_i) addr_dly = addr_i;
-    always @(wr_data_i) wr_data_dly = wr_data_i;
-    always @(rw_mode_i) rw_mode_dly = rw_mode_i;
+    assign addr_dly = addr_i;
+    assign wr_data_dly = wr_data_i;
+    assign rw_mode_dly = rw_mode_i;
 `endif
 
 

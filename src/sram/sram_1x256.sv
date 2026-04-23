@@ -17,26 +17,20 @@ module sram_1x256
     always @(wr_data_i) wr_data_dly = #200 wr_data_i;
     always @(rw_mode_i) rw_mode_dly = #200 rw_mode_i;
 `else
-    always @(addr_i) addr_dly = addr_i;
-    always @(wr_data_i) wr_data_dly = wr_data_i;
-    always @(rw_mode_i) rw_mode_dly = rw_mode_i;
+    assign addr_dly = addr_i;
+    assign wr_data_dly = wr_data_i;
+    assign rw_mode_dly = rw_mode_i;
 `endif
 
-
-    genvar i;
-    generate
-        for (i = 0; i < 8 ; i++ ) begin
-            gf180mcu_ocd_ip_sram__sram256x8m8wm1
-            sram_mod_i(
-                .CLK(clk_i),
-                .CEN(~en_i),
-                .GWEN(~rw_mode_dly),
-                .WEN('0),
-                .A(addr_dly),
-                .D(wr_data_dly[i*8 +7 : i*8]),
-                .Q(rd_data_o[i*8 +7 : i*8])
-            );
-        end
-    endgenerate
+    gf180mcu_ocd_ip_sram__sram256x8m8wm1
+    sram_inst(
+        .CLK(clk_i),
+        .CEN(~en_i),
+        .GWEN(~rw_mode_dly),
+        .WEN('0),
+        .A(addr_dly),
+        .D(wr_data_dly),
+        .Q(rd_data_o)
+    );
 
 endmodule
