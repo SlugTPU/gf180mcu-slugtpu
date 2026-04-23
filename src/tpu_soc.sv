@@ -120,11 +120,15 @@ module tpu_soc #(
    wire                      dec_tpu_we, dec_tpu_stb, dec_tpu_cyc, dec_tpu_ack;
 
    // tpu_regs bus (32-bit data)
-   wire [31:0] tpureg_adr   = dec_tpu_adr_wide;
-   wire [31:0] tpureg_dat_w = dec_tpu_dat_w_wide[31:0]; // lower 32 bits of write data
+   wire [31:0] tpureg_adr;
+   wire [31:0] tpureg_dat_w;
    wire [31:0] tpureg_dat_r;
-   wire        tpureg_we = dec_tpu_we, tpureg_stb = dec_tpu_stb;
-   wire        tpureg_cyc = dec_tpu_cyc, tpureg_ack;
+   wire        tpureg_we, tpureg_stb, tpureg_cyc, tpureg_ack;
+   assign tpureg_adr   = dec_tpu_adr_wide;
+   assign tpureg_dat_w = dec_tpu_dat_w_wide[31:0];
+   assign tpureg_we    = dec_tpu_we;
+   assign tpureg_stb   = dec_tpu_stb;
+   assign tpureg_cyc   = dec_tpu_cyc;
    assign dec_tpu_dat_r_wide = {{(dma_data_w_lp-32){1'b0}}, tpureg_dat_r};
    assign dec_tpu_ack        = tpureg_ack;
 
