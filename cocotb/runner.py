@@ -39,6 +39,7 @@ def run_test(parameters, sources, module_name, hdl_toplevel, testcase=None, sims
             build_dir=build_dir,
             parameters=parameters,
             build_args=build_args,
+            defines={"SIM": 1},
             verbose=True,
             waves=True
         )
