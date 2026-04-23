@@ -34,16 +34,48 @@ module tpu_soc #(
    localparam dma_addr_w_lp  = $clog2(_rows_lp) + $clog2(_banks_lp) + $clog2(_cols_lp) - $clog2(dram_burst_p);
 
    // -----------------------------------------------------------------------
-   // WishBone bus wires (DMA master → SDRAM controller)
+   // WishBone bus wires
    // -----------------------------------------------------------------------
-   wire [dma_addr_w_lp - 1:0]   wb_adr;
-   wire [dma_data_w_lp - 1:0]   wb_dat_m2s;
-   wire [dma_data_w_lp - 1:0]   wb_dat_s2m;
-   wire                          wb_we;
-   wire                          wb_stb;
-   wire                          wb_cyc;
-   wire [dma_data_w_lp/8 - 1:0] wb_sel;
-   wire                          wb_ack;
+
+   // DMA master → mux m1
+   wire [dma_addr_w_lp - 1:0]   dma_wb_adr;
+   wire [dma_data_w_lp - 1:0]   dma_wb_dat_w;
+   wire [dma_data_w_lp - 1:0]   dma_wb_dat_r;
+   wire                          dma_wb_we;
+   wire                          dma_wb_stb;
+   wire                          dma_wb_cyc;
+   wire [dma_data_w_lp/8 - 1:0] dma_wb_sel;
+   wire                          dma_wb_ack;
+
+   // SPI bridge → mux m0 (TODO: connect to SPI-to-WB bridge)
+   wire [dma_addr_w_lp - 1:0]   spi_wb_adr;
+   wire [dma_data_w_lp - 1:0]   spi_wb_dat_w;
+   wire [dma_data_w_lp - 1:0]   spi_wb_dat_r;
+   wire                          spi_wb_we;
+   wire                          spi_wb_stb;
+   wire                          spi_wb_cyc;
+   wire [dma_data_w_lp/8 - 1:0] spi_wb_sel;
+   wire                          spi_wb_ack;
+
+   assign spi_wb_adr   = '0;
+   assign spi_wb_dat_w = '0;
+   assign spi_wb_we    = '0;
+   assign spi_wb_stb   = '0;
+   assign spi_wb_cyc   = '0;
+   assign spi_wb_sel   = '0;
+
+   // mux slave → SDRAM controller
+   wire [dma_addr_w_lp - 1:0]   mux_s_adr;
+   wire [dma_data_w_lp - 1:0]   mux_s_dat_w;
+   wire [dma_data_w_lp - 1:0]   mux_s_dat_r;
+   wire                          mux_s_we;
+   wire                          mux_s_stb;
+   wire                          mux_s_cyc;
+   wire [dma_data_w_lp/8 - 1:0] mux_s_sel;
+   wire                          mux_s_ack;
+
+   // TODO: connect to control register
+   wire tpu_active;
 
    // -----------------------------------------------------------------------
    // DMA control (TODO: connect to instruction decoder)
@@ -75,7 +107,7 @@ module tpu_soc #(
    wire        spi_rdstb;
    wire        spi_wrstb;
 
-   assign spi_idata = '0;
+   // assign spi_idata = '0;
 
    housekeeping_spi spi (
       .reset               (rst_i),
@@ -120,17 +152,49 @@ module tpu_soc #(
        .wr_valid_i   (dma_wr_valid),
        .wr_ready_o   (dma_wr_ready),
        // WB master
-       .wb_adr_o     (wb_adr),
-       .wb_dat_o     (wb_dat_m2s),
-       .wb_dat_i     (wb_dat_s2m),
-       .wb_we_o      (wb_we),
-       .wb_stb_o     (wb_stb),
-       .wb_cyc_o     (wb_cyc),
-       .wb_sel_o     (wb_sel),
-       .wb_ack_i     (wb_ack)
+       .wb_adr_o     (dma_wb_adr),
+       .wb_dat_o     (dma_wb_dat_w),
+       .wb_dat_i     (dma_wb_dat_r),
+       .wb_we_o      (dma_wb_we),
+       .wb_stb_o     (dma_wb_stb),
+       .wb_cyc_o     (dma_wb_cyc),
+       .wb_sel_o     (dma_wb_sel),
+       .wb_ack_i     (dma_wb_ack)
    );
 
-   wb_mux_2to1 #() ();
+   wb_mux_2to1 #(
+       .AdrW  (dma_addr_w_lp),
+       .DataW (dma_data_w_lp)
+   ) wb_mux (
+       .tpu_active  (tpu_active),
+       // m0: SPI bridge
+       .m0_adr      (spi_wb_adr),
+       .m0_dat_w    (spi_wb_dat_w),
+       .m0_dat_r    (spi_wb_dat_r),
+       .m0_we       (spi_wb_we),
+       .m0_stb      (spi_wb_stb),
+       .m0_cyc      (spi_wb_cyc),
+       .m0_sel      (spi_wb_sel),
+       .m0_ack      (spi_wb_ack),
+       // m1: DMA master
+       .m1_adr      (dma_wb_adr),
+       .m1_dat_w    (dma_wb_dat_w),
+       .m1_dat_r    (dma_wb_dat_r),
+       .m1_we       (dma_wb_we),
+       .m1_stb      (dma_wb_stb),
+       .m1_cyc      (dma_wb_cyc),
+       .m1_sel      (dma_wb_sel),
+       .m1_ack      (dma_wb_ack),
+       // slave: SDRAM
+       .s_adr       (mux_s_adr),
+       .s_dat_w     (mux_s_dat_w),
+       .s_dat_r     (mux_s_dat_r),
+       .s_we        (mux_s_we),
+       .s_stb       (mux_s_stb),
+       .s_cyc       (mux_s_cyc),
+       .s_sel       (mux_s_sel),
+       .s_ack       (mux_s_ack)
+   );
 
    wb_sdr_mt48lc16m16a_7e #(
        .sys_clk_mhz_p   (sys_clk_mhz_p),
@@ -139,14 +203,14 @@ module tpu_soc #(
        .clk_i    (clk_i),
        .rst_i    (rst_i),
        // WB slave
-       .m_adr_i  (wb_adr),
-       .m_dat_i  (wb_dat_m2s),
-       .m_we_i   (wb_we),
-       .m_stb_i  (wb_stb),
-       .m_cyc_i  (wb_cyc),
-       .m_sel_i  (wb_sel),
-       .m_ack_o  (wb_ack),
-       .m_dat_o  (wb_dat_s2m),
+       .m_adr_i  (mux_s_adr),
+       .m_dat_i  (mux_s_dat_w),
+       .m_we_i   (mux_s_we),
+       .m_stb_i  (mux_s_stb),
+       .m_cyc_i  (mux_s_cyc),
+       .m_sel_i  (mux_s_sel),
+       .m_ack_o  (mux_s_ack),
+       .m_dat_o  (mux_s_dat_r),
        // SDRAM pins
        .s_dq_i   (sdr_dq_i),
        .s_dq_o   (sdr_dq_o),
