@@ -79,6 +79,7 @@ async def test_dma_read_basic(dut):
     assert got == expected, f"\nexpected {expected}\ngot      {got}"
     await ClockCycles(dut.clk_i, 1)
     assert dut.dma_busy.value == 0, "DMA should be idle after last word"
+    await FallingEdge(dut.clk_i)
 
 
 @cocotb.test()
@@ -103,6 +104,7 @@ async def test_dma_read_backpressure(dut):
             break
 
     assert got == expected, f"\nexpected {expected}\ngot      {got}"
+    await FallingEdge(dut.clk_i)
 
 
 # write path
@@ -142,6 +144,7 @@ async def test_dma_write_basic(dut):
     for i, w in enumerate(words):
         got = await host.read(base + i*4)
         assert got == w, f"addr {base+i*4:#x}: expected {w:#010x}, got {got:#010x}"
+    await FallingEdge(dut.clk_i)
 
 
 @cocotb.test()
@@ -180,6 +183,7 @@ async def test_dma_write_producer_stalls(dut):
     for i, w in enumerate(words):
         got = await host.read(base + i*4)
         assert got == w, f"addr {base+i*4:#x}: expected {w:#010x}, got {got:#010x}"
+    await FallingEdge(dut.clk_i)
 
 
 @cocotb.test()
@@ -220,6 +224,7 @@ async def test_dma_write_then_read(dut):
             break
 
     assert got == words, f"\nwrote {words}\nread  {got}"
+    await FallingEdge(dut.clk_i)
 
 
 # runner

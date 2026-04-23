@@ -95,6 +95,7 @@ async def test_m0_write_read(dut):
     await wb_write(dut, "m0", addr, data)
     got = await wb_read(dut, "m0", addr)
     assert got == data, f"m0: expected {data:#010x}, got {got:#010x}"
+    await FallingEdge(dut.clk_i)
 
 
 @cocotb.test()
@@ -108,6 +109,7 @@ async def test_m1_write_read(dut):
     await wb_write(dut, "m1", addr, data)
     got = await wb_read(dut, "m1", addr)
     assert got == data, f"m1: expected {data:#010x}, got {got:#010x}"
+    await FallingEdge(dut.clk_i)
 
 
 @cocotb.test()
@@ -128,6 +130,7 @@ async def test_inactive_port_blocked(dut):
     assert dut.m1_dat_r.value == 0, "Inactive port should read zero"
 
     idle_master(dut, "m1")
+    await FallingEdge(dut.clk_i)
 
 
 @cocotb.test()
@@ -149,6 +152,7 @@ async def test_switch_preserves_data(dut):
 
     got = await wb_read(dut, "m1", addr)
     assert got == data, f"Cross-port: expected {data:#010x}, got {got:#010x}"
+    await FallingEdge(dut.clk_i)
 
 
 @cocotb.test()
@@ -174,6 +178,7 @@ async def test_no_crosstalk(dut):
     dut.tpu_active.value = 0
     got_a = await wb_read(dut, "m0", addr_a)
     assert got_a == data_a, f"addr_a: expected {data_a:#010x}, got {got_a:#010x}"
+    await FallingEdge(dut.clk_i)
 
 
 @cocotb.test()
@@ -192,6 +197,7 @@ async def test_byte_sel(dut):
 
     got = await wb_read(dut, "m0", addr)
     assert got == 0xFFAAFFFF, f"byte_sel: expected 0xFFAAFFFF, got {got:#010x}"
+    await FallingEdge(dut.clk_i)
 
 
 # Runner
