@@ -7,12 +7,11 @@ module tpu_soc #(
     input clk_i
    ,input rst_i
 
-   // SPI slave interface
+   // SPI slave interface (spibone — direct SDRAM + TPU register access)
    ,input  spi_clk_i
    ,input  spi_cs_ni
    ,input  spi_mosi_i
    ,output spi_miso_o
-   ,output spi_oe_o
 
    // SDRAM
    ,input  [sdr_data_bits_p - 1 :0] sdr_dq_i
@@ -33,7 +32,7 @@ module tpu_soc #(
    localparam dma_data_w_lp  = sdr_data_bits_p * dram_burst_p;
    localparam dma_addr_w_lp  = $clog2(_rows_lp) + $clog2(_banks_lp) + $clog2(_cols_lp) - $clog2(dram_burst_p);
 
-   // -----------------------------------------------------------------------
+// -----------------------------------------------------------------------
    // WishBone bus wires
    // -----------------------------------------------------------------------
 
@@ -47,7 +46,7 @@ module tpu_soc #(
    wire [dma_data_w_lp/8 - 1:0] dma_wb_sel;
    wire                          dma_wb_ack;
 
-   // SPI bridge → mux m0 (TODO: connect to SPI-to-WB bridge)
+   // SPI bridge → mux m0
    wire [dma_addr_w_lp - 1:0]   spi_wb_adr;
    wire [dma_data_w_lp - 1:0]   spi_wb_dat_w;
    wire [dma_data_w_lp - 1:0]   spi_wb_dat_r;
@@ -56,13 +55,6 @@ module tpu_soc #(
    wire                          spi_wb_cyc;
    wire [dma_data_w_lp/8 - 1:0] spi_wb_sel;
    wire                          spi_wb_ack;
-
-   assign spi_wb_adr   = '0;
-   assign spi_wb_dat_w = '0;
-   assign spi_wb_we    = '0;
-   assign spi_wb_stb   = '0;
-   assign spi_wb_cyc   = '0;
-   assign spi_wb_sel   = '0;
 
    // mux slave → SDRAM controller
    wire [dma_addr_w_lp - 1:0]   mux_s_adr;
@@ -74,8 +66,8 @@ module tpu_soc #(
    wire [dma_data_w_lp/8 - 1:0] mux_s_sel;
    wire                          mux_s_ack;
 
-   // TODO: connect to control register
-   wire tpu_active;
+   // tpu_active: DMA master (m1) has bus when DMA is running; SPI bridge (m0) otherwise
+   wire tpu_active = dma_busy;
 
    // -----------------------------------------------------------------------
    // DMA control (TODO: connect to instruction decoder)
@@ -86,7 +78,6 @@ module tpu_soc #(
    wire                        dma_start;
    wire                        dma_busy;
    wire                        dma_done;
-
 
    // -----------------------------------------------------------------------
    // DMA stream (TODO: connect to systolic-array SRAM)
@@ -99,69 +90,132 @@ module tpu_soc #(
    wire                        dma_wr_ready;
 
    // -----------------------------------------------------------------------
-   // SPI register bus (TODO: connect to instruction decoder)
+   // spibone → wb_decoder wires (32-bit byte addr, dma_data_w_lp-bit data)
    // -----------------------------------------------------------------------
+   wire [31:0]               dec_adr;
+   wire [dma_data_w_lp-1:0] dec_dat_w;
+   wire [dma_data_w_lp-1:0] dec_dat_r;
+   wire                      dec_we, dec_stb, dec_cyc, dec_ack;
 
-   // raw async outputs from housekeeping_spi (SCK domain)
-   wire [15:0] spi_oaddr_async;
-   wire [7:0]  spi_odata_async;
-   wire [7:0]  spi_idata;
-   wire        spi_rdstb_async;
-   wire        spi_wrstb_async;
+   // wb_decoder port 0 (DRAM) wires — byte addr converted to word addr below
+   wire [31:0]               dec_dram_adr;
+   wire [dma_data_w_lp-1:0] dec_dram_dat_w;
+   wire [dma_data_w_lp-1:0] dec_dram_dat_r;
+   wire                      dec_dram_we, dec_dram_stb, dec_dram_cyc, dec_dram_ack;
 
-   // assign spi_idata = '0;
+   // 32-bit byte address → dma_addr_w_lp word address for wb_mux m0
+   assign spi_wb_adr   = dec_dram_adr[dma_addr_w_lp + 2 : 3];
+   assign spi_wb_dat_w = dec_dram_dat_w;
+   assign spi_wb_we    = dec_dram_we;
+   assign spi_wb_stb   = dec_dram_stb;
+   assign spi_wb_cyc   = dec_dram_cyc;
+   assign spi_wb_sel   = '1;
+   assign dec_dram_dat_r = spi_wb_dat_r;
+   assign dec_dram_ack   = spi_wb_ack;
 
-   // 2-FF synchronizers for strobes (SCK → clk_i)
-   // _meta: first stage, may be metastable; _sync: second stage, resolved
-   logic spi_rdstb_meta, spi_rdstb_sync;
-   logic spi_wrstb_meta, spi_wrstb_sync;
-   always_ff @(posedge clk_i) begin
-      if (rst_i) begin
-         spi_rdstb_meta <= '0;  spi_rdstb_sync <= '0;
-         spi_wrstb_meta <= '0;  spi_wrstb_sync <= '0;
-      end else begin
-         spi_rdstb_meta <= spi_rdstb_async;  spi_rdstb_sync <= spi_rdstb_meta;
-         spi_wrstb_meta <= spi_wrstb_async;  spi_wrstb_sync <= spi_wrstb_meta;
-      end
-   end
+   // wb_decoder port 1 (TPU regs) wires
+   wire [31:0]               dec_tpu_adr_wide;
+   wire [dma_data_w_lp-1:0] dec_tpu_dat_w_wide;
+   wire [dma_data_w_lp-1:0] dec_tpu_dat_r_wide;
+   wire                      dec_tpu_we, dec_tpu_stb, dec_tpu_cyc, dec_tpu_ack;
 
-   // latch addr/data into clk_i domain while either strobe is active;
-   // safe because SCK << clk_i so oaddr/odata are stable before the strobe arrives
-   logic [15:0] spi_oaddr_s;
-   logic [7:0]  spi_odata_s;
+   // tpu_regs bus (32-bit data)
+   wire [31:0] tpureg_adr   = dec_tpu_adr_wide;
+   wire [31:0] tpureg_dat_w = dec_tpu_dat_w_wide[31:0]; // lower 32 bits of write data
+   wire [31:0] tpureg_dat_r;
+   wire        tpureg_we = dec_tpu_we, tpureg_stb = dec_tpu_stb;
+   wire        tpureg_cyc = dec_tpu_cyc, tpureg_ack;
+   assign dec_tpu_dat_r_wide = {{(dma_data_w_lp-32){1'b0}}, tpureg_dat_r};
+   assign dec_tpu_ack        = tpureg_ack;
 
-   always_ff @(posedge clk_i) begin
-      if (rst_i) begin
-         spi_oaddr_s <= '0;
-         spi_odata_s <= '0;
-      end else if (spi_rdstb_sync | spi_wrstb_sync) begin
-         spi_oaddr_s <= spi_oaddr_async;
-         spi_odata_s <= spi_odata_async;
-      end
-   end
+   // tpu_regs outputs (32-bit addresses, truncated to DMA widths)
+   wire [31:0] dma_start_addr_wide;
+   wire [31:0] dma_word_count_wide;
+   assign dma_start_addr = dma_start_addr_wide[dma_addr_w_lp-1:0];
+   assign dma_word_count = dma_word_count_wide[15:0];
+   assign dma_we         = 1'b0; // TPU DMA always reads from DRAM into systolic array
 
-   housekeeping_spi spi (
-      .reset               (rst_i),
-      .SCK                 (spi_clk_i),
-      .SDI                 (spi_mosi_i),
-      .SDO                 (spi_miso_o),
-      .CSB                 (spi_cs_ni),
-      .sdoenb              (spi_oe_o),
-      .idata               (spi_idata),
-      .odata               (spi_odata_async),
-      .oaddr               (spi_oaddr_async),
-      .rdstb               (spi_rdstb_async),
-      .wrstb               (spi_wrstb_async),
-      .pass_thru_mgmt      (),
-      .pass_thru_mgmt_delay(),
-      .pass_thru_user      (),
-      .pass_thru_user_delay(),
-      .pass_thru_mgmt_reset(),
-      .pass_thru_user_reset()
+   // -----------------------------------------------------------------------
+   // spibone_wb: SPI slave → Wishbone master
+   // -----------------------------------------------------------------------
+   spibone_wb #(
+       .AdrW  (32),
+       .DataW (dma_data_w_lp)
+   ) spi_wb_inst (
+       .clk_i      (clk_i),
+       .rst_i      (rst_i),
+       .spi_sck_i  (spi_clk_i),
+       .spi_mosi_i (spi_mosi_i),
+       .spi_miso_o (spi_miso_o),
+       .spi_cs_n_i (spi_cs_ni),
+       .wb_adr_o   (dec_adr),
+       .wb_dat_o   (dec_dat_w),
+       .wb_dat_i   (dec_dat_r),
+       .wb_we_o    (dec_we),
+       .wb_stb_o   (dec_stb),
+       .wb_cyc_o   (dec_cyc),
+       .wb_sel_o   (/* full-word, unused here */),
+       .wb_ack_i   (dec_ack)
    );
-   // TODO:
-   instruction_decoder ();
 
+   // -----------------------------------------------------------------------
+   // wb_decoder: route spibone transactions to DRAM or TPU registers
+   // -----------------------------------------------------------------------
+   wb_decoder #(
+       .DataW (dma_data_w_lp)
+   ) decoder (
+       .clk_i      (clk_i),
+       .rst_i      (rst_i),
+       .wbs_adr_i  (dec_adr),
+       .wbs_dat_i  (dec_dat_w),
+       .wbs_dat_o  (dec_dat_r),
+       .wbs_we_i   (dec_we),
+       .wbs_stb_i  (dec_stb),
+       .wbs_cyc_i  (dec_cyc),
+       .wbs_ack_o  (dec_ack),
+       // port 0: DRAM (byte addr + 64-bit data)
+       .wbm0_adr_o (dec_dram_adr),
+       .wbm0_dat_o (dec_dram_dat_w),
+       .wbm0_dat_i (dec_dram_dat_r),
+       .wbm0_we_o  (dec_dram_we),
+       .wbm0_stb_o (dec_dram_stb),
+       .wbm0_cyc_o (dec_dram_cyc),
+       .wbm0_ack_i (dec_dram_ack),
+       // port 1: TPU registers (32-bit, zero-extended to DataW)
+       .wbm1_adr_o (dec_tpu_adr_wide),
+       .wbm1_dat_o (dec_tpu_dat_w_wide),
+       .wbm1_dat_i (dec_tpu_dat_r_wide),
+       .wbm1_we_o  (dec_tpu_we),
+       .wbm1_stb_o (dec_tpu_stb),
+       .wbm1_cyc_o (dec_tpu_cyc),
+       .wbm1_ack_i (dec_tpu_ack)
+   );
+
+   // -----------------------------------------------------------------------
+   // tpu_regs: TPU control/status registers via spibone
+   // -----------------------------------------------------------------------
+   tpu_regs regs (
+       .clk_i             (clk_i),
+       .rst_i             (rst_i),
+       .wb_adr_i          (tpureg_adr),
+       .wb_dat_i          (tpureg_dat_w),
+       .wb_dat_o          (tpureg_dat_r),
+       .wb_we_i           (tpureg_we),
+       .wb_stb_i          (tpureg_stb),
+       .wb_cyc_i          (tpureg_cyc),
+       .wb_ack_o          (tpureg_ack),
+       .tpu_start_o       (dma_start),
+       .tpu_reset_o       (),
+       .tpu_input_addr_o  (dma_start_addr_wide),
+       .tpu_output_addr_o (),
+       .tpu_length_o      (dma_word_count_wide),
+       .tpu_busy_i        (dma_busy),
+       .tpu_done_i        (dma_done)
+   );
+
+   // -----------------------------------------------------------------------
+   // wb_dma_master: TPU's DMA master (mux m1)
+   // -----------------------------------------------------------------------
    wb_dma_master #(
        .AddrW (dma_addr_w_lp),
        .DataW (dma_data_w_lp)
@@ -193,6 +247,9 @@ module tpu_soc #(
        .wb_ack_i     (dma_wb_ack)
    );
 
+   // -----------------------------------------------------------------------
+   // wb_mux_2to1: arbitrate between SPI bridge (m0) and DMA master (m1)
+   // -----------------------------------------------------------------------
    wb_mux_2to1 #(
        .AdrW  (dma_addr_w_lp),
        .DataW (dma_data_w_lp)
@@ -227,6 +284,9 @@ module tpu_soc #(
        .s_ack       (mux_s_ack)
    );
 
+   // -----------------------------------------------------------------------
+   // SDRAM controller
+   // -----------------------------------------------------------------------
    wb_sdr_mt48lc16m16a_7e #(
        .sys_clk_mhz_p   (sys_clk_mhz_p),
        .dram_burst_p     (dram_burst_p)
@@ -255,6 +315,7 @@ module tpu_soc #(
        .s_dqm_o  (sdr_dqm_o),
        .oe_o     (sdr_dq_oe_o)
    );
+
 
    // wire up with systolic array
 endmodule
