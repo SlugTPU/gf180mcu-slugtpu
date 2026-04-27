@@ -265,10 +265,13 @@ async def test_bank_switch_same_row(dut):
 
 @cocotb.test()
 async def test_bank_switch_diff_row(dut):
-    """Write to different banks AND different rows, then read back.
+    """Write to each bank at two different rows, forcing a single-bank PRECHARGE on the row switch.
 
-    Each switch crosses a row boundary, forcing the IDLE -> PRECHARGE ->
-    ACTIVE path before the next read or write can proceed.
+    Round 1 activates each bank at rows_a[b].  Round 2 writes the same banks
+    at rows_b[b] != rows_a[b], which requires IDLE -> PRECHARGE_SINGLE -> ACTIVE
+    for every bank (bank open, wrong row).  Only the target bank is closed;
+    other banks remain open.  Read-back of round-2 values verifies the full
+    PRECHARGE_SINGLE -> ACTIVE -> READ path as well.
     """
     clk_i = dut.clk_i
     rst_i = dut.rst_i
@@ -282,20 +285,34 @@ async def test_bank_switch_diff_row(dut):
     await reset_sequence(clk_i, rst_i)
     await FallingEdge(rst_i)
 
-    rows = [0, 1, 5, 3]
-    entries = [
-        (make_addr(row=rows[b], bank=b, burst_p=burst_p, cols_p=cols_p, banks_p=banks_p),
-         random.getrandbits(32) & bus_mask)
-        for b in range(banks_p)
-    ]
+    rows_a = [0, 1, 5, 3]
+    rows_b = [2, 4, 0, 7]
 
-    for addr, val in entries:
+    def entries_for_rows(rows):
+        return [
+            (make_addr(row=rows[b], bank=b, burst_p=burst_p, cols_p=cols_p, banks_p=banks_p),
+             random.getrandbits(32) & bus_mask)
+            for b in range(banks_p)
+        ]
+
+    round1 = entries_for_rows(rows_a)
+    round2 = entries_for_rows(rows_b)
+
+    # Round 1: activate each bank at rows_a (no precharge needed yet)
+    for addr, val in round1:
         ok = await wb_write(dut, addr, val)
-        assert ok, f"Write to addr {hex(addr)} timed out"
+        assert ok, f"Round-1 write to addr {hex(addr)} timed out"
 
-    for addr, expected in entries:
+    # Round 2: write same banks at different rows → forces PRECHARGE per bank
+    for addr, val in round2:
+        ok = await wb_write(dut, addr, val)
+        assert ok, f"Round-2 write to addr {hex(addr)} timed out"
+
+    # Read back round-2 values; each bank is still open at rows_b so these are
+    # page hits, but the first read after the last write flushes via IDLE anyway.
+    for addr, expected in round2:
         ok, got = await wb_read(dut, addr)
-        assert ok, f"Read from addr {hex(addr)} timed out"
+        assert ok, f"Round-2 read from addr {hex(addr)} timed out"
         assert got == expected, (
             f"addr {hex(addr)}: expected {hex(expected)}, got {hex(got)}"
         )

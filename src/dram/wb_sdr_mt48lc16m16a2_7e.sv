@@ -99,6 +99,13 @@ module wb_sdr_mt48lc16m16a_7e #(
       s_we_no  = 1'b0;
    endtask
 
+   task automatic set_cmd_PRECHARGE_SINGLE ();
+      s_cs_no  = 1'b0;
+      s_ras_no = 1'b0;
+      s_cas_no = 1'b1;
+      s_we_no  = 1'b0;
+   endtask
+
    task automatic set_cmd_AUTO_REFRESH();
       s_cs_no  = 1'b0;
       s_ras_no = 1'b0;
@@ -625,29 +632,33 @@ module wb_sdr_mt48lc16m16a_7e #(
       end
       PRECHARGE: begin
          /** Register map:
-          r[0]: ARG: Go to auto refresh next?
+          r[0]: ARG: Go to auto refresh next? (implies PRECHARGE ALL)
           r[1]: Sent PRECHARGE command
           **/
 
-         // PRECHARGE ALL closes every bank
-         bank_active_d = '0;
-
-         // Always precharges ALL banks
          if (!r_q[1]) begin
             dram_initialized = 1'b0;
-            set_cmd_PRECHARGE_ALL();
-            // set A10 high for precharge all
-            s_addr_o = 13'b0_0100_0000_0000;
             r_d[1] = 1'b1;
+
+            if (r_q[0]) begin
+               // Pre-refresh: must close ALL banks before AUTO REFRESH
+               set_cmd_PRECHARGE_ALL();
+               s_addr_o = 13'b0_0100_0000_0000; // A10 = 1
+               bank_active_d = '0;
+            end else begin
+               // Page miss: close only the offending bank
+               set_cmd_PRECHARGE_SINGLE();
+               s_addr_o = 13'b0_0000_0000_0000; // A10 = 0
+               s_ba_o = addr_bank_w;
+               bank_active_d[addr_bank_w] = 1'b0;
+            end
 
             if (tRP_wait_cycles_lp - 1 > 0) begin
                wait_counter_d = tRP_wait_cycles_lp - 2;
                state_d = state_q;
             end else begin
                reset_registers();
-
                if (r_q[0]) begin
-                  // r_d[0] = 1'b1;
                   state_d = AUTO_REFRESH;
                end else begin
                   state_d = IDLE;
@@ -659,13 +670,10 @@ module wb_sdr_mt48lc16m16a_7e #(
 
             if (wait_counter_q > 0) begin
                wait_counter_d = wait_counter_q - 1;
-
                state_d = state_q;
             end else begin
                reset_registers();
-
                if (r_q[0]) begin
-                  // r_d[0] = 1'b1;
                   state_d = AUTO_REFRESH;
                end else begin
                   state_d = IDLE;
