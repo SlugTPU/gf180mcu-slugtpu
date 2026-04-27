@@ -146,10 +146,9 @@ module wb_sdr_mt48lc16m16a_7e #(
    //   (Beware of collisions between states! Sometimes, it can be useful (i.e. 'functionn' arguments)
    logic                                  r_d[n_reg_lp], r_q[n_reg_lp];
 
-   // save previous bank/row address for handling precharging and activation
-   logic                                        valid_prev_d, valid_prev_q;
-   logic [$clog2(_banks_p) - 1:0]               prev_bank_d, prev_bank_q;
-   logic [$clog2(_rows_p) - 1:0]                prev_row_addr_d, prev_row_addr_q;
+   // per-bank open-row tracking
+   logic [_banks_p - 1:0]           bank_active_d, bank_active_q;
+   logic [$clog2(_rows_p) - 1:0]    bank_row_d [_banks_p], bank_row_q [_banks_p];
 
    logic                                        shift_enable;
 
@@ -169,24 +168,9 @@ module wb_sdr_mt48lc16m16a_7e #(
       end
    endfunction
 
-   function automatic is_same_bank();
-      begin
-         if (valid_prev_q) begin
-            is_same_bank = (addr_bank_w == prev_bank_q);
-         end else begin
-            is_same_bank = '0;
-         end
-      end
-   endfunction
-
    function automatic is_same_row();
-      begin
-         if (valid_prev_q) begin
-            is_same_row = (addr_row_w == prev_row_addr_q);
-         end else begin
-            is_same_row = '0;
-         end
-      end
+      is_same_row = bank_active_q[addr_bank_w] &&
+                    (bank_row_q[addr_bank_w] == addr_row_w);
    endfunction
 
    function automatic state_t to_read_or_write();
@@ -229,13 +213,11 @@ module wb_sdr_mt48lc16m16a_7e #(
 
    always_ff @(posedge clk_i) begin
       if (rst_i) begin
-         valid_prev_q <= '0;
-         prev_row_addr_q <= '0;
-         prev_bank_q <= '0;
+         bank_active_q <= '0;
+         for (int i = 0; i < _banks_p; i++) bank_row_q[i] <= '0;
       end else begin
-         valid_prev_q <= valid_prev_d;
-         prev_row_addr_q <= prev_row_addr_d;
-         prev_bank_q <= prev_bank_d;
+         bank_active_q <= bank_active_d;
+         for (int i = 0; i < _banks_p; i++) bank_row_q[i] <= bank_row_d[i];
       end
    end
 
@@ -309,9 +291,8 @@ module wb_sdr_mt48lc16m16a_7e #(
       wait_counter_d = '0;
       dram_initialized = 1'b0;
       shift_enable = 1'b0;
-      prev_row_addr_d = prev_row_addr_q;
-      prev_bank_d = prev_bank_q;
-      valid_prev_d = valid_prev_q;
+      bank_active_d = bank_active_q;
+      for (int i = 0; i < _banks_p; i++) bank_row_d[i] = bank_row_q[i];
       m_ack_o = 1'b0;
       s_cke_o = 1;
 
@@ -464,8 +445,8 @@ module wb_sdr_mt48lc16m16a_7e #(
          reset_registers();
 
          if (auto_refreshes_needed_q > 0) begin
-            // need to precharge if not already
-            if (valid_prev_q) begin
+            // need to precharge any open banks before auto-refresh
+            if (|bank_active_q) begin
                r_d[0] = 1'b1;
                state_d = PRECHARGE;
             end else begin
@@ -473,14 +454,12 @@ module wb_sdr_mt48lc16m16a_7e #(
             end
          end else if (!m_cyc_i || !m_stb_i) begin
             state_d = state_q;
-         end else if (!valid_prev_q) begin
-            state_d = ACTIVE;
+         end else if (!bank_active_q[addr_bank_w]) begin
+            state_d = ACTIVE;       // bank not open → activate
          end else if (!is_same_row()) begin
-            state_d = PRECHARGE;
-         end else if (!is_same_bank()) begin
-            state_d = ACTIVE;
+            state_d = PRECHARGE;    // bank open, wrong row → precharge first
          end else begin
-            state_d = state_t'((m_we_i) ? WRITE : READ_BEGIN);
+            state_d = to_read_or_write();   // page hit
          end
       end
       ACTIVE: begin
@@ -491,13 +470,12 @@ module wb_sdr_mt48lc16m16a_7e #(
          s_addr_o = (_sdr_addr_bits_p)'({'0, addr_row_w});
          s_ba_o = addr_bank_w;
 
-         prev_bank_d = addr_bank_w;
-         prev_row_addr_d = addr_row_w;
+         bank_row_d[addr_bank_w] = addr_row_w;
 
          if (!r_q[0]) begin
             set_cmd_ACTIVE();
             wait_counter_d = tRCD_wait_cycles_lp - 2;
-            valid_prev_d = 1'b1;
+            bank_active_d[addr_bank_w] = 1'b1;
             r_d[0] = 1'b1;
          end else begin
             set_cmd_NOP();
@@ -651,8 +629,8 @@ module wb_sdr_mt48lc16m16a_7e #(
           r[1]: Sent PRECHARGE command
           **/
 
-         // on precharge, we can no longer "cache" previous row and bank
-         valid_prev_d = '0;
+         // PRECHARGE ALL closes every bank
+         bank_active_d = '0;
 
          // Always precharges ALL banks
          if (!r_q[1]) begin

@@ -156,6 +156,153 @@ async def test_write(dut):
     # go quiet for a bit for checking autorefresh
     await ClockCycles(clk_i, 1000)
 
+async def wb_write(dut, addr, data, timeout_us=1000):
+    """Wishbone write; returns True on ack, False on timeout."""
+    clk_i   = dut.clk_i
+    m_ack_o = dut.m_ack_o
+
+    await FallingEdge(clk_i)
+    dut.m_we_i.value  = 1
+    dut.m_stb_i.value = 1
+    dut.m_cyc_i.value = 1
+    dut.m_sel_i.value = 0
+    dut.m_adr_i.value = addr
+    dut.m_dat_i.value = data
+
+    t  = Timer(timeout_us, unit="us")
+    ma = RisingEdge(m_ack_o)
+    r  = await First(t, ma)
+
+    await RisingEdge(clk_i)
+    dut.m_we_i.value  = 0
+    dut.m_stb_i.value = 0
+    dut.m_cyc_i.value = 0
+    dut.m_adr_i.value = 0
+    dut.m_dat_i.value = 0
+
+    return r is not t
+
+
+async def wb_read(dut, addr, timeout_us=1000):
+    """Wishbone read; returns (True, data) on ack, (False, None) on timeout."""
+    clk_i   = dut.clk_i
+    m_ack_o = dut.m_ack_o
+    m_dat_o = dut.m_dat_o
+
+    await FallingEdge(clk_i)
+    dut.m_we_i.value  = 0
+    dut.m_stb_i.value = 1
+    dut.m_cyc_i.value = 1
+    dut.m_sel_i.value = 1
+    dut.m_adr_i.value = addr
+    dut.m_dat_i.value = 0
+
+    t  = Timer(timeout_us, unit="us")
+    ma = RisingEdge(m_ack_o)
+    r  = await First(t, ma)
+
+    await FallingEdge(clk_i)
+    data = m_dat_o.value.to_unsigned() if r is not t else None
+
+    dut.m_we_i.value  = 0
+    dut.m_stb_i.value = 0
+    dut.m_cyc_i.value = 0
+    dut.m_sel_i.value = 0
+    dut.m_adr_i.value = 0
+
+    await RisingEdge(clk_i)
+    return (r is not t), data
+
+
+# Build a user address matching the controller's bit-field layout:
+#   addr_bank_w = m_adr_i[(log2(cols) - log2(burst)) + log2(banks) - 1 -: log2(banks)]
+#   addr_row_w  = m_adr_i[usr_addr_bits - 1 -: log2(rows)]
+#   addr_col_w  = m_adr_i[log2(cols) - 1 : 0]   (overlaps bank bits at the top)
+def make_addr(row, bank, col=0, burst_p=4, cols_p=512, banks_p=4):
+    import math
+    bank_shift = int(math.log2(cols_p)) - int(math.log2(burst_p))
+    row_shift  = bank_shift + int(math.log2(banks_p))
+    col_mask   = (1 << bank_shift) - 1
+    return (row << row_shift) | (bank << bank_shift) | (col & col_mask)
+
+
+@cocotb.test()
+async def test_bank_switch_same_row(dut):
+    """Write distinct values to all 4 banks at the same row, then read back.
+
+    After the first ACTIVE, subsequent writes to different banks on the same
+    row take the IDLE -> ACTIVE path (no PRECHARGE needed).
+    """
+    clk_i = dut.clk_i
+    rst_i = dut.rst_i
+    sys_clk_mhz = dut.sys_clk_mhz_p.value.to_unsigned()
+    burst_p     = dut.dram_burst_p.value.to_unsigned()
+    cols_p      = dut.cols_p.value.to_unsigned()
+    banks_p     = dut.banks_p.value.to_unsigned()
+    bus_mask    = (1 << (dut.data_bits_p.value.to_unsigned() * burst_p)) - 1
+
+    Clock(clk_i, 1 / sys_clk_mhz, unit="us").start()
+    await reset_sequence(clk_i, rst_i)
+    await FallingEdge(rst_i)
+
+    values = [random.getrandbits(32) & bus_mask for _ in range(banks_p)]
+    addrs  = [make_addr(row=0, bank=b, burst_p=burst_p, cols_p=cols_p, banks_p=banks_p)
+              for b in range(banks_p)]
+
+    for addr, val in zip(addrs, values):
+        ok = await wb_write(dut, addr, val)
+        assert ok, f"Write to addr {hex(addr)} timed out"
+
+    for addr, expected in zip(addrs, values):
+        ok, got = await wb_read(dut, addr)
+        assert ok, f"Read from addr {hex(addr)} timed out"
+        assert got == expected, (
+            f"addr {hex(addr)}: expected {hex(expected)}, got {hex(got)}"
+        )
+
+    await ClockCycles(clk_i, 20)
+
+
+@cocotb.test()
+async def test_bank_switch_diff_row(dut):
+    """Write to different banks AND different rows, then read back.
+
+    Each switch crosses a row boundary, forcing the IDLE -> PRECHARGE ->
+    ACTIVE path before the next read or write can proceed.
+    """
+    clk_i = dut.clk_i
+    rst_i = dut.rst_i
+    sys_clk_mhz = dut.sys_clk_mhz_p.value.to_unsigned()
+    burst_p     = dut.dram_burst_p.value.to_unsigned()
+    cols_p      = dut.cols_p.value.to_unsigned()
+    banks_p     = dut.banks_p.value.to_unsigned()
+    bus_mask    = (1 << (dut.data_bits_p.value.to_unsigned() * burst_p)) - 1
+
+    Clock(clk_i, 1 / sys_clk_mhz, unit="us").start()
+    await reset_sequence(clk_i, rst_i)
+    await FallingEdge(rst_i)
+
+    rows = [0, 1, 5, 3]
+    entries = [
+        (make_addr(row=rows[b], bank=b, burst_p=burst_p, cols_p=cols_p, banks_p=banks_p),
+         random.getrandbits(32) & bus_mask)
+        for b in range(banks_p)
+    ]
+
+    for addr, val in entries:
+        ok = await wb_write(dut, addr, val)
+        assert ok, f"Write to addr {hex(addr)} timed out"
+
+    for addr, expected in entries:
+        ok, got = await wb_read(dut, addr)
+        assert ok, f"Read from addr {hex(addr)} timed out"
+        assert got == expected, (
+            f"addr {hex(addr)}: expected {hex(expected)}, got {hex(got)}"
+        )
+
+    await ClockCycles(clk_i, 20)
+
+
 @cocotb.test()
 async def test_random_access(dut):
     clk_i = dut.clk_i
@@ -264,6 +411,8 @@ tests =[
     'test_initialization',
     'test_write',
     'test_read',
+    'test_bank_switch_same_row',
+    'test_bank_switch_diff_row',
 ]
 
 proj_path = Path("./src").resolve()
