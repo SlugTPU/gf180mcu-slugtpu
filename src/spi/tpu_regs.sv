@@ -2,7 +2,7 @@
 // Wishbone slave: TPU control registers
 //
 // Register map (base = 0x1000_0000):
-//   0x00  RW  CTRL        [0]=start (self-clearing), [1]=reset
+//   0x00  RW  CTRL        [0]=tpu_enable (1=DMA owns bus), [1]=reset
 //   0x04  RO  STATUS      [0]=busy, [1]=done
 //   0x08  RW  INPUT_ADDR  — DRAM address of TPU input data
 //   0x0C  RW  OUTPUT_ADDR — DRAM address for TPU to write results
@@ -26,7 +26,7 @@ module tpu_regs (
     output logic        wb_ack_o,
 
     // TPU control outputs
-    output logic        tpu_start_o,
+    output logic        tpu_enable_o,
     output logic        tpu_reset_o,
     output logic [31:0] tpu_input_addr_o,
     output logic [31:0] tpu_output_addr_o,
@@ -57,21 +57,19 @@ module tpu_regs (
     // Registers + TPU control
     always_ff @(posedge clk_i or posedge rst_i) begin
         if (rst_i) begin
-            tpu_start_o       <= '0;
+            tpu_enable_o      <= '0;
             tpu_reset_o       <= '0;
             tpu_input_addr_o  <= '0;
             tpu_output_addr_o <= '0;
             tpu_length_o      <= '0;
             wb_dat_o          <= '0;
         end else begin
-            tpu_start_o <= '0;  // auto-clears every cycle
-
             if (wb_cyc_i && wb_stb_i) begin
                 if (wb_we_i) begin
                     casez (reg_offset)
                         REG_CTRL: begin
-                            tpu_start_o <= wb_dat_i[0];
-                            tpu_reset_o <= wb_dat_i[1];
+                            tpu_enable_o <= wb_dat_i[0];
+                            tpu_reset_o  <= wb_dat_i[1];
                         end
                         REG_INPUT_ADDR:  tpu_input_addr_o  <= wb_dat_i;
                         REG_OUTPUT_ADDR: tpu_output_addr_o <= wb_dat_i;
@@ -80,7 +78,7 @@ module tpu_regs (
                     endcase
                 end else begin
                     casez (reg_offset)
-                        REG_CTRL:        wb_dat_o <= '0;
+                        REG_CTRL:        wb_dat_o <= {30'h0, tpu_reset_o, tpu_enable_o};
                         REG_STATUS:      wb_dat_o <= {30'h0, tpu_done_i, tpu_busy_i};
                         REG_INPUT_ADDR:  wb_dat_o <= tpu_input_addr_o;
                         REG_OUTPUT_ADDR: wb_dat_o <= tpu_output_addr_o;

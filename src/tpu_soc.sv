@@ -72,12 +72,19 @@ module tpu_soc #(
    wire [dma_addr_w_lp - 1:0] dma_start_addr;
    wire [15:0]                 dma_word_count;
    wire                        dma_we;
-   wire                        dma_start;
    wire                        dma_busy;
    wire                        dma_done;
 
-   // tpu_active: DMA master (m1) has bus when DMA is running; SPI bridge (m0) otherwise
-   wire tpu_active = dma_busy;
+   // tpu_enable: software-controlled register bit; 1 = DMA owns the bus, 0 = SPI owns it
+   wire tpu_enable;
+   wire tpu_active = tpu_enable;
+
+   // Rising edge of tpu_enable generates the one-cycle DMA start pulse
+   logic tpu_enable_r;
+   always_ff @(posedge clk_i)
+       if (rst_i) tpu_enable_r <= '0;
+       else        tpu_enable_r <= tpu_enable;
+   wire dma_start = tpu_enable & ~tpu_enable_r;
 
    // -----------------------------------------------------------------------
    // DMA stream (TODO: connect to systolic-array SRAM)
@@ -208,7 +215,7 @@ module tpu_soc #(
        .wb_stb_i          (tpureg_stb),
        .wb_cyc_i          (tpureg_cyc),
        .wb_ack_o          (tpureg_ack),
-       .tpu_start_o       (dma_start),
+       .tpu_enable_o      (tpu_enable),
        .tpu_reset_o       (),
        .tpu_input_addr_o  (dma_start_addr_wide),
        .tpu_output_addr_o (),

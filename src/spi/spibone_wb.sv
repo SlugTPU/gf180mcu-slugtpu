@@ -127,14 +127,6 @@ module spibone_wb #(
     end
 
     // ------------------------------------------------------------------
-    // ------------------------------------------------------------------
-    // Combinational helpers for FSM
-    // ------------------------------------------------------------------
-    // Next shifted value when a new byte is received into addr_reg / data_reg
-    wire [AdrBits-1:0]  addr_shifted = {addr_reg[AdrBits-9:0], rx_byte_data};
-    wire [DataBits-1:0] data_shifted = {data_reg[DataBits-9:0], rx_byte_data};
-
-    // ------------------------------------------------------------------
     // Main FSM
     // ------------------------------------------------------------------
     typedef enum logic [3:0] {
@@ -155,6 +147,15 @@ module spibone_wb #(
     logic [DataBits-1:0]      rd_data;    // holds WB read result
     logic [AdrCntW-1:0]       addr_cnt;
     logic [DataCntW-1:0]      data_cnt;   // used for both TX and DATA phases
+
+    // ------------------------------------------------------------------
+    // ------------------------------------------------------------------
+    // Combinational helpers for FSM
+    // ------------------------------------------------------------------
+    // Next shifted value when a new byte is received into addr_reg / data_reg
+    wire [AdrBits-1:0]  addr_shifted = {addr_reg[AdrBits-9:0], rx_byte_data};
+    wire [DataBits-1:0] data_shifted = {data_reg[DataBits-9:0], rx_byte_data};
+
 
     // sel is always full-word
     assign wb_sel_o = '1;
