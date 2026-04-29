@@ -31,10 +31,26 @@ module control_decoder #(
     output [DRAM_DATA_WIDTH-1:0] sram2dram_data_o,
     input sram2dram_ready_i,
 
-    output logic [2:0] tpu_state_o,
+    input [2:0] tpu_state_i,
+    output tpu_exit_o,
     output logic INTERNAL_ERROR_O
 );
     logic [INST_MAX_WIDTH_BYTES * 8 - 1 : 0] inst_q, inst_d;
+    
+    logic [SRAM_ADDR_WIDTH-1:0] inst_sram_addr, inst_result_sram_addr;
+    logic [DRAM_ADDR_WIDTH-1:0] inst_dram_addr;
+    logic [3:0] inst_relu_mode;
+    logic [1:0] inst_load_count_q, inst_load_count_d;
+    op_code_t inst_opcode;
+    logic [DRAM_COUNTER_WIDTH-1:0] inst_pipeline_amount , inst_dma_amount ;
+
+    assign inst_sram_addr           = inst_q[11:4];
+    assign inst_dram_addr           = inst_q[23:12];
+    assign inst_result_sram_addr    = inst_q[19:12];
+    assign inst_relu_mode           = inst_q[7:4];
+    assign inst_pipeline_amount     = inst_q[15:8];
+    assign inst_dma_amount          = inst_q[31:24];
+
     // Scalar stage controls
     logic                        load_bias_en_q, load_bias_en_d;
     logic                        load_zp_en_q, load_zp_en_d;
@@ -79,85 +95,173 @@ module control_decoder #(
     logic                        weight_rd_valid;
     logic                        weight_rd_ready;
 
-    /*
-    TPU STATE
-    */
-    enum bit[2:0] 
-        {RST        = 2'b00    // rst_i is high
-        ,IDLE       = 2'b01    // after reset or after exit
-        ,INIT_PC    = 2'b10    // Initalizing Program counter
-        ,COMPUTE    = 2'b11    // In compute mode
-        }
-    tpu_state_t;
+    assign act_wr_data = dram2sram_data_i;
+    assign weight_wr_data = dram2sram_data_i;
+    assign sram2dram_data_o = (act_enable_q) ? act_wr_data : weight_wr_data;
+
+    assign act_wr_valid = (act_enable_q) ? dram2sram_valid_i : '0;
+    assign weight_wr_valid = (weight_enable_q) ? dram2sram_valid_i : '0;
+    assign dram2sram_ready_o = (act_enable_q) ? act_downstream_ready : weight_downstream_ready;
+
+    assign act_rd_ready = (act_enable_q) ? sram2dram_ready_i : '0;
+    assign weight_rd_ready = (weight_enable_q) ? sram2dram_ready_i : '0;
+    assign sram2dram_valid_o = (act_enable_q) ? act_rd_valid : weight_rd_valid;
+    assign inst_opcode = inst_q[3:0];
+
     /*
     Instruction FSM (Mealy)
     Determine Opcode -> LOAD -> WAIT -> EXECUTE -> return to first state
     */
-    enum bit[3:0] 
-        {IDLE           = 3'b000,
-         LOAD_OPCODE    = 3'b001,
-         LOAD_ALL       = 3'b010,
-         WAIT           = 3'b011,
-         EXECUTE        = 3'b100
+    enum bit[1:0] 
+        {LOAD_OPCODE    = 2'b00,
+         LOAD_ALL       = 2'b01,
+         WAIT           = 2'b10,
+         WAIT_MATMUL    = 2'b11
         }
     decoder_state_t;
-    logic [3:0] decoder_state_l;
+    decoder_state_t decoder_state_q, decoder_state_d;
     /*
     OP CODES
     codes that start with 1 depend on act_load_ready
     codes that start with 01 depend on weight_load_ready
     codes that end in 1 depend on dma singals
+    matmul is unique because its a two part instruction
     */
     enum bit[4:0] 
         {EXIT               = 4'b0000
+
+        ,SRAM2DRAM          = 4'b1111
         ,DRAM2SRAM_ACT      = 4'b1101
         ,DRAM2SRAM_WEIGHT   = 4'b0101
-        ,SRAM2DRAM          = 4'b1111
+
+        ,LOAD_WEIGHTS       = 4'b0110
+
         ,LOAD_BIAS          = 4'b1000
         ,LOAD_ZP            = 4'b1100
-        ,LOAD_SCALE         = 4'b1110
-        ,MATMUL             = 4'b1010
-        ,LOAD_WEIGHTS       = 4'b0110
-        ,PIPELINE_SETUP     = 4'b0010
+        ,LOAD_SCALE         = 4'b1010
+        ,PIPELINE_SETUP     = 4'b1110
+
+        ,MATMUL             = 4'b0001
         }
     op_code_t;
 
-    always_ff @( posedge clk_i ) begin : tpu_state_block
-        if(rst_i)
-            tpu_state_o <= RST;
-        // TODO: else
-    end
-
-    always_ff @( posedge clk_i ) begin : decoder_state_block
-        if(rst_i)
-            decoder_state_l <= RST;
-        // TODO: else
-    end
-
-    always_ff @( posedge clk_i ) begin : enable_block
+    always_ff @( posedge clk_i ) begin : d_q_block
         if(rst_i) begin
+            decoder_state_q <= LOAD_OPCODE;
+            inst_q <= '0;
+
             load_bias_en_q <= '0;
             load_zp_en_q <= '0;
             load_scale_en_q <= '0;
             relu_enable_q <= '0;
             act_enable_q <= '0;
             weight_enable_q <= '0;
+            inst_load_count_q <= '0;
         end
         else begin
+            decoder_state_q <= decoder_state_d;
+            inst_q <= inst_d;
+
             load_bias_en_q <= load_bias_en_d;
             load_zp_en_q <= load_zp_en_d;
             load_scale_en_q <= load_scale_en_d;
             relu_enable_q <= relu_enable_d;
             act_enable_q <= act_enable_d;
             weight_enable_q <= weight_enable_d;
+            inst_load_count_q <= inst_load_count_d;
         end
     end
 
-    always_ff @( posedge clk_i ) begin : instruction_dff
-        if(rst_i) begin
-            inst_q <= '0;
-        end else begin
-            inst_q <= inst_d;
+    logic do_execute;
+
+    always_comb begin : instruction_blk
+        inst_d = inst_q;
+        inst_load_count_d = inst_load_count_q;
+        do_execute = '0;
+        tpu_exit_o = '0;
+        decoder_state_d = decoder_state_q;
+        case(decoder_state_q)
+            LOAD_OPCODE : begin
+                if (instruction_valid_i) begin
+                    inst_d[7 : 0] = instruction_data_i;
+                    inst_load_count_d = 2'b001;
+                    decoder_state_d = LOAD_ALL;
+                end
+            end
+            LOAD_ALL : begin
+                if (instruction_valid_i) begin
+                    if (inst_opcode[3] = 1'b1 || inst_opcode == LOAD_WEIGHTS) begin
+                        decoder_state_d = WAIT;
+                    end
+                    if (inst_opcode[0] == 1'b1 && inst_load_count_d == 2'b11) begin // DRAM
+                        decoder_state_d = WAIT;
+                    end
+                    if (inst_opcode == MATMUL && inst_load_count_d == 2'b10) begin
+                        decoder_state_d = WAIT;
+                    end
+                    inst_d[inst_load_count_q*8 +: 8] = instruction_data_i;
+                    inst_load_count_d = inst_load_count_d + 1'b1;
+                end
+            end
+            WAIT : begin
+                if (inst_opcode[3:2] == 2'b01 && weight_load_ready) begin
+                   do_execute = '1;
+                   decoder_state_d = LOAD_OPCODE;
+                end
+                if (inst_opcode[3] == 1'b1 && act_load_ready) begin
+                   do_execute = '1;
+                   decoder_state_d = LOAD_OPCODE;
+                end
+                if (inst_opcode == MATMUL && act_load_ready) begin
+                   do_execute = '1;
+                   decoder_state_d = WAIT_MATMUL;
+                end
+                if (inst_opcode == EXIT) begin
+                    decoder_state_d = LOAD_OPCODE;
+                    tpu_exit_o = '1;
+                end
+            end
+            WAIT_MATMUL : begin
+                if (act_load_ready) begin
+                    do_execute = '1;
+                    decoder_state_d = LOAD_OPCODE;
+                end
+            end
+        endcase
+    end
+
+    always_comb begin : execute_blk
+        if (do_execute == 1'b1) begin
+            case (inst_opcode)
+                // EXIT: TODO
+                SRAM2DRAM : begin
+                    
+                end
+                DRAM2SRAM_ACT : begin
+                    
+                end
+                DRAM2SRAM_WEIGHT : begin
+                    
+                end
+                LOAD_WEIGHTS : begin
+                    
+                end
+                LOAD_BIAS : begin
+                    
+                end
+                LOAD_ZP : begin
+                    
+                end
+                LOAD_SCALE : begin
+                    
+                end
+                PIPELINE_SETUP : begin
+                    
+                end
+                MATMUL : begin
+                    
+                end
+            endcase
         end
     end
 

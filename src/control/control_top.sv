@@ -33,9 +33,26 @@ module control_top #(
     output pc_ready_o,
 
     // TPU STATE
-    
+    output [2:0] tpu_state_o,
     output INTERNAL_ERROR_O
 );
+
+    /*
+    TPU STATE
+    */
+    enum bit[2:0] 
+        {RST        = 2'b00    // rst_i is high
+        ,IDLE       = 2'b01    // after reset or after exit
+        ,INIT_PC    = 2'b10    // Initalizing Program counter
+        ,COMPUTE    = 2'b11    // In compute mode
+        }
+    tpu_state_t;
+
+    always_ff @( posedge clk_i ) begin : tpu_state_block
+        if(rst_i)
+            tpu_state_o <= RST;
+        // TODO: else
+    end
     
     control_sram #(
         .sram_width_p(CONTROL_WIDTH)
