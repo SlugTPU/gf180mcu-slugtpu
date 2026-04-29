@@ -148,30 +148,30 @@ module mxu #(
         .psum_out_valid_n_o(sys_valid_out)
     );
 
-    logic [ACC_WIDTH:0] output_flipped [N-1:0];
-    logic [ACC_WIDTH:0] mxu_out [N-1:0];
+    // logic [ACC_WIDTH:0] output_flipped [N-1:0];
+    // logic [ACC_WIDTH:0] mxu_out [N-1:0];
 
     generate
         for (i = 0; i < N; i = i + 1) begin
-            assign output_flipped[i] = {sys_valid_out[N-1-i], sys_out[N-1-i]};
-            assign psum_o[i] = mxu_out[N-1-i][ACC_WIDTH-1:0];
-            assign psum_valid_o[i] = mxu_out[N-1-i][ACC_WIDTH];
+            // assign output_flipped[i] = {sys_valid_out[N-1-i], sys_out[N-1-i]};
+            assign psum_o[i] = sys_out[i];
+            assign psum_valid_o[i] = sys_valid_out[i];
 
-            assign debug_output[(i+1)*ACC_WIDTH-1:i*ACC_WIDTH] = mxu_out[i];
+            assign debug_output[(i+1)*ACC_WIDTH-1:i*ACC_WIDTH] = psum_o[i];
             assign activation_debug[(i+1)*(DATA_WIDTH+2)-1:i*(DATA_WIDTH+2)] = weight_shift_out[i];
         end
     endgenerate
     
-    tri_shift #(
-        .N(N),
-        .DATA_W(ACC_WIDTH+1)
-    ) outputs (
-        .clk(clk_i),
-        .rst(rst_i),
-        .data_i(output_flipped),
-        .enable_i('1),
-        .data_o(mxu_out)        
-    );
+    // tri_shift #(
+    //     .N(N),
+    //     .DATA_W(ACC_WIDTH+1)
+    // ) outputs (
+    //     .clk(clk_i),
+    //     .rst(rst_i),
+    //     .data_i(output_flipped),
+    //     .enable_i('1),
+    //     .data_o(mxu_out)        
+    // );
     
     
 endmodule

@@ -36,8 +36,11 @@ module scalar_stage_sram #(
 );
 
     logic signed [DATA_Q-1:0] quantized_data [N-1:0];
+    logic signed [DATA_Q-1:0] quantized_data_int [N-1:0];
+    logic [DATA_Q:0] quantized_data_flipped [N-1:0];
+    logic [DATA_Q:0] quantized_data_flipped_out [N-1:0];
 
-    logic quantized_ready, quantized_valid;
+    logic quantized_ready, quantized_valid, quantized_valid_int;
 
     //SRAM Control Signals
     //ASSUME NO DATA RACES
@@ -99,9 +102,29 @@ module scalar_stage_sram #(
         .data_valid_i(data_valid_i),
         .data_ready_o(data_ready_o),
 
-        .data_o(quantized_data),
-        .data_valid_o(quantized_valid),
+        .data_o(quantized_data_int),
+        .data_valid_o(quantized_valid_int),
         .data_ready_i(sram_downstream_ready_out)
     );
+
+    generate
+        for (i = 0; i < N; i = i + 1) begin
+            assign quantized_data_flipped[i] = {quantized_valid_int, quantized_data_int[N-1-i]};
+            assign quantized_data[i] = quantized_data_flipped_out[N-1-i][DATA_Q-1:0];
+        end
+    endgenerate
     
+    assign quantized_valid = quantized_data_flipped_out[7][DATA_Q];
+
+    tri_shift #(
+        .N(N),
+        .DATA_W(DATA_Q+1)
+    ) outputs (
+        .clk(clk_i),
+        .rst(rst_i),
+        .data_i(quantized_data_flipped),
+        .enable_i('1),
+        .data_o(quantized_data_flipped_out)        
+    );
+
 endmodule
