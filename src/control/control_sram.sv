@@ -1,6 +1,5 @@
 /*
 SRAM FIFO that interfaces with and serves as arbiter for both dram and decoder
-There is almost certainly a bug here lol
 */
 module control_sram #(
     parameter int sram_width_p = 8
@@ -21,7 +20,8 @@ module control_sram #(
     output is_full_o //used for initial load after exiting IDLE state
 );
 
-    logic [sram_width_p:0]      wr_ptr_n, wr_ptr_q, rd_ptr_n, rd_ptr_q, addr_l;
+    logic [sram_width_p:0]      wr_ptr_n, wr_ptr_q, rd_ptr_n, rd_ptr_q;
+    logic [sram_width_p-1:0]    addr_l;
     logic                       write_en_w, read_en_w, rw_mode, last_cycle_read;
     wire                        is_full_w, is_empty_w;
 
@@ -39,7 +39,7 @@ module control_sram #(
     // Make sure we do not write in when there is a valid read request
     assign ready_o = ~is_full_w & ~ready_i;
 
-    assign valid_o = ~last_rw_mode; // valid if there was a read transaction last cycle
+    assign valid_o = last_cycle_read; // valid if there was a read transaction last cycle
 
     assign rw_mode = write_en_w;
     assign addr_l = (write_en_w) ? wr_ptr_q[sram_width_p - 1:0] : rd_ptr_q[sram_width_p - 1:0];

@@ -453,12 +453,12 @@ def test_compute_core_each(testcase):
     )
 
 
-# def test_compute_core_all():
-#     """Runs all tests sequentially in one simulation."""
-#     run_test(
-#         parameters={},
-#         sources=sources,
-#         module_name="test_compute_core",
-#         hdl_toplevel="compute_core",
-#         sims=['icarus'],
-#     )
+def test_compute_core_all():
+    """Runs all tests sequentially in one simulation."""
+    run_test(
+        parameters={},
+        sources=sources,
+        module_name="test_compute_core",
+        hdl_toplevel="compute_core",
+        sims=['icarus'],
+    )

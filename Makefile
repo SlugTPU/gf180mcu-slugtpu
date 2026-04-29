@@ -140,6 +140,12 @@ sim-wb-mux:
 sim-wb-dma:
 	python3 -m pytest cocotb/test_wb_dma.py -s
 
+sim-control-buffer:
+	python3 -m pytest cocotb/test_control_buffer.py -s
+
+sim-control-sram:
+	python3 -m pytest cocotb/test_control_sram.py -s
+
 sim-wb-sdr-mt48lc16m16a2:
 	python3 -m pytest cocotb/test_wb_sdr_mt48lc16m16a2_7e.py -s
 

@@ -3,8 +3,6 @@
 // Output: NxN Matrix of ACC_WIDTH wide elements 
 // All matrices are row major
 
-//TODO: weight ready, activation ready logic and weight stall logic
-
 module mxu #(
     parameter int DATA_WIDTH = 8,
     parameter int ACC_WIDTH = 32,
@@ -62,23 +60,12 @@ module mxu #(
     assign weight_select = weight_count[3];
     assign act_select = activation_count[3];
 
-    /*
-    INCOMPLETE
-    easier to reason about w/complete compute core/mem behavior
-    shift_en should be flip flopped
-    ready_o should be combinatational
-    */
     always_comb begin
         shift_en = '1;
         if(weight_count >= 4'b1000 & ~act_valid_l)
             shift_en = '0;
     end
-    // always_ff @(posedge clk_i) begin
-    //     if (rst_i | ~weight_enable_i)
-    //         shift_en <= '1;
-    //     else if(weight_count >= 4'b0111 & ~act_valid_l)
-    //         shift_en <= '0;
-    // end
+
     assign weight_ready_o = shift_en;
 
     always_ff @( posedge clk_i ) begin

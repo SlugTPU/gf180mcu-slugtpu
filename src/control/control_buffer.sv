@@ -25,19 +25,19 @@ module control_buffer #(
     // control sram signals
     output logic [CONTROL_WIDTH-1:0] rd_data_o,
     output rd_valid_o,
-    input rd_ready_i,
+    input rd_ready_i
 
 );
     logic [DRAM_ADDR_WIDTH-1:0] pc_out_n;
     logic [DRAM_WIDTH-1:0] dff_array;
     logic [DEPTH_LOG2_P:0] rd_ptr_n, rd_ptr_q;
-    logic wr_ptr_n, wr_ptr_q;
+    logic wr_ptr_n, wr_ptr_q, write_en_w, read_en_w, is_empty_w;
     logic [DEPTH_LOG2_P-1:0] rd_ptr_l;
 
-    assign pc_out_n = (write_en_w) ? pc_out + 1 : pc_out_n;
+    assign pc_out = pc_out_n;
 
-    assign read_en_w = (ready_i && valid_o);
-    assign write_en_w = (valid_i && ready_o);
+    assign read_en_w = (rd_ready_i && rd_valid_o);
+    assign write_en_w = (wr_valid_i && wr_ready_o);
 
     assign rd_ptr_n = (read_en_w) ? rd_ptr_q + 1 : rd_ptr_q;
     assign wr_ptr_n = (write_en_w) ? wr_ptr_q + 1 : wr_ptr_q;
@@ -47,8 +47,8 @@ module control_buffer #(
 
     // We only write when the dff array is fully empty
     // Technically this wastes a cycle but whatever
-    assign ready_o = is_empty_w;
-    assign valid_o = ~is_empty_w;
+    assign wr_ready_o = is_empty_w;
+    assign rd_valid_o = ~is_empty_w;
 
     always_ff @(posedge clk_i) begin
         if (rst_i) begin
@@ -60,6 +60,15 @@ module control_buffer #(
         end
     end
 
+    always_ff @( posedge clk_i ) begin : pc_dff
+        if (rst_i)
+            pc_out_n <= '0;
+        else if (pc_valid_i)
+            pc_out_n <= pc_in;
+        else if (write_en_w)
+            pc_out_n <= pc_out_n +1;
+    end
+
     always_ff @( posedge clk_i ) begin : dff_array_write
         if (rst_i)
             dff_array <= '0;
@@ -67,24 +76,12 @@ module control_buffer #(
             dff_array <= wr_data_i;
     end
 
-    always_ff @( posedge clk_i ) begin : rd_data_write
-        if (rst_i)
-            rd_data_o <= '0;
-        else if (read_en_w)
-            // I sure hope this doesn't cause bit width problems
-            rd_data_o <= dff_array[((rd_ptr_l+1) << DEPTH_LOG2_P) - 1: (rd_ptr_l << DEPTH_LOG2_P)];
-    end
-
-    always_ff @( posedge clk_i ) begin : pc_block
-        if (rst_i) begin
-            pc_out <= '0;
-        end
-        else if (pc_valid_i == '1) begin
-            pc_out <= pc_in;
-        end
-        else if (write_en_w) begin
-            pc_out <= pc_out_n;
-        end
-    end
+    // always_ff @( posedge clk_i ) begin : rd_data_write
+    //     if (rst_i)
+    //         rd_data_o <= '0;
+    //     else if (read_en_w)
+    //         rd_data_o <= dff_array[((rd_ptr_l) << DEPTH_LOG2_P) +: CONTROL_WIDTH];
+    // end
+    assign rd_data_o = dff_array[rd_ptr_l * CONTROL_WIDTH +: CONTROL_WIDTH];
     
 endmodule

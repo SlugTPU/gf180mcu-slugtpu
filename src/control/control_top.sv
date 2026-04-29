@@ -3,7 +3,6 @@ module control_top #(
     parameter int DRAM_ADDR_WIDTH = 12,
     parameter int DRAM_COUNTER_WIDTH = 8,
     parameter int DRAM_DATA_WIDTH = 64,
-    parameter int TPU_STATE_WIDTH = 3,
     parameter int CONTROL_WIDTH = 8,
 ) (
     input clk_i,
@@ -32,25 +31,11 @@ module control_top #(
     input [DRAM_ADDR_WIDTH-1:0] pc_in,
     input pc_valid_i,
     output pc_ready_o,
-    // TODO: SPI out instruction
 
     // TPU STATE
-    output logic [TPU_STATE_WIDTH-1:0] tpu_state_o
-    // output INTERNAL_ERROR_O
+    
+    output INTERNAL_ERROR_O
 );
-    enum bit[TPU_STATE_WIDTH-1:0] 
-        {RST        = 3'b000    // rst_i is high
-        ,IDLE       = 3'b001    // after reset or after exit
-        ,INIT_PC    = 3'b010    // Initalizing Program counter
-        ,COMPUTE    = 3'b011    // In compute mode
-        ,TO_SPI     = 3'b100}   // Sending activation address to SPI
-    tpu_state_t;
-
-    always_ff @( posedge clk_i ) begin : state_block
-        if(rst_i)
-            tpu_state_o <= RST;
-        // TODO: else
-    end
     
     control_sram #(
         .sram_width_p(CONTROL_WIDTH)
