@@ -13,6 +13,10 @@ import random
 # Helpers
 # ---------------------------------------------------------------------------
 
+# TPU register ack arrives in 2 sys-clk cycles, far less than one SPI byte
+# period (40 cycles at 20 MHz SPI / 100 MHz sys clk), so 0 wait bytes suffice.
+_MAX_WAIT = 0
+
 def make_spi(dut):
     bus = SpiBus(
         entity=dut,
@@ -23,30 +27,42 @@ def make_spi(dut):
         cs_name="cs_ni",
     )
     cfg = SpiConfig(
-        word_width=(1+4+8)*8,   # cmd(1) + addr(4) + data/dummy(8) = 13 bytes
-        sclk_freq=20_000_000,   # 1 MHz; clk_i=100 MHz => 100x >= 4x minimum
+        word_width=(1 + 4 + _MAX_WAIT + 1 + 8) * 8,  # cmd + addr + wait + ready + data
+        sclk_freq=20_000_000,
         cpol=False,
         cpha=False,
         msb_first=True,
         cs_active_low=True,
-        frame_spacing_ns=30,    # >= 3 sys_clk cycles so cs_deassert propagates
+        frame_spacing_ns=30,
     )
     return SpiMaster(bus, cfg)
 
 
 async def spibone_write(spi, addr: int, data: int):
-    """Send a single 64-bit spibone write: cmd(1) + addr(4) + data(8) bytes."""
-    payload = bytes([0x00]) + addr.to_bytes(4, 'big') + data.to_bytes(8, 'big')
+    """Send a 64-bit spibone write and wait for the 0x01 DONE byte on MISO."""
+    n = 1 + 4 + 8 + _MAX_WAIT + 1   # cmd+addr+data+wait+done
+    payload = bytes([0x00]) + addr.to_bytes(4, 'big') \
+              + data.to_bytes(8, 'big') + bytes(_MAX_WAIT + 1)
     await spi.write([int.from_bytes(payload, 'big')])
-    await spi.read(1)  # drain RX queue; SPI is full-duplex so write also captures MISO
+    raw = (await spi.read(1))[0]
+    raw_bytes = raw.to_bytes(n, 'big')
+    for i in range(13, n):
+        if raw_bytes[i] == 0x01:
+            return
+    raise AssertionError(f"spibone_write: no DONE byte in {raw_bytes.hex()}")
 
 
 async def spibone_read(spi, addr: int) -> int:
-    """Send a single 64-bit spibone read; return the 64-bit response."""
-    payload = bytes([0x01]) + addr.to_bytes(4, 'big') + bytes(8)
+    """Send a 64-bit spibone read; find 0x01 READY byte then return data."""
+    n = 1 + 4 + _MAX_WAIT + 1 + 8   # cmd+addr+wait+ready+data
+    payload = bytes([0x01]) + addr.to_bytes(4, 'big') + bytes(n - 5)
     await spi.write([int.from_bytes(payload, 'big')])
-    result = await spi.read(1)
-    return result[0] & 0xFFFF_FFFF_FFFF_FFFF
+    raw = (await spi.read(1))[0]
+    raw_bytes = raw.to_bytes(n, 'big')
+    for i in range(5, n - 8):
+        if raw_bytes[i] == 0x01:
+            return int.from_bytes(raw_bytes[i + 1:i + 9], 'big')
+    raise AssertionError(f"spibone_read: no READY byte in {raw_bytes.hex()}")
 
 
 async def init(dut):

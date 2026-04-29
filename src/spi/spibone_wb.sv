@@ -147,6 +147,7 @@ module spibone_wb #(
     logic [DataBits-1:0]      rd_data;    // holds WB read result
     logic [AdrCntW-1:0]       addr_cnt;
     logic [DataCntW-1:0]      data_cnt;   // used for both TX and DATA phases
+    logic                     ack_received_q; // latches wb_ack_i between byte boundaries
 
     // ------------------------------------------------------------------
     // ------------------------------------------------------------------
@@ -162,20 +163,21 @@ module spibone_wb #(
 
     always_ff @(posedge clk_i or posedge rst_i) begin
         if (rst_i) begin
-            state       <= S_IDLE;
-            is_read     <= '0;
-            addr_reg    <= '0;
-            data_reg    <= '0;
-            rd_data     <= '0;
-            addr_cnt    <= '0;
-            data_cnt    <= '0;
-            wb_adr_o    <= '0;
-            wb_dat_o    <= '0;
-            wb_we_o     <= '0;
-            wb_stb_o    <= '0;
-            wb_cyc_o    <= '0;
-            tx_load     <= '0;
-            tx_load_val <= '0;
+            state          <= S_IDLE;
+            is_read        <= '0;
+            addr_reg       <= '0;
+            data_reg       <= '0;
+            rd_data        <= '0;
+            addr_cnt       <= '0;
+            data_cnt       <= '0;
+            wb_adr_o       <= '0;
+            wb_dat_o       <= '0;
+            wb_we_o        <= '0;
+            wb_stb_o       <= '0;
+            wb_cyc_o       <= '0;
+            tx_load        <= '0;
+            tx_load_val    <= '0;
+            ack_received_q <= '0;
         end else begin
             tx_load <= '0;
 
@@ -187,9 +189,10 @@ module spibone_wb #(
 
             // CS deasserted — abort and return to idle
             if (cs_deassert || !cs_active) begin
-                state    <= S_IDLE;
-                wb_stb_o <= '0;
-                wb_cyc_o <= '0;
+                state          <= S_IDLE;
+                wb_stb_o       <= '0;
+                wb_cyc_o       <= '0;
+                ack_received_q <= '0;
             end else begin
 
                 case (state)
@@ -226,12 +229,22 @@ module spibone_wb #(
                         end
                     end
 
-                    // ---- Wait for WB read ack ----
+                    // ---- Wait for WB read ack; emit 0x00 wait bytes, then 0x01 ready ----
                     S_WB_READ: begin
                         if (wb_ack_i) begin
-                            rd_data  <= wb_dat_i;
-                            data_cnt <= '0;
-                            state    <= S_TX;
+                            rd_data        <= wb_dat_i;
+                            ack_received_q <= '1;
+                        end
+                        if (rx_byte_boundary_fall) begin
+                            tx_load <= '1;
+                            if (ack_received_q) begin
+                                tx_load_val    <= 8'h01;
+                                data_cnt       <= '0;
+                                ack_received_q <= '0;
+                                state          <= S_TX;
+                            end else begin
+                                tx_load_val <= 8'h00;
+                            end
                         end
                     end
 
@@ -269,12 +282,21 @@ module spibone_wb #(
                         end
                     end
 
-                    // ---- Wait for WB write ack, loop for burst ----
+                    // ---- Wait for WB write ack; emit 0x00 busy bytes, then 0x01 done ----
+                    // After emitting 0x01 the bridge stays here until CS deasserts.
+                    // Burst writes are not supported: one SPIbone write = one full WB burst.
                     S_WB_WRITE: begin
                         if (wb_ack_i) begin
-                            addr_reg <= AdrBits'(addr_reg[AdrW-1:0] + AdrW'(DataBytes));
-                            data_cnt <= '0;
-                            state    <= S_DATA;
+                            ack_received_q <= '1;
+                        end
+                        if (rx_byte_boundary_fall) begin
+                            tx_load <= '1;
+                            if (ack_received_q) begin
+                                tx_load_val    <= 8'h01;
+                                ack_received_q <= '0;
+                            end else begin
+                                tx_load_val <= 8'h00;
+                            end
                         end
                     end
 

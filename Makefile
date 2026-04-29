@@ -166,6 +166,9 @@ sim-wb-sdr-mt48lc16m16a2:
 sim-tpu-soc:
 	python3 -m pytest cocotb/test_tpu_soc.py -s
 
+sim-tpu-soc-with-dram:
+	python3 -m pytest cocotb/test_tpu_soc_with_dram.py -s
+
 sim-gl: ## Run gate-level simulation with cocotb (after copy-final)
 	cd cocotb; GL=1 PDK_ROOT=${PDK_ROOT} PDK=${PDK} SLOT=${SLOT} python3 chip_top_tb.py
 .PHONY: sim-gl
