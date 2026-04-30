@@ -146,6 +146,9 @@ sim-control-buffer:
 sim-control-sram:
 	python3 -m pytest cocotb/test_control_sram.py -s
 
+sim-control-decoder:
+	python3 -m pytest cocotb/test_control_decoder.py -s
+
 sim-wb-sdr-mt48lc16m16a2:
 	python3 -m pytest cocotb/test_wb_sdr_mt48lc16m16a2_7e.py -s
 

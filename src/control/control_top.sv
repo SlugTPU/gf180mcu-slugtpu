@@ -40,7 +40,7 @@ module control_top #(
     /*
     TPU STATE
     */
-    enum bit[2:0] 
+    typedef enum bit[2:0] 
         {RST        = 2'b00    // rst_i is high
         ,IDLE       = 2'b01    // after reset or after exit
         ,INIT_PC    = 2'b10    // Initalizing Program counter
