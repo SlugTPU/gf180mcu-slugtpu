@@ -35,6 +35,9 @@ module spibone_wb #(
     output logic        spi_miso_o,
     input  logic        spi_cs_n_i,
 
+    // Runtime burst enable (from SPIBONE_CTRL register)
+    input  logic        burst_en_i,
+
     // Wishbone master
     output logic [AdrW-1:0]    wb_adr_o,
     output logic [DataW-1:0]   wb_dat_o,
@@ -137,7 +140,8 @@ module spibone_wb #(
         S_TX,
         S_TX_BURST,
         S_DATA,
-        S_WB_WRITE
+        S_WB_WRITE,
+        S_DONE       // single-word read complete; wait for CS deassert
     } state_t;
 
     state_t                   state;
@@ -254,8 +258,11 @@ module spibone_wb #(
                         tx_load_val <= rd_data[(DataCntW'(DataBytes - 1) - data_cnt) * 8 +: 8];
                         data_cnt    <= data_cnt + 1;
                         if (data_cnt == DataCntW'(DataBytes - 1))
-                            state <= S_TX_BURST;
+                            state <= state_t'(burst_en_i ? S_TX_BURST : S_DONE);
                     end
+
+                    // ---- Done: burst disabled; wait silently for CS deassert ----
+                    S_DONE: ; // cs_deassert handler at top resets to S_IDLE
 
                     // ---- Burst: increment addr and start next WB read ----
                     S_TX_BURST: if (rx_byte_boundary_fall) begin

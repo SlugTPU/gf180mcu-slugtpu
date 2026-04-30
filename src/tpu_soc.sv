@@ -78,6 +78,7 @@ module tpu_soc #(
    // tpu_enable: software-controlled register bit; 1 = DMA owns the bus, 0 = SPI owns it
    wire tpu_enable;
    wire tpu_active = tpu_enable;
+   wire spi_burst_en;
 
    // Rising edge of tpu_enable generates the one-cycle DMA start pulse
    logic tpu_enable_r;
@@ -153,20 +154,21 @@ module tpu_soc #(
        .AdrW  (32),
        .DataW (dma_data_w_lp)
    ) spi_wb_inst (
-       .clk_i      (clk_i),
-       .rst_i      (rst_i),
-       .spi_sck_i  (spi_clk_i),
-       .spi_mosi_i (spi_mosi_i),
-       .spi_miso_o (spi_miso_o),
-       .spi_cs_n_i (spi_cs_ni),
-       .wb_adr_o   (dec_adr),
-       .wb_dat_o   (dec_dat_w),
-       .wb_dat_i   (dec_dat_r),
-       .wb_we_o    (dec_we),
-       .wb_stb_o   (dec_stb),
-       .wb_cyc_o   (dec_cyc),
-       .wb_sel_o   (/* full-word, unused here */),
-       .wb_ack_i   (dec_ack)
+       .clk_i       (clk_i),
+       .rst_i       (rst_i),
+       .spi_sck_i   (spi_clk_i),
+       .spi_mosi_i  (spi_mosi_i),
+       .spi_miso_o  (spi_miso_o),
+       .spi_cs_n_i  (spi_cs_ni),
+       .burst_en_i  (spi_burst_en),
+       .wb_adr_o    (dec_adr),
+       .wb_dat_o    (dec_dat_w),
+       .wb_dat_i    (dec_dat_r),
+       .wb_we_o     (dec_we),
+       .wb_stb_o    (dec_stb),
+       .wb_cyc_o    (dec_cyc),
+       .wb_sel_o    (/* full-word, unused here */),
+       .wb_ack_i    (dec_ack)
    );
 
    // -----------------------------------------------------------------------
@@ -220,6 +222,7 @@ module tpu_soc #(
        .tpu_input_addr_o  (dma_start_addr_wide),
        .tpu_output_addr_o (),
        .tpu_length_o      (dma_word_count_wide),
+       .burst_en_o        (spi_burst_en),
        .tpu_busy_i        (dma_busy),
        .tpu_done_i        (dma_done)
    );
