@@ -423,13 +423,54 @@ async def test_random_access(dut):
 
     # END reading values at different rows
 
-tests =[
+@cocotb.test()
+async def test_adjacent_words_no_clobber(dut):
+    """Writing to consecutive word addresses in the same row and bank must not
+    overwrite each other.  Writes burst_p distinct patterns to addresses
+    col=0..burst_p-1, then reads each back and asserts the value matches what
+    was written to that specific address.
+    """
+    clk_i = dut.clk_i
+    sys_clk_mhz = dut.sys_clk_mhz_p.value.to_unsigned()
+    burst_p  = dut.dram_burst_p.value.to_unsigned()
+    cols_p   = dut.cols_p.value.to_unsigned()
+    banks_p  = dut.banks_p.value.to_unsigned()
+    bus_mask = (1 << (dut.data_bits_p.value.to_unsigned() * burst_p)) - 1
+
+    Clock(clk_i, 1 / sys_clk_mhz, unit="us").start()
+    await reset_sequence(clk_i, dut.rst_i)
+    await FallingEdge(dut.rst_i)
+
+    addrs = [make_addr(row=0, bank=0, col=c, burst_p=burst_p, cols_p=cols_p, banks_p=banks_p)
+             for c in range(burst_p)]
+    patterns = [
+        0xAAAA_AAAA_AAAA_AAAA & bus_mask,
+        0x5555_5555_5555_5555 & bus_mask,
+        0xDEAD_BEEF_CAFE_1234 & bus_mask,
+        0x0123_4567_89AB_CDEF & bus_mask,
+    ]
+
+    for addr, pat in zip(addrs, patterns):
+        ok = await wb_write(dut, addr, pat)
+        assert ok, f"Write to addr {hex(addr)} timed out"
+
+    for i, (addr, pat) in enumerate(zip(addrs, patterns)):
+        ok, got = await wb_read(dut, addr)
+        assert ok, f"Read from addr {hex(addr)} timed out"
+        assert got == pat, \
+            f"col-group {i} (addr {hex(addr)}): got {hex(got)}, expected {hex(pat)}"
+
+    await ClockCycles(clk_i, 20)
+
+
+tests = [
     'test_reset',
     'test_initialization',
     'test_write',
     'test_read',
     'test_bank_switch_same_row',
     'test_bank_switch_diff_row',
+    'test_adjacent_words_no_clobber',
 ]
 
 proj_path = Path("./src").resolve()

@@ -161,7 +161,7 @@ module wb_sdr_mt48lc16m16a_7e #(
 
    wire [$clog2(_rows_p) - 1 : 0]  addr_row_w;
    wire [$clog2(_banks_p) - 1 : 0] addr_bank_w;
-   wire [$clog2(_cols_p) - 1 : 0]  addr_col_w;
+   wire [$clog2(_cols_p) - $clog2(dram_burst_p) - 1 : 0] addr_col_w;
 
    task automatic reset_registers();
       for (int i = 0; i < n_reg_lp; i++) begin
@@ -202,7 +202,7 @@ module wb_sdr_mt48lc16m16a_7e #(
 
    assign addr_row_w  = m_adr_i[_usr_addr_bits_p - 1 -: $clog2(_rows_p)];
    assign addr_bank_w = m_adr_i[($clog2(_cols_p) - $clog2(dram_burst_p)) + $clog2(_banks_p) - 1 -: $clog2(_banks_p)];
-   assign addr_col_w = m_adr_i[$clog2(_cols_p) - 1 :0];
+   assign addr_col_w = m_adr_i[$clog2(_cols_p) - $clog2(dram_burst_p) - 1 : 0];
 
 
    /** general state registers */
@@ -504,7 +504,7 @@ module wb_sdr_mt48lc16m16a_7e #(
          if (!r_q[0]) begin
             set_cmd_READ();
             // disable auto-precharge; A[10] = 0
-            s_addr_o = _sdr_addr_bits_p'({ '0, 1'b0, addr_col_w });
+            s_addr_o = _sdr_addr_bits_p'({ '0, 1'b0, addr_col_w, {$clog2(dram_burst_p){1'b0}} });
             s_ba_o = addr_bank_w;
 
             r_d[0] = 1'b1;
@@ -571,7 +571,7 @@ module wb_sdr_mt48lc16m16a_7e #(
 
          if (!r_q[0]) begin
             set_cmd_WRITE();
-            s_addr_o = _sdr_addr_bits_p'({ '0, 1'b0, addr_col_w });
+            s_addr_o = _sdr_addr_bits_p'({ '0, 1'b0, addr_col_w, {$clog2(dram_burst_p){1'b0}} });
             s_ba_o = addr_bank_w;
             s_dq_o = m_dat_i[_data_bits_p  - 1:0];
 
