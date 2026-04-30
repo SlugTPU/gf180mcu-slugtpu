@@ -54,3 +54,5 @@ def run_test(parameters, sources, module_name, hdl_toplevel, testcase=None, sims
             print(e)
             traceback.print_exc()
             print(f"Test '{case_name}' with {sim} failed: {e}")
+            
+            raise e
