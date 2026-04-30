@@ -13,13 +13,9 @@ import random
 # ---------------------------------------------------------------------------
 
 async def do_reset(dut):
-    # Instruction interface
-    dut.instruction_data_i.value  = 0
-    dut.instruction_valid_i.value = 0
-
     # DMA/DRAM control inputs
-    dut.dma_busy.value = 0
-    dut.dma_done.value = 0
+    dut.dma_busy_i.value = 0
+    dut.dma_done_i.value = 0
 
     # DRAM->SRAM stream
     dut.dram2sram_valid_i.value = 0
@@ -28,8 +24,9 @@ async def do_reset(dut):
     # SRAM->DRAM stream
     dut.sram2dram_ready_i.value = 0
 
-    # TPU state
-    dut.tpu_state_i.value = 0
+    # SPI / PC input
+    dut.pc_in.value      = 0
+    dut.pc_valid_i.value = 0
 
     await clock_start(dut.clk_i)
     await reset_sequence(dut.clk_i, dut.rst_i)
@@ -40,7 +37,6 @@ async def test_reset(dut):
     """Verify the core comes out of reset without assertions firing."""
     await do_reset(dut)
     await FallingEdge(dut.clk_i)
-    assert dut.instruction_ready_o.value == 1
 
 tests = [
     'test_reset',
@@ -48,6 +44,7 @@ tests = [
 
 proj_path = Path("./src").resolve()
 sources = [
+    proj_path / "control/control_top.sv",
     proj_path / "control/control_sram.sv",
     proj_path / "sram/sram_1x256.sv",
     proj_path / "control/control_buffer.sv",

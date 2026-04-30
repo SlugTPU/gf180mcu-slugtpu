@@ -32,7 +32,7 @@ module control_decoder #(
     output [DRAM_DATA_WIDTH-1:0] sram2dram_data_o,
     input sram2dram_ready_i,
 
-    input [2:0] tpu_state_i,
+    input [1:0] tpu_state_i,
     output logic tpu_exit_o,
     output logic INTERNAL_ERROR_O
 );
@@ -185,6 +185,7 @@ module control_decoder #(
         do_execute = '0;
         tpu_exit_o = '0;
         decoder_state_d = decoder_state_q;
+        INTERNAL_ERROR_O = '0;
         case(decoder_state_q)
             LOAD_OPCODE : begin
                 if (instruction_valid_i) begin
@@ -236,6 +237,7 @@ module control_decoder #(
                     decoder_state_d = LOAD_OPCODE;
                 end
             end
+            default: INTERNAL_ERROR_O = '1;
         endcase
     end
 
