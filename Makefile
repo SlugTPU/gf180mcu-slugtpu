@@ -42,6 +42,11 @@ clone-pdk: ## Clone the GF180MCU PDK repository
 	git clone https://github.com/wafer-space/gf180mcu.git $(MAKEFILE_DIR)/gf180mcu --depth 1 --branch ${PDK_TAG}
 .PHONY: clone-pdk
 
+clone-sram-ip: ## Clone the 3.3V SRAM macro IP into ip/
+	rm -rf $(MAKEFILE_DIR)/ip/gf180mcu_ocd_ip_sram.git
+	git clone https://github.com/RTimothyEdwards/gf180mcu_ocd_ip_sram.git $(MAKEFILE_DIR)/ip/gf180mcu_ocd_ip_sram.git --depth 1
+.PHONY: clone-sram-ip
+
 librelane: ## Run LibreLane flow (synthesis, PnR, verification)
 	librelane librelane/slots/slot_${SLOT}.yaml librelane/config.yaml --pdk ${PDK} --pdk-root ${PDK_ROOT} --manual-pdk
 .PHONY: librelane
