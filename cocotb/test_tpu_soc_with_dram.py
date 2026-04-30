@@ -158,6 +158,51 @@ async def test_burst_read(dut):
     await FallingEdge(dut.clk_i)
 
 
+@cocotb.test()
+async def test_burst_then_single(dut):
+    """Burst-read 4 words, then immediately write and single-read a DRAM word
+    without disabling burst_en between the burst and the single transactions.
+    Verifies that cs_deassert cleanly resets the FSM (S_TX_BURST → S_IDLE) so
+    any subsequent transaction type works correctly.
+    """
+    spi = await init(dut)
+    await ClockCycles(dut.clk_i, 11000)
+
+    n_words   = 4
+    base_addr = 0x0000_0000
+    patterns  = [
+        0xAAAA_AAAA_AAAA_AAAA,
+        0x5555_5555_5555_5555,
+        0xDEAD_BEEF_CAFE_1234,
+        0x0123_4567_89AB_CDEF,
+    ]
+    new_val   = 0x1111_2222_3333_4444
+
+    for i, pat in enumerate(patterns):
+        await spibone_write(spi, base_addr + i * 8, pat)
+
+    await spibone_write(spi, SPIBONE_CTRL, 1)   # enable burst
+
+    got = await spibone_burst_read(spi, base_addr, n_words)
+    for i, (pat, val) in enumerate(zip(patterns, got)):
+        assert val == pat, \
+            f"burst word {i}: got {val:#018x}, expected {pat:#018x}"
+
+    # burst_en still 1 — write immediately without disabling burst first
+    await spibone_write(spi, base_addr, new_val)
+    val = await spibone_read(spi, base_addr)
+    assert val == new_val, \
+        f"single read after burst: got {val:#018x}, expected {new_val:#018x}"
+
+    # verify adjacent word unchanged
+    val = await spibone_read(spi, base_addr + 8)
+    assert val == patterns[1], \
+        f"word 1 after write: got {val:#018x}, expected {patterns[1]:#018x}"
+
+    await spibone_write(spi, SPIBONE_CTRL, 0)   # disable burst
+    await FallingEdge(dut.clk_i)
+
+
 # ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
@@ -167,6 +212,7 @@ tests = [
     'test_simple',
     'test_multi_addr',
     'test_burst_read',
+    'test_burst_then_single',
 ]
 
 proj_path = Path("./src").resolve()
