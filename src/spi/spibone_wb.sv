@@ -138,6 +138,7 @@ module spibone_wb (
         S_WB_READ,
         S_TX0, S_TX1, S_TX2, S_TX3, S_TX4,
         S_DATA0, S_DATA1, S_DATA2, S_DATA3,
+        S_WB_WRITE_SETUP,  // <-- new
         S_WB_WRITE
     } state_t;
 
@@ -276,9 +277,14 @@ module spibone_wb (
                         wb_dat_o[7:0] <= rx_byte_data;
                         wb_adr_o      <= addr_reg;
                         wb_we_o       <= '1;
-                        wb_stb_o      <= '1;
-                        wb_cyc_o      <= '1;
-                        state         <= S_WB_WRITE;
+                        state         <= S_WB_WRITE_SETUP;  // wait one cycle
+                    end
+
+                    S_WB_WRITE_SETUP: begin
+                        // wb_dat_o is now fully settled — safe to assert strobe
+                        wb_stb_o <= '1;
+                        wb_cyc_o <= '1;
+                        state    <= S_WB_WRITE;
                     end
 
                     // ---- Wait for WB write ack, loop for burst ----

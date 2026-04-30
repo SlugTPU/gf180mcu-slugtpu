@@ -84,6 +84,8 @@ module wb_to_axi4 (
     assign aw_accepted = axi_awvalid && axi_awready;
     assign w_accepted  = axi_wvalid  && axi_wready;
 
+    logic wr_staged;
+
     always_ff @(posedge clk or posedge rst) begin
         if (rst) begin
             axi_awvalid <= '0;
@@ -92,22 +94,28 @@ module wb_to_axi4 (
             axi_wdata   <= '0;
             aw_done     <= '0;
             w_done      <= '0;
+            wr_staged   <= '0;
         end else begin
             if (aw_accepted) begin axi_awvalid <= '0; aw_done <= '1; end
             if (w_accepted)  begin axi_wvalid  <= '0; w_done  <= '1; end
 
-            // Both accepted — reset trackers for next beat
             if (aw_done && w_done) begin
                 aw_done <= '0;
                 w_done  <= '0;
             end
 
-            // New WB write beat — issue AW and W simultaneously
-            if (wb_cyc_i && wb_stb_i && wb_we_i && !axi_awvalid && !aw_done) begin
+            // Cycle 1: latch data, set staged flag
+            if (wb_cyc_i && wb_stb_i && wb_we_i && !axi_awvalid && !aw_done && !wr_staged) begin
+                axi_awaddr <= wb_adr_i;
+                axi_wdata  <= wb_dat_i;
+                wr_staged  <= '1;
+            end
+
+            // Cycle 2: data is now settled, assert valids
+            if (wr_staged) begin
                 axi_awvalid <= '1;
-                axi_awaddr  <= wb_adr_i;
                 axi_wvalid  <= '1;
-                axi_wdata   <= wb_dat_i;
+                wr_staged   <= '0;
             end
         end
     end
