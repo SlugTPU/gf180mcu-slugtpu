@@ -163,9 +163,6 @@ sim-control-top:
 sim-wb-sdr-mt48lc16m16a2:
 	python3 -m pytest cocotb/test_wb_sdr_mt48lc16m16a2_7e.py -s
 
-sim-tpu-soc:
-	python3 -m pytest cocotb/test_tpu_soc.py -s
-
 sim-tpu-soc-with-dram:
 	python3 -m pytest cocotb/test_tpu_soc_with_dram.py -s
 
