@@ -66,7 +66,7 @@ module wb_decoder #(
         wbs_ack_o  = '0;
 
         if (wbs_cyc_i && wbs_stb_i) begin
-            casez (1'b1)
+            case (1'b1)
                 sel_dram: begin
                     wbm0_stb_o = '1;
                     wbm0_cyc_o = '1;
