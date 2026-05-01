@@ -78,7 +78,6 @@ module tpu_soc #(
    // tpu_enable: software-controlled register bit; 1 = DMA owns the bus, 0 = SPI owns it
    wire tpu_enable;
    wire tpu_active = tpu_enable;
-   wire spi_burst_en;
 
    // Rising edge of tpu_enable generates the one-cycle DMA start pulse
    logic tpu_enable_r;
@@ -160,7 +159,6 @@ module tpu_soc #(
        .spi_mosi_i  (spi_mosi_i),
        .spi_miso_o  (spi_miso_o),
        .spi_cs_n_i  (spi_cs_ni),
-       .burst_en_i  (spi_burst_en),
        .wb_adr_o    (dec_adr),
        .wb_dat_o    (dec_dat_w),
        .wb_dat_i    (dec_dat_r),
@@ -222,7 +220,6 @@ module tpu_soc #(
        .tpu_input_addr_o  (dma_start_addr_wide),
        .tpu_output_addr_o (),
        .tpu_length_o      (dma_word_count_wide),
-       .burst_en_o        (spi_burst_en),
        .tpu_busy_i        (dma_busy),
        .tpu_done_i        (dma_done)
    );
@@ -330,6 +327,26 @@ module tpu_soc #(
        .oe_o     (sdr_dq_oe_o)
    );
 
+//   control_top #()
+//   control (
+//       .clk_i    (clk_i),
+//       .rst_i    (rst_i),
+//
+//       .dram2sram_valid_i(),
+//       .ram2sram_data_i(),
+//       .dram2sram_ready_o(),
+//
+//       .sram2dram_valid_o(),
+//       .sram2dram_data_o(),
+//       .sram2dram_ready_i(),
+//
+//       .pc_in(),
+//       .pc_valid_i(),
+//       .pc_ready_o(),
+//
+//       .tpu_state_o(),
+//       .INTERNAL_ERROR_O()
+//   );
 
    // wire up with systolic array
 endmodule

@@ -12,9 +12,6 @@ from spibone_master import SpiboneMaster
 # Helpers
 # ---------------------------------------------------------------------------
 
-SPIBONE_CTRL = 0x1000_0014  # [0] = burst_en
-
-
 async def spibone_write(spi: SpiboneMaster, addr: int, data: int):
     await spi.write(addr, data)
 
@@ -136,17 +133,7 @@ async def test_burst_read(dut):
     for addr, pat in zip(addrs, patterns):
         await spibone_write(spi, addr, pat)
 
-    await spibone_write(spi, SPIBONE_CTRL, 1)   # enable burst
-    got_ctrl = await spibone_read(spi, SPIBONE_CTRL)
-    assert (got_ctrl == 1), "in spi control register, got {got_ctrl}, expected 1"
-    cocotb.log.info("Successfully enabled burst mode")
-
     got = await spibone_burst_read(spi, base_addr, n_words)
-
-    await spibone_write(spi, SPIBONE_CTRL, 0)   # disable burst
-    got_ctrl = await spibone_read(spi, SPIBONE_CTRL)
-    assert (got_ctrl == 0), "in spi control register, got {got_ctrl}, expected 0"
-    cocotb.log.info("Successfully disabled burst mode")
 
     for i, (pat, val) in enumerate(zip(patterns, got)):
         cocotb.log.info(
@@ -181,14 +168,11 @@ async def test_burst_then_single(dut):
     for i, pat in enumerate(patterns):
         await spibone_write(spi, base_addr + i * 8, pat)
 
-    await spibone_write(spi, SPIBONE_CTRL, 1)   # enable burst
-
     got = await spibone_burst_read(spi, base_addr, n_words)
     for i, (pat, val) in enumerate(zip(patterns, got)):
         assert val == pat, \
             f"burst word {i}: got {val:#018x}, expected {pat:#018x}"
 
-    # burst_en still 1 — write immediately without disabling burst first
     await spibone_write(spi, base_addr, new_val)
     val = await spibone_read(spi, base_addr)
     assert val == new_val, \
@@ -199,7 +183,6 @@ async def test_burst_then_single(dut):
     assert val == patterns[1], \
         f"word 1 after write: got {val:#018x}, expected {patterns[1]:#018x}"
 
-    await spibone_write(spi, SPIBONE_CTRL, 0)   # disable burst
     await FallingEdge(dut.clk_i)
 
 
