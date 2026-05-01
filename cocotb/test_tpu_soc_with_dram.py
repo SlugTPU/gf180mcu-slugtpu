@@ -58,6 +58,7 @@ async def test_simple(dut):
     spi = await init(dut)
 
     # Wait for SDRAM initialisation (~100 µs × 100 MHz = 10000 cycles)
+    # TODO: Now that we are not relying on cocotb-ext, this *should* just stall spibone (for quite a long time)
     await ClockCycles(dut.clk_i, 11000)
 
     pattern_a = 0xDEAD_BEEF_CAFE_1234
