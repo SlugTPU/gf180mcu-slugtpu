@@ -69,7 +69,8 @@ module tpu_soc #(
    // -----------------------------------------------------------------------
    // DMA control (TODO: connect to instruction decoder)
    // -----------------------------------------------------------------------
-   wire [dma_addr_w_lp - 1:0] dma_start_addr;
+   wire [dma_addr_w_lp - 1:0]  dma_start_addr;
+   wire [dma_addr_w_lp - 1:0]  dma_pc_addr;
    wire [15:0]                 dma_word_count;
    wire                        dma_we;
    wire                        dma_busy;
@@ -84,7 +85,7 @@ module tpu_soc #(
    always_ff @(posedge clk_i)
        if (rst_i) tpu_enable_r <= '0;
        else        tpu_enable_r <= tpu_enable;
-   wire dma_start = tpu_enable & ~tpu_enable_r;
+   // wire dma_start = tpu_enable & ~tpu_enable_r;
 
    // -----------------------------------------------------------------------
    // DMA stream (TODO: connect to systolic-array SRAM)
@@ -130,7 +131,8 @@ module tpu_soc #(
    wire [31:0] tpureg_adr;
    wire [31:0] tpureg_dat_w;
    wire [31:0] tpureg_dat_r;
-   wire        tpureg_we, tpureg_stb, tpureg_cyc, tpureg_ack;
+   wire [1:0]  tpureg_status;
+   wire        tpureg_we, tpureg_stb, tpureg_cyc, tpureg_ack, tpureg_pc_stb;
    assign tpureg_adr   = dec_tpu_adr_wide;
    assign tpureg_dat_w = dec_tpu_dat_w_wide[31:0];
    assign tpureg_we    = dec_tpu_we;
@@ -142,6 +144,7 @@ module tpu_soc #(
    // tpu_regs outputs (32-bit addresses, truncated to DMA widths)
    wire [31:0] dma_start_addr_wide;
    wire [31:0] dma_word_count_wide;
+   wire [31:0] dma_pc_addrwide;
    assign dma_start_addr = dma_start_addr_wide[dma_addr_w_lp-1:0];
    assign dma_word_count = dma_word_count_wide[15:0];
    assign dma_we         = 1'b0; // TPU DMA always reads from DRAM into systolic array
@@ -220,8 +223,9 @@ module tpu_soc #(
        .tpu_input_addr_o  (dma_start_addr_wide),
        .tpu_output_addr_o (),
        .tpu_length_o      (dma_word_count_wide),
-       .tpu_busy_i        (dma_busy),
-       .tpu_done_i        (dma_done)
+       .tpu_pc_addr_o     (tpureg_pc_addr),
+       .tpu_pc_stb_o      (tpureg_pc_stb),
+       .tpu_state_i       (tpureg_status)
    );
 
    // -----------------------------------------------------------------------
@@ -327,26 +331,33 @@ module tpu_soc #(
        .oe_o     (sdr_dq_oe_o)
    );
 
-//   control_top #()
-//   control (
-//       .clk_i    (clk_i),
-//       .rst_i    (rst_i),
-//
-//       .dram2sram_valid_i(),
-//       .ram2sram_data_i(),
-//       .dram2sram_ready_o(),
-//
-//       .sram2dram_valid_o(),
-//       .sram2dram_data_o(),
-//       .sram2dram_ready_i(),
-//
-//       .pc_in(),
-//       .pc_valid_i(),
-//       .pc_ready_o(),
-//
-//       .tpu_state_o(),
-//       .INTERNAL_ERROR_O()
-//   );
+  control_top #()
+  control (
+      .clk_i    (clk_i),
+      .rst_i    (rst_i),
+
+      .dram_start_addr_o(dma_start_addr),
+      .dram_word_count_o(),
+      .dram_we_o(dma_we),
+      .dram_start_o(dma_start),
+      .dma_busy_i(dma_busy),
+      .dma_done_i(dma_done),
+
+      .dram2sram_valid_i(dma_rd_valid),
+      .ram2sram_data_i(dma_rd_data),
+      .dram2sram_ready_o(dma_rd_ready),
+
+      .sram2dram_valid_o(dma_wr_valid),
+      .sram2dram_data_o(dma_wr_data),
+      .sram2dram_ready_i(dma_wr_valid),
+
+      .pc_in(dma_pc_addr),
+      .pc_valid_i(tpureg_pc_stb),
+      .pc_ready_o(),
+
+      .tpu_state_o(tpureg_status),
+      .INTERNAL_ERROR_O()
+  );
 
    // wire up with systolic array
 endmodule
