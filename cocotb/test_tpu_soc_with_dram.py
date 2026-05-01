@@ -58,8 +58,6 @@ async def test_simple(dut):
     spi = await init(dut)
 
     # Wait for SDRAM initialisation (~100 µs × 100 MHz = 10000 cycles)
-    # TODO: Now that we are not relying on cocotb-ext, this *should* just stall spibone (for quite a long time)
-    await ClockCycles(dut.clk_i, 11000)
 
     pattern_a = 0xDEAD_BEEF_CAFE_1234
     pattern_b = 0x0123_4567_89AB_CDEF
@@ -186,6 +184,11 @@ async def test_burst_then_single(dut):
 
     await FallingEdge(dut.clk_i)
 
+# async def test_tpu_load_pc(dut):
+#     """
+#     Load in PC and see what happens
+#     """
+
 
 # ---------------------------------------------------------------------------
 # Runner
@@ -211,6 +214,30 @@ sources = [
     proj_path / "dram" / "wb_sdr_mt48lc16m16a2_7e.sv",
     proj_path / "dram" / "sdram_model_mt48lc16m16a2.v",
     proj_path / "common" / "shift.sv",
+    proj_path / "common" / "counter.sv",
+    proj_path / "common" / "elastic.sv",
+    proj_path / "control" / "control_top.sv",
+    proj_path / "control" / "control_decoder.sv",
+    proj_path / "control" / "control_buffer.sv",
+    proj_path / "control" / "control_sram.sv",
+    proj_path / "compute_core.sv",
+    proj_path / "sram" / "sram_1x256.sv",
+    proj_path / "sram" / "sram_8x256.sv",
+    proj_path / "sram" / "sram_8x256_full.sv",
+    proj_path / "sram" / "memory_transaction.sv",
+    proj_path / "sysray" / "mxu.sv",
+    proj_path / "sysray" / "sysray_nxn.sv",
+    proj_path / "sysray" / "pe.sv",
+    proj_path / "scalar_units" / "add_n.sv",
+    proj_path / "scalar_units" / "relu_n.sv",
+    proj_path / "scalar_units" / "scale_n.sv",
+    proj_path / "scalar_units" / "load_data.sv",
+    proj_path / "scalar_units" / "scalar_pipe.sv",
+    proj_path / "scalar_units" / "scalar_stage.sv",
+    proj_path / "scalar_units" / "quantizer_mul.sv",
+    proj_path / "scalar_units" / "scalar_stage_sram.sv",
+    proj_path / "tri_shift.sv",
+    "ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1.v"
 ]
 parameters = {"sys_clk_mhz_p": 100}
 module_name = "test_tpu_soc_with_dram"
