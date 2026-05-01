@@ -18,7 +18,6 @@
 //
 //   clk_i must be >= 4x SCK for reliable edge detection.
 //
-// SPDX-License-Identifier: Apache-2.0
 
 `default_nettype none
 
