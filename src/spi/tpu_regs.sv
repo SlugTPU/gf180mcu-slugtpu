@@ -33,7 +33,7 @@ module tpu_regs (
     output logic [31:0] tpu_output_addr_o,
     output logic [31:0] tpu_pc_addr_o,
     // Indicates a new PC addr was freshly written and valid for oen cycle
-    output logic [31:0] tpu_pc_stb_o,
+    output logic tpu_pc_stb_o,
     output logic [31:0] tpu_length_o,
 
     // TPU status inputs

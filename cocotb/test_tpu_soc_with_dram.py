@@ -184,10 +184,18 @@ async def test_burst_then_single(dut):
 
     await FallingEdge(dut.clk_i)
 
-# async def test_tpu_load_pc(dut):
-#     """
-#     Load in PC and see what happens
-#     """
+@cocotb.test()
+async def test_tpu_load_pc(dut):
+    """
+    Load in PC and see what happens
+    """
+    spi = await init(dut)
+
+    await spibone_write(spi, 0x0000_0000_0000_00014, 0x0000_0000_0000_0000)
+
+    await ClockCycles(dut.clk_i, 1000)
+
+    await FallingEdge(dut.clk_i)
 
 
 # ---------------------------------------------------------------------------

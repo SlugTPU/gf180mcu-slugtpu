@@ -70,7 +70,6 @@ module tpu_soc #(
    // DMA control (TODO: connect to instruction decoder)
    // -----------------------------------------------------------------------
    wire [dma_addr_w_lp - 1:0]  dma_start_addr;
-   wire [dma_addr_w_lp - 1:0]  dma_pc_addr;
    wire [15:0]                 dma_word_count;
    wire                        dma_we;
    wire                        dma_busy;
@@ -132,6 +131,7 @@ module tpu_soc #(
    wire [31:0] tpureg_dat_w;
    wire [31:0] tpureg_dat_r;
    wire [1:0]  tpureg_status;
+   wire [31:0]  tpureg_pc_addr;
    wire        tpureg_we, tpureg_stb, tpureg_cyc, tpureg_ack, tpureg_pc_stb;
    assign tpureg_adr   = dec_tpu_adr_wide;
    assign tpureg_dat_w = dec_tpu_dat_w_wide[31:0];
@@ -144,7 +144,7 @@ module tpu_soc #(
    // tpu_regs outputs (32-bit addresses, truncated to DMA widths)
    wire [31:0] dma_start_addr_wide;
    wire [31:0] dma_word_count_wide;
-   wire [31:0] dma_pc_addrwide;
+   wire [31:0] tpureg_pc_addrwide;
    assign dma_start_addr = dma_start_addr_wide[dma_addr_w_lp-1:0];
    assign dma_word_count = dma_word_count_wide[15:0];
    assign dma_we         = 1'b0; // TPU DMA always reads from DRAM into systolic array
@@ -331,7 +331,10 @@ module tpu_soc #(
        .oe_o     (sdr_dq_oe_o)
    );
 
-  control_top #()
+  control_top #(
+     .DRAM_ADDR_WIDTH(dma_addr_w_lp),
+     .DRAM_DATA_WIDTH(dma_data_w_lp)
+  )
   control (
       .clk_i    (clk_i),
       .rst_i    (rst_i),
@@ -344,14 +347,14 @@ module tpu_soc #(
       .dma_done_i(dma_done),
 
       .dram2sram_valid_i(dma_rd_valid),
-      .ram2sram_data_i(dma_rd_data),
+      .dram2sram_data_i(dma_rd_data),
       .dram2sram_ready_o(dma_rd_ready),
 
       .sram2dram_valid_o(dma_wr_valid),
       .sram2dram_data_o(dma_wr_data),
       .sram2dram_ready_i(dma_wr_valid),
 
-      .pc_in(dma_pc_addr),
+      .pc_in(tpureg_pc_addr[dma_addr_w_lp - 1:0]),
       .pc_valid_i(tpureg_pc_stb),
       .pc_ready_o(),
 
