@@ -9,3 +9,5 @@ img/
 
 .DS_Store
 *.bak
+
+kicad_slugtpu-backups/*
