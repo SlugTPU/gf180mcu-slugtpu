@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // wb_to_axi4.sv
 // Wishbone B3 classic -> AXI4 bridge
 //

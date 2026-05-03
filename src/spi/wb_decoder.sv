@@ -9,36 +9,38 @@
 
 `default_nettype none
 
-module wb_decoder (
+module wb_decoder #(
+    parameter int DataW = 32
+) (
     input  logic        clk_i,
     input  logic        rst_i,
 
     // Wishbone slave port (from spibone_wb)
-    input  logic [31:0] wbs_adr_i,
-    input  logic [31:0] wbs_dat_i,
-    output logic [31:0] wbs_dat_o,
-    input  logic        wbs_we_i,
-    input  logic        wbs_stb_i,
-    input  logic        wbs_cyc_i,
-    output logic        wbs_ack_o,
+    input  logic [31:0]       wbs_adr_i,
+    input  logic [DataW-1:0]  wbs_dat_i,
+    output logic [DataW-1:0]  wbs_dat_o,
+    input  logic              wbs_we_i,
+    input  logic              wbs_stb_i,
+    input  logic              wbs_cyc_i,
+    output logic              wbs_ack_o,
 
-    // Wishbone master port 0: DRAM (-> wb_to_axi4)
-    output logic [31:0] wbm0_adr_o,
-    output logic [31:0] wbm0_dat_o,
-    input  logic [31:0] wbm0_dat_i,
-    output logic        wbm0_we_o,
-    output logic        wbm0_stb_o,
-    output logic        wbm0_cyc_o,
-    input  logic        wbm0_ack_i,
+    // Wishbone master port 0: DRAM
+    output logic [31:0]       wbm0_adr_o,
+    output logic [DataW-1:0]  wbm0_dat_o,
+    input  logic [DataW-1:0]  wbm0_dat_i,
+    output logic              wbm0_we_o,
+    output logic              wbm0_stb_o,
+    output logic              wbm0_cyc_o,
+    input  logic              wbm0_ack_i,
 
-    // Wishbone master port 1: TPU regs (-> tpu_regs)
-    output logic [31:0] wbm1_adr_o,
-    output logic [31:0] wbm1_dat_o,
-    input  logic [31:0] wbm1_dat_i,
-    output logic        wbm1_we_o,
-    output logic        wbm1_stb_o,
-    output logic        wbm1_cyc_o,
-    input  logic        wbm1_ack_i
+    // Wishbone master port 1: TPU regs
+    output logic [31:0]       wbm1_adr_o,
+    output logic [DataW-1:0]  wbm1_dat_o,
+    input  logic [DataW-1:0]  wbm1_dat_i,
+    output logic              wbm1_we_o,
+    output logic              wbm1_stb_o,
+    output logic              wbm1_cyc_o,
+    input  logic              wbm1_ack_i
 );
 
     logic sel_dram, sel_tpu;
@@ -64,7 +66,7 @@ module wb_decoder (
         wbs_ack_o  = '0;
 
         if (wbs_cyc_i && wbs_stb_i) begin
-            casez (1'b1)
+            case (1'b1)
                 sel_dram: begin
                     wbm0_stb_o = '1;
                     wbm0_cyc_o = '1;
@@ -80,7 +82,7 @@ module wb_decoder (
                 default: begin
                     // Unmapped — ack immediately
                     wbs_ack_o = '1;
-                    wbs_dat_o = 32'hDEAD_BEEF;
+                    wbs_dat_o = DataW'(32'hDEAD_BEEF);
                 end
             endcase
         end
