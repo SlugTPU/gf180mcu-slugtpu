@@ -28,6 +28,38 @@ DESIGN_NAME: chip_top
 VERILOG_FILES:
 - dir::../src/chip_top.sv
 - dir::../src/chip_core.sv
+- dir::../src/tpu_soc.sv
+- dir::../src/spi/spibone_wb.sv
+- dir::../src/spi/wb_decoder.sv
+- dir::../src/spi/tpu_regs.sv
+- dir::../src/dram/wb_dma_master.sv
+- dir::../src/dram/wb_mux_2to1.sv
+- dir::../src/dram/wb_sdr_mt48lc16m16a2_7e.sv
+- dir::../src/control/control_top.sv
+- dir::../src/control/control_buffer.sv
+- dir::../src/control/control_sram.sv
+- dir::../src/control/control_decoder.sv
+- dir::../src/compute_core.sv
+- dir::../src/sram/sram_1x256.sv
+- dir::../src/sram/sram_8x256.sv
+- dir::../src/sram/sram_8x256_full.sv
+- dir::../src/sram/memory_transaction.sv
+- dir::../src/scalar_units/scalar_stage_sram.sv
+- dir::../src/scalar_units/scalar_stage.sv
+- dir::../src/scalar_units/scalar_pipe.sv
+- dir::../src/scalar_units/add_n.sv
+- dir::../src/scalar_units/relu_n.sv
+- dir::../src/scalar_units/scale_n.sv
+- dir::../src/scalar_units/quantizer_mul.sv
+- dir::../src/scalar_units/load_data.sv
+- dir::../src/sysray/mxu.sv
+- dir::../src/sysray/pe.sv
+- dir::../src/sysray/sysray_nxn.sv
+- dir::../src/common/counter.sv
+- dir::../src/common/elastic.sv
+- dir::../src/common/fifo.sv
+- dir::../src/common/shift.sv
+- dir::../src/tri_shift.sv
 
 # Enable plugin for better SystemVerilog support
 USE_SLANG: True
@@ -178,32 +210,100 @@ MACROS:
    # https://github.com/RTimothyEdwards/gf180mcu_ocd_ip_sram
   gf180mcu_ocd_ip_sram__sram256x8m8wm1:
     gds:
-      - dir::../ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1.gds
+      - dir::../ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1.gds
     lef:
-      - dir::../ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1.lef
+      - dir::../ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1.lef
     vh:
-      - dir::../ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1.blackbox.v
+      - dir::../ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1.blackbox.v
     lib:
       "*_tt_025C_5v00":
-        - dir::../ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1__tt_025C_3v30.lib
+        - dir::../ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1__tt_025C_3v30.lib
       "*_ff_n40C_5v50":
-        - dir::../ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1__ff_025C_3v30.lib
+        - dir::../ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1__ff_025C_3v30.lib
       "*_ss_125C_4v50":
-        - dir::../ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1__ss_025C_3v30.lib
+        - dir::../ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1__ss_025C_3v30.lib
     instances:
       # Make sure to specify the SRAMs in pdn_cfg.tcl
-      i_chip_core.sram_0:
+      # NOTE: genblk1[N] paths come from the unnamed generate-for loop in
+      # sram_8x256.sv. Verify exact names after first synthesis run.
+
+      # Control instruction SRAM (1x sram_1x256)
+      i_chip_core.i_tpu_soc.control.control_sram_inst.control_sram_block.sram_inst:
         location: [490, 500]
         orientation: N
-      i_chip_core.sram_1:
-        location: [970, 500]
-        orientation: E
+
+      # Weight SRAMs (8x from sram_8x256 inside weight_sram_inst)
+      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[0].sram_mod_i":
+        location: [490, 1100]
+        orientation: N
+      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[1].sram_mod_i":
+        location: [980, 1100]
+        orientation: N
+      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[2].sram_mod_i":
+        location: [1470, 1100]
+        orientation: N
+      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[3].sram_mod_i":
+        location: [1960, 1100]
+        orientation: N
+      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[4].sram_mod_i":
+        location: [490, 1700]
+        orientation: N
+      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[5].sram_mod_i":
+        location: [980, 1700]
+        orientation: N
+      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[6].sram_mod_i":
+        location: [1470, 1700]
+        orientation: N
+      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[7].sram_mod_i":
+        location: [1960, 1700]
+        orientation: N
+
+      # Activation SRAMs (8x from sram_8x256 inside scalar_stage_sram_inst)
+      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[0].sram_mod_i":
+        location: [490, 2300]
+        orientation: N
+      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[1].sram_mod_i":
+        location: [980, 2300]
+        orientation: N
+      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[2].sram_mod_i":
+        location: [1470, 2300]
+        orientation: N
+      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[3].sram_mod_i":
+        location: [1960, 2300]
+        orientation: N
+      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[4].sram_mod_i":
+        location: [490, 2900]
+        orientation: N
+      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[5].sram_mod_i":
+        location: [980, 2900]
+        orientation: N
+      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[6].sram_mod_i":
+        location: [1470, 2900]
+        orientation: N
+      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[7].sram_mod_i":
+        location: [1960, 2900]
+        orientation: N
 
 # This is an alternative method compared to
 # specifying the power connections in the RTL
 PDN_MACRO_CONNECTIONS:
-- "i_chip_core.sram_0 VDD VSS VDD VSS"
-- "i_chip_core.sram_1 VDD VSS VDD VSS"
+- "i_chip_core.i_tpu_soc.control.control_sram_inst.control_sram_block.sram_inst VDD VSS VDD VSS"
+- "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[0].sram_mod_i VDD VSS VDD VSS"
+- "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[1].sram_mod_i VDD VSS VDD VSS"
+- "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[2].sram_mod_i VDD VSS VDD VSS"
+- "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[3].sram_mod_i VDD VSS VDD VSS"
+- "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[4].sram_mod_i VDD VSS VDD VSS"
+- "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[5].sram_mod_i VDD VSS VDD VSS"
+- "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[6].sram_mod_i VDD VSS VDD VSS"
+- "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[7].sram_mod_i VDD VSS VDD VSS"
+- "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[0].sram_mod_i VDD VSS VDD VSS"
+- "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[1].sram_mod_i VDD VSS VDD VSS"
+- "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[2].sram_mod_i VDD VSS VDD VSS"
+- "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[3].sram_mod_i VDD VSS VDD VSS"
+- "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[4].sram_mod_i VDD VSS VDD VSS"
+- "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[5].sram_mod_i VDD VSS VDD VSS"
+- "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[6].sram_mod_i VDD VSS VDD VSS"
+- "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[7].sram_mod_i VDD VSS VDD VSS"
 
 # Halo size around macros while cutting rows.
 # Workaround for: https://github.com/The-OpenROAD-Project/OpenROAD/issues/8868
