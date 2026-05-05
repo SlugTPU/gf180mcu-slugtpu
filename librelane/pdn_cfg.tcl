@@ -197,7 +197,17 @@ add_pdn_connect \
 
 define_pdn_grid \
     -macro \
-    -instances i_chip_core.sram_0 \
+    -instances {
+        i_chip_core.i_tpu_soc.control.control_sram_inst.control_sram_block.sram_inst
+        i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[0].sram_mod_i
+        i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[1].sram_mod_i
+        i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[2].sram_mod_i
+        i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[3].sram_mod_i
+        i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[4].sram_mod_i
+        i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[5].sram_mod_i
+        i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[6].sram_mod_i
+        i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[7].sram_mod_i
+    } \
     -name sram_macros_NS \
     -starts_with POWER \
     -halo "$::env(PDN_HORIZONTAL_HALO) $::env(PDN_VERTICAL_HALO)"
@@ -235,7 +245,16 @@ add_pdn_stripe \
 
 define_pdn_grid \
     -macro \
-    -instances i_chip_core.sram_1 \
+    -instances {
+        i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[0].sram_mod_i
+        i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[1].sram_mod_i
+        i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[2].sram_mod_i
+        i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[3].sram_mod_i
+        i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[4].sram_mod_i
+        i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[5].sram_mod_i
+        i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[6].sram_mod_i
+        i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[7].sram_mod_i
+    } \
     -name sram_macros_WE \
     -starts_with POWER \
     -halo "$::env(PDN_HORIZONTAL_HALO) $::env(PDN_VERTICAL_HALO)"
