@@ -208,6 +208,7 @@ tests = [
     'test_multi_addr',
     'test_burst_read',
     'test_burst_then_single',
+    'test_tpu_load_pc',
 ]
 
 proj_path = Path("./src").resolve()
