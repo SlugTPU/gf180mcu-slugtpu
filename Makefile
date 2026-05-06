@@ -6,6 +6,7 @@ TOP = chip_top
 PDK_ROOT ?= $(MAKEFILE_DIR)/gf180mcu
 PDK ?= gf180mcuD
 PDK_TAG ?= 1.6.6
+SCL ?= gf180mcu_as_sc_mcu7t3v3
 
 AVAILABLE_SLOTS = 1x1 0p5x1 1x0p5 0p5x0p5
 DEFAULT_SLOT = 1x1
@@ -42,37 +43,40 @@ clone-pdk: ## Clone the GF180MCU PDK repository
 	git clone https://github.com/wafer-space/gf180mcu.git $(MAKEFILE_DIR)/gf180mcu --depth 1 --branch ${PDK_TAG}
 .PHONY: clone-pdk
 
-clone-sram-ip: ## Clone the 3.3V SRAM macro IP into ip/
-	rm -rf $(MAKEFILE_DIR)/ip/gf180mcu_ocd_ip_sram
-	git clone https://github.com/RTimothyEdwards/gf180mcu_ocd_ip_sram $(MAKEFILE_DIR)/ip/gf180mcu_ocd_ip_sram --depth 1
-.PHONY: clone-sram-ip
+install-3v3-scl: ## Install the 3.3V standard cell library and SRAM
+	git submodule update --init ip/gf180mcu_as_sc_mcu7t3v3 ip/gf180mcu_ocd_ip_sram
+	cp -r $(MAKEFILE_DIR)/ip/gf180mcu_as_sc_mcu7t3v3/pdk/libs.ref/gf180mcu_as_sc_mcu7t3v3 $(PDK_ROOT)/$(PDK)/libs.ref/
+	cp -r $(MAKEFILE_DIR)/ip/gf180mcu_as_sc_mcu7t3v3/pdk/libs.tech/librelane $(PDK_ROOT)/$(PDK)/libs.tech/
+	cp -r $(MAKEFILE_DIR)/ip/gf180mcu_as_sc_mcu7t3v3/pdk/libs.tech/magic $(PDK_ROOT)/$(PDK)/libs.tech/
+	cp $(MAKEFILE_DIR)/librelane/gf180mcu_as_sc_mcu7t3v3_config.tcl $(PDK_ROOT)/$(PDK)/libs.tech/librelane/gf180mcu_as_sc_mcu7t3v3/config.tcl
+PHONY: install-3v3-scl
 
 librelane: ## Run LibreLane flow (synthesis, PnR, verification)
-	librelane librelane/slots/slot_${SLOT}.yaml librelane/config.yaml --pdk ${PDK} --pdk-root ${PDK_ROOT} --manual-pdk
+	librelane librelane/slots/slot_${SLOT}.yaml librelane/config.yaml --pdk ${PDK} --pdk-root ${PDK_ROOT} --manual-pdk --scl ${SCL}
 .PHONY: librelane
 
 librelane-nodrc: ## Run LibreLane flow without DRC checks
-	librelane librelane/slots/slot_${SLOT}.yaml librelane/config.yaml --pdk ${PDK} --pdk-root ${PDK_ROOT} --manual-pdk --skip KLayout.Antenna --skip KLayout.DRC --skip Magic.DRC
+	librelane librelane/slots/slot_${SLOT}.yaml librelane/config.yaml --pdk ${PDK} --pdk-root ${PDK_ROOT} --manual-pdk --skip KLayout.Antenna --skip KLayout.DRC --skip Magic.DRC --scl ${SCL}
 .PHONY: librelane-nodrc
 
 librelane-klayoutdrc: ## Run LibreLane flow without magic DRC checks
-	librelane librelane/slots/slot_${SLOT}.yaml librelane/config.yaml --pdk ${PDK} --pdk-root ${PDK_ROOT} --manual-pdk --skip Magic.DRC
+	librelane librelane/slots/slot_${SLOT}.yaml librelane/config.yaml --pdk ${PDK} --pdk-root ${PDK_ROOT} --manual-pdk --skip Magic.DRC --scl ${SCL}
 .PHONY: librelane-klayoutdrc
 
 librelane-magicdrc: ## Run LibreLane flow without KLayout DRC checks
-	librelane librelane/slots/slot_${SLOT}.yaml librelane/config.yaml --pdk ${PDK} --pdk-root ${PDK_ROOT} --manual-pdk --skip KLayout.DRC
+	librelane librelane/slots/slot_${SLOT}.yaml librelane/config.yaml --pdk ${PDK} --pdk-root ${PDK_ROOT} --manual-pdk --skip KLayout.DRC --scl ${SCL}
 .PHONY: librelane-magicdrc
 
 librelane-openroad: ## Open the last run in OpenROAD
-	librelane librelane/slots/slot_${SLOT}.yaml librelane/config.yaml --pdk ${PDK} --pdk-root ${PDK_ROOT} --manual-pdk --last-run --flow OpenInOpenROAD
+	librelane librelane/slots/slot_${SLOT}.yaml librelane/config.yaml --pdk ${PDK} --pdk-root ${PDK_ROOT} --manual-pdk --last-run --flow OpenInOpenROAD --scl ${SCL}
 .PHONY: librelane-openroad
 
 librelane-klayout: ## Open the last run in KLayout
-	librelane librelane/slots/slot_${SLOT}.yaml librelane/config.yaml --pdk ${PDK} --pdk-root ${PDK_ROOT} --manual-pdk --last-run --flow OpenInKLayout
+	librelane librelane/slots/slot_${SLOT}.yaml librelane/config.yaml --pdk ${PDK} --pdk-root ${PDK_ROOT} --manual-pdk --last-run --flow OpenInKLayout --scl ${SCL}
 .PHONY: librelane-klayout
 
 librelane-padring: ## Only create the padring
-	PDK_ROOT=${PDK_ROOT} PDK=${PDK} python3 scripts/padring.py librelane/slots/slot_${SLOT}.yaml librelane/config.yaml
+	PDK_ROOT=${PDK_ROOT} PDK=${PDK} python3 scripts/padring.py librelane/slots/slot_${SLOT}.yaml librelane/config.yaml --scl ${SCL}
 .PHONY: librelane-padring
 
 sim: ## Run chip-level RTL simulation of with cocotb

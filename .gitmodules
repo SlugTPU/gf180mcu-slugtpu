@@ -1,3 +1,6 @@
 [submodule "ip/gf180mcu_ocd_ip_sram"]
 	path = ip/gf180mcu_ocd_ip_sram
 	url = https://github.com/RTimothyEdwards/gf180mcu_ocd_ip_sram.git
+[submodule "ip/gf180mcu_as_sc_mcu7t3v3"]
+	path = ip/gf180mcu_as_sc_mcu7t3v3
+	url = https://github.com/AvalonSemiconductors/gf180mcu_as_sc_mcu7t3v3
