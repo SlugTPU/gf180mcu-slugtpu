@@ -191,7 +191,7 @@ async def test_tpu_load_pc(dut):
     """
     spi = await init(dut)
 
-    await spibone_write(spi, 0x0000_0000_0000_00014, 0x0000_0000_0000_0000)
+    await spibone_write(spi, 0x1000_0014, 0x0000_0000_0000_0003)
 
     await ClockCycles(dut.clk_i, 1000)
 
