@@ -32,7 +32,7 @@ module tpu_regs (
     output logic [31:0] tpu_input_addr_o,
     output logic [31:0] tpu_output_addr_o,
     output logic [31:0] tpu_pc_addr_o,
-    // Indicates a new PC addr was freshly written and valid for oen cycle
+    // Indicates a new PC addr was freshly written and valid for one cycle
     output logic tpu_pc_stb_o,
     output logic [31:0] tpu_length_o,
 
@@ -70,10 +70,10 @@ module tpu_regs (
             tpu_pc_stb_o      <= 1'b0;
             wb_dat_o          <= '0;
         end else begin
-           tpu_pc_stb_o = 1'b0;
+           tpu_pc_stb_o <= 1'b0;
             if (wb_cyc_i && wb_stb_i) begin
                 if (wb_we_i) begin
-                    casez (reg_offset)
+                    case (reg_offset)
                         REG_CTRL: begin
                             tpu_enable_o <= wb_dat_i[0];
                             tpu_reset_o  <= wb_dat_i[1];
@@ -88,7 +88,7 @@ module tpu_regs (
                         default: ;
                     endcase
                 end else begin
-                    casez (reg_offset)
+                    case (reg_offset)
                         // NOTE: REG_CTRL is possibly unused
                         REG_CTRL:        wb_dat_o <= {30'h0, tpu_reset_o, tpu_enable_o};
                         REG_STATUS:      wb_dat_o <= {30'h0, tpu_state_i};
