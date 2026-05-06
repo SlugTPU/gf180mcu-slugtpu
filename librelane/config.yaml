@@ -219,7 +219,7 @@ MACROS:
       "*_tt_025C_3v30":
         - dir::../ip/gf180mcu_ocd_ip_sram/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1__tt_025C_3v30.lib
       "*_ff_n40C_3v60":
-        - dir::../ip/gf180mcu_ocd_ip_sram/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1__ff_n40C_3v30.lib
+        - dir::../ip/gf180mcu_ocd_ip_sram/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1__ff_n40C_3v60.lib
     instances:
       # Make sure to specify the SRAMs in pdn_cfg.tcl
       # NOTE: genblk1[N] paths come from the unnamed generate-for loop in
