@@ -219,9 +219,9 @@ MACROS:
       "*_tt_025C_5v00":
         - dir::../ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1__tt_025C_3v30.lib
       "*_ff_n40C_5v50":
-        - dir::../ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1__ff_025C_3v30.lib
+        - dir::../ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1__ff_040C_3v30.lib
       "*_ss_125C_4v50":
-        - dir::../ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1__ss_025C_3v30.lib
+        - dir::../ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1__ss_125C_3v30.lib
     instances:
       # Make sure to specify the SRAMs in pdn_cfg.tcl
       # NOTE: genblk1[N] paths come from the unnamed generate-for loop in
