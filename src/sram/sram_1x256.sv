@@ -1,5 +1,10 @@
-module sram_1x256 
-    (input clk_i
+module sram_1x256
+    (
+`ifdef USE_POWER_PINS
+    inout wire VDD,
+    inout wire VSS,
+`endif
+    input clk_i
     ,input rst_i
     ,input [7:0] addr_i 
     ,input [7:0] wr_data_i
@@ -24,6 +29,10 @@ module sram_1x256
 
     gf180mcu_ocd_ip_sram__sram256x8m8wm1
     sram_inst(
+`ifdef USE_POWER_PINS
+        .VDD(VDD),
+        .VSS(VSS),
+`endif
         .CLK(clk_i),
         .CEN(~en_i),
         .GWEN(~rw_mode_dly),

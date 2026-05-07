@@ -7,6 +7,10 @@ module scalar_stage_sram #(
     parameter int counter_width = 8,
     parameter int address_width = 8
 ) (
+`ifdef USE_POWER_PINS
+    input  wire VDD,
+    input  wire VSS,
+`endif
     input clk_i,
     input rst_i,
 
@@ -70,6 +74,10 @@ module scalar_stage_sram #(
     sram_8x256_full
         #()
     activation_sram_inst (
+`ifdef USE_POWER_PINS
+        .VDD(VDD),
+        .VSS(VSS),
+`endif
         .clk_i(clk_i),
         .rst_i(rst_i),
 

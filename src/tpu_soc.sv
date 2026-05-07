@@ -4,6 +4,10 @@ module tpu_soc #(
    ,parameter sdr_addr_bits_p = 13
    ,parameter dram_burst_p    = 4
 ) (
+`ifdef USE_POWER_PINS
+    input  wire VDD,
+    input  wire VSS,
+`endif
     input clk_i
    ,input rst_i
 
@@ -70,6 +74,7 @@ module tpu_soc #(
    // DMA control (TODO: connect to instruction decoder)
    // -----------------------------------------------------------------------
    wire [dma_addr_w_lp - 1:0]  dma_start_addr;
+   wire                        dma_start;
    wire [15:0]                 dma_word_count;
    wire                        dma_we;
    wire                        dma_busy;
@@ -332,6 +337,10 @@ module tpu_soc #(
      .DRAM_DATA_WIDTH(dma_data_w_lp)
   )
   control (
+`ifdef USE_POWER_PINS
+      .VDD(VDD),
+      .VSS(VSS),
+`endif
       .clk_i    (clk_i),
       .rst_i    (rst_i),
 

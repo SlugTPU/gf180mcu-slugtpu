@@ -6,6 +6,10 @@ module compute_core #(
     parameter int address_width = 8,
     parameter int counter_width = 8
 ) (
+`ifdef USE_POWER_PINS
+    input  wire VDD,
+    input  wire VSS,
+`endif
     input clk_i,
     input rst_i,
 
@@ -63,6 +67,10 @@ module compute_core #(
 
     sram_8x256_full #()
     weight_sram_inst(
+`ifdef USE_POWER_PINS
+        .VDD(VDD),
+        .VSS(VSS),
+`endif
         .clk_i(clk_i),
         .rst_i(rst_i),
 
@@ -83,6 +91,10 @@ module compute_core #(
     // ACTIVATION SRAM IS IN HERE
     scalar_stage_sram #()
     scalar_stage_sram_inst(
+`ifdef USE_POWER_PINS
+        .VDD(VDD),
+        .VSS(VSS),
+`endif
         .clk_i(clk_i),
         .rst_i(rst_i),
 

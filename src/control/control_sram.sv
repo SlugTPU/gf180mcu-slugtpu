@@ -4,6 +4,10 @@ SRAM FIFO that interfaces with and serves as arbiter for both dram and decoder
 module control_sram #(
     parameter int sram_width_p = 8
 ) (
+`ifdef USE_POWER_PINS
+    input  wire VDD,
+    input  wire VSS,
+`endif
     input clk_i,
     input rst_i,
 
@@ -61,6 +65,10 @@ module control_sram #(
 
     sram_1x256
     control_sram_block(
+`ifdef USE_POWER_PINS
+        .VDD(VDD),
+        .VSS(VSS),
+`endif
         .clk_i(clk_i),
         .rst_i(rst_i),
 
