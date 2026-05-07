@@ -236,7 +236,6 @@ module wb_sdr_mt48lc16m16a_7e #(
                   .data_o(read_shifter_data),
                   .enable_i(shift_enable));
 
-   assign DEBUG_probe = _data_bits_p  * (dram_burst_p - 0) - 1;
    generate
       for (genvar i = 0; i < dram_burst_p; i++) begin
          assign m_dat_o[_data_bits_p  * (dram_burst_p - i) - 1 -:
