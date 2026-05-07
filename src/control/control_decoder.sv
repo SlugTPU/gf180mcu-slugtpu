@@ -3,7 +3,7 @@ module control_decoder #(
     parameter int DRAM_ADDR_WIDTH = 12,
     parameter int DRAM_COUNTER_WIDTH = 8,
     parameter int DRAM_DATA_WIDTH = 64,
-    parameter int INST_MAX_WIDTH_BYTES = 8
+    parameter int INST_MAX_WIDTH_BYTES = 4
 ) (
     input clk_i,
     input rst_i,
@@ -13,7 +13,7 @@ module control_decoder #(
     input instruction_valid_i,
 
     // DMA/DRAM control signals
-    // TODO: verify that dma master always latches in 1 cycles when done_o == 1
+    //  dma master always latches in 1 cycles when ~busy
     output logic [DRAM_ADDR_WIDTH-1:0] dram_start_addr_o,
     output logic [DRAM_COUNTER_WIDTH-1:0] dram_word_count_o,
     output logic dram_we_o, // 0=DRAM->stream, 1=stream->DRAM
@@ -59,7 +59,7 @@ module control_decoder #(
 
     // MXU enables
     logic                        act_enable_q, act_enable_d;
-    logic                        weight_enable_q, weight_enable_d;
+    logic                        weight_enable_q, weight_enable_d, weight_enable_dma_d, weight_enable_dma_q;
 
     // Activation SRAM control
     logic [SRAM_ADDR_WIDTH-1:0]  act_addr;
@@ -94,17 +94,18 @@ module control_decoder #(
     logic [63:0]                 weight_rd_data;
     logic                        weight_rd_valid;
     logic                        weight_rd_ready;
+    logic INTERNAL_ERROR_D, tpu_exit_d;
 
     assign act_wr_data = dram2sram_data_i;
     assign weight_wr_data = dram2sram_data_i;
-    assign sram2dram_data_o = (act_enable_q) ? act_wr_data : weight_wr_data;
+    assign sram2dram_data_o = (act_enable_q) ? act_rd_data : weight_rd_data;
 
     assign act_wr_valid = (act_enable_q) ? dram2sram_valid_i : '0;
-    assign weight_wr_valid = (weight_enable_q) ? dram2sram_valid_i : '0;
+    assign weight_wr_valid = (weight_enable_dma_q) ? dram2sram_valid_i : '0;
     assign dram2sram_ready_o = (act_enable_q) ? act_downstream_ready : weight_downstream_ready;
 
     assign act_rd_ready = (act_enable_q) ? sram2dram_ready_i : '0;
-    assign weight_rd_ready = (weight_enable_q) ? sram2dram_ready_i : '0;
+    assign weight_rd_ready = (weight_enable_dma_q) ? sram2dram_ready_i : '0;
     assign sram2dram_valid_o = (act_enable_q) ? act_rd_valid : weight_rd_valid;
 
     /*
@@ -161,6 +162,9 @@ module control_decoder #(
             weight_enable_q <= '0;
             inst_load_count_q <= '0;
             pipeline_amount_q <= '0;
+            INTERNAL_ERROR_O <= '0;
+            tpu_exit_o <= '0;
+            weight_enable_dma_q <= '0;
         end
         else begin
             decoder_state_q <= decoder_state_d;
@@ -174,6 +178,9 @@ module control_decoder #(
             weight_enable_q <= weight_enable_d;
             inst_load_count_q <= inst_load_count_d;
             pipeline_amount_q <= pipeline_amount_d;
+            INTERNAL_ERROR_O <= INTERNAL_ERROR_D;
+            tpu_exit_o <= tpu_exit_d;
+            weight_enable_dma_q <= weight_enable_dma_d;
         end
     end
 
@@ -183,9 +190,10 @@ module control_decoder #(
         inst_d = inst_q;
         inst_load_count_d = inst_load_count_q;
         do_execute = '0;
-        tpu_exit_o = '0;
+        tpu_exit_d = tpu_exit_o;
         decoder_state_d = decoder_state_q;
-        INTERNAL_ERROR_O = '0;
+        if (tpu_state_i != 2'b01)
+            tpu_exit_d = '0; 
         case(decoder_state_q)
             LOAD_OPCODE : begin
                 if (instruction_valid_i) begin
@@ -193,10 +201,11 @@ module control_decoder #(
                     inst_load_count_d = 2'b01;
                     decoder_state_d = LOAD_ALL;
                 end
+                
             end
             LOAD_ALL : begin
                 if (instruction_valid_i) begin
-                    if (inst_opcode[3] == 1'b1 || inst_opcode == LOAD_WEIGHTS) begin
+                    if ((inst_opcode[3] == 1'b1 && inst_opcode[0] != 1'b1) || inst_opcode == LOAD_WEIGHTS) begin
                         decoder_state_d = WAIT;
                     end
                     if (inst_opcode[0] == 1'b1 && inst_load_count_d == 2'b11) begin // DRAM
@@ -208,16 +217,22 @@ module control_decoder #(
                     inst_d[inst_load_count_q*8 +: 8] = instruction_data_i;
                     inst_load_count_d = inst_load_count_d + 1'b1;
                 end
+                if (inst_opcode == EXIT) begin
+                    if (weight_load_ready & act_load_ready & ~dma_busy) begin
+                        decoder_state_d = LOAD_OPCODE;
+                        tpu_exit_d = '1;
+                    end
+                end
             end
             WAIT : begin
                 if (inst_opcode[3:2] == 2'b01 && weight_load_ready) begin
-                    if(inst_opcode[0] != 1'b1 || dma_done == '1) begin
+                    if(inst_opcode[0] != 1'b1 || ~dma_busy) begin
                         do_execute = '1;
                         decoder_state_d = LOAD_OPCODE;
                     end
                 end
                 if (inst_opcode[3] == 1'b1 && act_load_ready) begin
-                    if(inst_opcode[0] != 1'b1 || dma_done == '1) begin
+                    if(inst_opcode[0] != 1'b1 || ~dma_busy) begin
                         do_execute = '1;
                         decoder_state_d = LOAD_OPCODE;
                     end
@@ -226,10 +241,6 @@ module control_decoder #(
                     do_execute = '1;
                     decoder_state_d = WAIT_MATMUL;
                 end
-                if (inst_opcode == EXIT) begin
-                    decoder_state_d = LOAD_OPCODE;
-                    tpu_exit_o = '1;
-                end
             end
             WAIT_MATMUL : begin
                 if (act_load_ready) begin
@@ -237,7 +248,6 @@ module control_decoder #(
                     decoder_state_d = LOAD_OPCODE;
                 end
             end
-            default: INTERNAL_ERROR_O = '1;
         endcase
     end
 
@@ -250,6 +260,7 @@ module control_decoder #(
         relu_enable_d = relu_enable_q;
         act_enable_d = act_enable_q;
         weight_enable_d = weight_enable_q;
+        weight_enable_dma_d = weight_enable_dma_q;
         pipeline_amount_d = pipeline_amount_q;
 
         act_addr = '0;
@@ -261,6 +272,12 @@ module control_decoder #(
         weight_transaction_rw_mode = '0;
         weight_load_valid = '0;
 
+        dram_start_addr_o = '0;
+        dram_word_count_o = '0;
+        dram_we_o = '0;
+
+        INTERNAL_ERROR_D = INTERNAL_ERROR_O;
+
         if (act_load_ready == '1) begin
             load_bias_en_d = '0;
             load_scale_en_d = '0;
@@ -270,6 +287,7 @@ module control_decoder #(
 
         if (weight_load_ready == '1) begin
             weight_enable_d = '0;
+            weight_enable_dma_d = '0;
         end
         
         if (do_execute == 1'b1) begin
@@ -278,7 +296,7 @@ module control_decoder #(
                     act_enable_d = '1;
                     act_addr = inst_sram_addr;
                     act_transaction_amount = inst_dma_amount;
-                    act_transaction_rw_mode = '1;
+                    act_transaction_rw_mode = '0;
                     act_load_valid = '1;
                     dram_word_count_o = inst_dma_amount;
                     dram_start_addr_o = inst_dram_addr;
@@ -297,7 +315,7 @@ module control_decoder #(
                     dram_start_i = '1;
                 end
                 DRAM2SRAM_WEIGHT : begin
-                    weight_enable_d = '1;
+                    weight_enable_dma_d = '1;
                     weight_addr = inst_sram_addr;
                     weight_transaction_amount = inst_dma_amount;
                     weight_transaction_rw_mode = '1;
@@ -352,6 +370,9 @@ module control_decoder #(
                         act_transaction_rw_mode = '1;
                         act_load_valid = '1;
                     end
+                end
+                default begin
+                    INTERNAL_ERROR_D = '1;
                 end
             endcase
         end

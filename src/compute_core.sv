@@ -50,7 +50,7 @@ module compute_core #(
 );
 
     logic weight_downstream_ready_i, weight_ready_l, act_ready_l;
-    assign weight_downstream_ready_i = weight_wr_valid_i | weight_ready_l | weight_rd_ready_i;
+    assign weight_downstream_ready_i = weight_wr_valid_i | (weight_ready_l & weight_enable_i) | weight_rd_ready_i;
 
     logic signed [ACC_WIDTH-1:0] psum [N-1:0];
     logic psum_valid [N-1:0];

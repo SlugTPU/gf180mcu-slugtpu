@@ -66,7 +66,7 @@ module memory_transaction #(
         end else begin
             current_count_q <= current_count_d;           
             addr_q <= addr_d;
-            rd_valid_o <= ready_o & ~rw_mode & downstream_ready_i;
+            rd_valid_o <= ready_o & ~rw_mode;
 
             if (in_use & downstream_ready_i &
                 (current_count_d  == transaction_amount_q)) begin
