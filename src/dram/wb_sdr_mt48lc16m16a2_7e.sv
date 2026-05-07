@@ -302,6 +302,7 @@ module wb_sdr_mt48lc16m16a_7e #(
       for (int i = 0; i < _banks_p; i++) bank_row_d[i] = bank_row_q[i];
       m_ack_o = 1'b0;
       s_cke_o = 1;
+      s_addr_o = '0;
 
       for (int i = 0; i < n_reg_lp; i++) begin
          r_d[i] = r_q[i];
