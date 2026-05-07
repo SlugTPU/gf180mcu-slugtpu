@@ -58,7 +58,7 @@ module control_decoder #(
     logic                        relu_enable_q, relu_enable_d;
 
     // MXU enables
-    logic                        act_enable_q, act_enable_d;
+    logic                        act_enable_q, act_enable_d, act_enable_dma_d, act_enable_dma_q;
     logic                        weight_enable_q, weight_enable_d, weight_enable_dma_d, weight_enable_dma_q;
 
     // Activation SRAM control
@@ -94,19 +94,33 @@ module control_decoder #(
     logic [63:0]                 weight_rd_data;
     logic                        weight_rd_valid;
     logic                        weight_rd_ready;
-    logic INTERNAL_ERROR_D, tpu_exit_d;
+    logic INTERNAL_ERROR_D, tpu_exit_d, dram_rd_last_cycle;
+
+    /*
+    This wire is an inelegant way to solve a bug regarding sram read timing
+    Because we have sync read, we may lose valid data if the consumer is not ready
+    when the sram expects it. The rest of the design handshakes differently, so it is not a problem there.
+    We work around this by knowing that there is alway a delay between subsequent transactions to dram.
+    So, we can lower the speed of reads to prevent us from losing valid data.
+    */
+    always_ff @( posedge clk_i ) begin : rd_slower
+        if (rst_i)
+            dram_rd_last_cycle <= '0;
+        else
+            dram_rd_last_cycle <= sram2dram_ready_i;
+    end
 
     assign act_wr_data = dram2sram_data_i;
     assign weight_wr_data = dram2sram_data_i;
-    assign sram2dram_data_o = (act_enable_q) ? act_rd_data : weight_rd_data;
+    assign sram2dram_data_o = (act_enable_dma_q) ? act_rd_data : weight_rd_data;
 
-    assign act_wr_valid = (act_enable_q) ? dram2sram_valid_i : '0;
+    assign act_wr_valid = (act_enable_dma_q) ? dram2sram_valid_i : '0;
     assign weight_wr_valid = (weight_enable_dma_q) ? dram2sram_valid_i : '0;
-    assign dram2sram_ready_o = (act_enable_q) ? act_downstream_ready : weight_downstream_ready;
+    assign dram2sram_ready_o = (act_enable_dma_q) ? act_downstream_ready : ((weight_enable_dma_q) ? weight_downstream_ready : '0);
 
-    assign act_rd_ready = (act_enable_q) ? sram2dram_ready_i : '0;
-    assign weight_rd_ready = (weight_enable_dma_q) ? sram2dram_ready_i : '0;
-    assign sram2dram_valid_o = (act_enable_q) ? act_rd_valid : weight_rd_valid;
+    assign act_rd_ready = (act_enable_dma_q) ? (sram2dram_ready_i & ~dram_rd_last_cycle) : '0;
+    assign weight_rd_ready = (weight_enable_dma_q) ? (sram2dram_ready_i & ~dram_rd_last_cycle) : '0;
+    assign sram2dram_valid_o = (act_enable_dma_q) ? act_rd_valid : ((weight_enable_dma_q) ? weight_rd_valid : '0);
 
     /*
     Instruction FSM (Mealy)
@@ -165,6 +179,7 @@ module control_decoder #(
             INTERNAL_ERROR_O <= '0;
             tpu_exit_o <= '0;
             weight_enable_dma_q <= '0;
+            act_enable_dma_q <= '0;
         end
         else begin
             decoder_state_q <= decoder_state_d;
@@ -181,6 +196,7 @@ module control_decoder #(
             INTERNAL_ERROR_O <= INTERNAL_ERROR_D;
             tpu_exit_o <= tpu_exit_d;
             weight_enable_dma_q <= weight_enable_dma_d;
+            act_enable_dma_q <= act_enable_dma_d;
         end
     end
 
@@ -262,6 +278,7 @@ module control_decoder #(
         weight_enable_d = weight_enable_q;
         weight_enable_dma_d = weight_enable_dma_q;
         pipeline_amount_d = pipeline_amount_q;
+        act_enable_dma_d = act_enable_dma_q;
 
         act_addr = '0;
         act_transaction_amount = '0;
@@ -283,6 +300,7 @@ module control_decoder #(
             load_scale_en_d = '0;
             load_zp_en_d = '0;
             act_enable_d = '0;
+            act_enable_dma_d = '0;
         end
 
         if (weight_load_ready == '1) begin
@@ -293,7 +311,7 @@ module control_decoder #(
         if (do_execute == 1'b1) begin
             case (inst_opcode)
                 SRAM2DRAM : begin
-                    act_enable_d = '1;
+                    act_enable_dma_d = '1;
                     act_addr = inst_sram_addr;
                     act_transaction_amount = inst_dma_amount;
                     act_transaction_rw_mode = '0;
@@ -304,7 +322,7 @@ module control_decoder #(
                     dram_start_i = '1;
                 end
                 DRAM2SRAM_ACT : begin
-                    act_enable_d = '1;
+                    act_enable_dma_d = '1;
                     act_addr = inst_sram_addr;
                     act_transaction_amount = inst_dma_amount;
                     act_transaction_rw_mode = '1;
@@ -365,7 +383,7 @@ module control_decoder #(
                         act_load_valid = '1;
                         act_enable_d = '1;
                     end else begin
-                        act_addr = inst_sram_addr;
+                        act_addr = inst_result_sram_addr;
                         act_transaction_amount = 8'd8;
                         act_transaction_rw_mode = '1;
                         act_load_valid = '1;
@@ -394,8 +412,8 @@ module control_decoder #(
         .load_scale_en_i              (load_scale_en_q),
         .relu_enable_i                (relu_enable_q),
 
-        .act_enable_i                 (act_enable_q),
-        .weight_enable_i              (weight_enable_q),
+        .act_enable_i                 (act_enable_d),
+        .weight_enable_i              (weight_enable_d),
 
         .act_addr_i                   (act_addr),
         .act_transaction_amount_i     (act_transaction_amount),

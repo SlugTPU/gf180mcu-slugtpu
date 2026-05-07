@@ -37,7 +37,7 @@ module memory_transaction #(
     always_comb begin
         addr_d = addr_q;
         current_count_d = current_count_q;
-        if (downstream_ready_i & in_use) begin
+        if (downstream_ready_i & in_use ) begin
             current_count_d = current_count_q + 1'b1;
             addr_d = addr_q + 1'b1;
         end
@@ -66,7 +66,7 @@ module memory_transaction #(
         end else begin
             current_count_q <= current_count_d;           
             addr_q <= addr_d;
-            rd_valid_o <= ready_o & ~rw_mode;
+            rd_valid_o <= ready_o & ~rw_mode & downstream_ready_i;
 
             if (in_use & downstream_ready_i &
                 (current_count_d  == transaction_amount_q)) begin
