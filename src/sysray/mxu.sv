@@ -33,7 +33,7 @@ module mxu #(
 );
 
     logic [3:0] activation_count, weight_count;
-    logic act_valid_l, weight_valid_l, act_select, weight_select, shift_en;
+    logic act_valid_l, weight_valid_l, act_select, weight_select, shift_en, act_ready_q;
     assign act_valid_l = act_enable_i & act_valid_i & act_ready_o;
     assign weight_valid_l = weight_enable_i & weight_valid_i ;
 
@@ -70,10 +70,11 @@ module mxu #(
 
     always_ff @( posedge clk_i ) begin
         if(rst_i | (~act_enable_i & ~weight_enable_i))
-            act_ready_o <= '0;
+            act_ready_q <= '0;
         else if(weight_count == 4'b0110)
-            act_ready_o <= '1;
+            act_ready_q <= '1;
     end
+    assign act_ready_o = act_ready_q & ~(~act_enable_i & ~weight_enable_i);
 
 
     logic [DATA_WIDTH+1:0] act_shift_in [N-1:0];
