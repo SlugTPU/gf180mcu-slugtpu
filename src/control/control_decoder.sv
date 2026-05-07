@@ -255,7 +255,7 @@ module control_decoder #(
         dram_start_i = '0;
 
         load_bias_en_d = load_bias_en_q;
-        load_scale_en_d = load_scale_en_d;
+        load_scale_en_d = load_scale_en_q;
         load_zp_en_d = load_zp_en_q;
         relu_enable_d = relu_enable_q;
         act_enable_d = act_enable_q;
