@@ -9,8 +9,8 @@ module chip_core #(
     parameter NUM_ANALOG_PADS
     )(
     `ifdef USE_POWER_PINS
-    input  wire VDD,
-    input  wire VSS,
+    inout  wire VDD,
+    inout  wire VSS,
     `endif
 
     input  wire clk,       // clock

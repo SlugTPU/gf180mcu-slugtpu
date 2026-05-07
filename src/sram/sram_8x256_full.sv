@@ -6,8 +6,8 @@ module sram_8x256_full
 )
 (
 `ifdef USE_POWER_PINS
-    input  wire VDD,
-    input  wire VSS,
+    inout  wire VDD,
+    inout  wire VSS,
 `endif
     input clk_i,
     input rst_i,
