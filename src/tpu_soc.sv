@@ -152,7 +152,6 @@ module tpu_soc #(
    wire [31:0] tpureg_pc_addrwide;
    assign dma_start_addr = dma_start_addr_wide[dma_addr_w_lp-1:0];
    assign dma_word_count = dma_word_count_wide[15:0];
-   assign dma_we         = 1'b0; // TPU DMA always reads from DRAM into systolic array
 
    // -----------------------------------------------------------------------
    // spibone_wb: SPI slave → Wishbone master
