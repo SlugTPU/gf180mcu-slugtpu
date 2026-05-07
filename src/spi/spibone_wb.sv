@@ -62,7 +62,7 @@ module spibone_wb #(
     logic mosi_r;
     logic cs_n_r, cs_n_rr;
 
-    always_ff @(posedge clk_i or posedge rst_i) begin
+    always_ff @(posedge clk_i) begin
         if (rst_i) begin
             sck_r      <= 1'b0;
             prev_sck_r <= 1'b0;
@@ -97,7 +97,7 @@ module spibone_wb #(
     assign rx_byte_boundary_fall = sck_fall & (rx_bitcnt == 3'd0);
     assign rx_byte_data          = {rx_shreg[6:0], spi_mosi_i};
 
-    always_ff @(posedge clk_i or posedge rst_i) begin
+    always_ff @(posedge clk_i) begin
         if (rst_i || !cs_active) begin
             rx_shreg  <= '0;
             rx_bitcnt <= '0;
@@ -116,7 +116,7 @@ module spibone_wb #(
 
     assign spi_miso_o = tx_shreg[7];
 
-    always_ff @(posedge clk_i or posedge rst_i) begin
+    always_ff @(posedge clk_i) begin
         if (rst_i || !cs_active)
             tx_shreg <= '0;
         else if (tx_load)
@@ -160,7 +160,7 @@ module spibone_wb #(
     // sel is always full-word
     assign wb_sel_o = '1;
 
-    always_ff @(posedge clk_i or posedge rst_i) begin
+    always_ff @(posedge clk_i) begin
         if (rst_i) begin
             state          <= S_IDLE;
             is_read        <= '0;
