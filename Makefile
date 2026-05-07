@@ -149,6 +149,9 @@ sim-wb-mux:
 sim-wb-dma:
 	python3 -m pytest cocotb/test_wb_dma.py -s
 
+sim-wb-dma-sdram:
+	python3 -m pytest cocotb/test_wb_dma_sdram.py -s
+
 sim-spibone-dram:
 	python3 -m pytest cocotb/test_spibone_dram.py -s
 
