@@ -100,7 +100,7 @@ async def sram2dram_helper(dut, data):
         dut.sram2dram_ready_i.value = 1
         while dut.sram2dram_valid_o.value != 1:
             await FallingEdge(dut.clk_i)
-        # assert dut.sram2dram_data_o.value == word
+        assert dut.sram2dram_data_o.value == word
         await FallingEdge(dut.clk_i)
     dut.sram2dram_ready_i.value = 0
     dut.dma_busy.value = 0
@@ -176,8 +176,10 @@ async def test_single_layer(dut):
     await FallingEdge(dut.clk_i)
     dut.dma_busy.value = 0  
 
-    bias = [1, 2, 3, 4, 5, 6, 7, 8]
-    zp   = [2, 2, 4, 4, 6, 6, 8, 8]
+    # bias = [1, 2, 3, 4, 5, 6, 7, 8]
+    # zp   = [2, 2, 4, 4, 6, 6, 8, 8]
+    bias = [0,0,0,0,0,0,0,0]
+    zp   = [0,0,0,0,0,0,0,0]
     mul  = [1 << 16 for _ in range(8)]
     scalar_params = {'bias': bias, 'zp': zp, 'mul': mul} 
     act    = [[random.randint(0, 3) for _ in range(8)] for _ in range(8)]
@@ -231,6 +233,8 @@ async def test_single_layer(dut):
     await FallingEdge(dut.clk_i)
     cocotb.start_soon(sram2dram_helper(dut, expected_flat))
     for _ in range(20):
+        await FallingEdge(dut.clk_i)
+    while dut.act_load_ready.value != 1:
         await FallingEdge(dut.clk_i)
     await FallingEdge(dut.clk_i)
 

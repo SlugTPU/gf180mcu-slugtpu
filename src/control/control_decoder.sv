@@ -412,8 +412,8 @@ module control_decoder #(
         .load_scale_en_i              (load_scale_en_q),
         .relu_enable_i                (relu_enable_q),
 
-        .act_enable_i                 (act_enable_d),
-        .weight_enable_i              (weight_enable_d),
+        .act_enable_i                 (act_enable_q),
+        .weight_enable_i              (weight_enable_q),
 
         .act_addr_i                   (act_addr),
         .act_transaction_amount_i     (act_transaction_amount),

@@ -41,11 +41,12 @@ module scalar_stage_sram #(
     logic [DATA_Q:0] quantized_data_flipped_out [N-1:0];
 
     logic quantized_ready, quantized_valid, quantized_valid_int;
+    logic[4:0] count_q;
 
     //SRAM Control Signals
     //ASSUME NO DATA RACES
     logic sram_downstream_ready_in;
-    assign sram_downstream_ready_in = rd_ready_i | wr_valid_i | quantized_valid | load_bias_en_i | load_zp_en_i | load_scale_en_i;
+    assign sram_downstream_ready_in = rd_ready_i | wr_valid_i | (quantized_valid & count_q <= 4'b0111) | load_bias_en_i | load_zp_en_i | load_scale_en_i;
     logic sram_downstream_ready_out;
     assign downstream_ready_o = sram_downstream_ready_out;
 
@@ -113,6 +114,13 @@ module scalar_stage_sram #(
             assign quantized_data[i] = quantized_data_flipped_out[N-1-i][DATA_Q-1:0];
         end
     endgenerate
+
+    always_ff @( posedge clk_i ) begin
+        if(rst_i | ~quantized_valid)
+            count_q <= '0;
+        else if(quantized_valid)
+            count_q <= count_q + 1'b1;
+    end
     
     assign quantized_valid = quantized_data_flipped_out[7][DATA_Q];
 
