@@ -1,53 +1,45 @@
 // tpu_regs.sv
-// Wishbone slave: TPU control registers
+// Wishbone slave: TPU PC register + done detection
 //
 // Register map (base = 0x1000_0000):
-//   0x00  RW  CTRL          [0]=tpu_enable (1=DMA owns bus), [1]=reset
-//   0x04  RO  STATUS        [0]=busy, [1]=done
-//   0x08  RW  INPUT_ADDR    — DRAM address of TPU input data
-//   0x0C  RW  OUTPUT_ADDR   — DRAM address for TPU to write results
-//   0x10  RW  LENGTH        — number of 32-bit words to process
-//   0x14  RW  PC_ADDR       — DRAM address of program counter
+//   0x00  RW  PC_ADDR  — program counter address
+//   0x04  RO  STATUS   — [1:0] tpu_state_i (2'b01 = IDLE)
+//   0x08  RW  CTRL     — [0]=tpu_enable (1=DMA owns bus)
 //
 // SPDX-License-Identifier: Apache-2.0
-
 `default_nettype none
 
 module tpu_regs (
-    input logic         clk_i,
-    input logic         rst_i,
+    input  logic        clk_i,
+    input  logic        rst_i,
 
     // Wishbone slave (from wb_decoder port 1)
-    input logic [31:0]  wb_adr_i,
-    input logic [31:0]  wb_dat_i,
+    input  logic [31:0] wb_adr_i,
+    input  logic [31:0] wb_dat_i,
     output logic [31:0] wb_dat_o,
-    input logic         wb_we_i,
-    input logic         wb_stb_i,
-    input logic         wb_cyc_i,
+    input  logic        wb_we_i,
+    input  logic        wb_stb_i,
+    input  logic        wb_cyc_i,
     output logic        wb_ack_o,
 
-    // TPU control outputs
-    output logic        tpu_enable_o,
-    output logic        tpu_reset_o,
-    output logic [31:0] tpu_input_addr_o,
-    output logic [31:0] tpu_output_addr_o,
+    // PC outputs
     output logic [31:0] tpu_pc_addr_o,
-    // Indicates a new PC addr was freshly written and valid for one cycle
-    output logic tpu_pc_stb_o,
-    output logic [31:0] tpu_length_o,
+    output logic        tpu_pc_stb_o,   // pulses high one cycle on PC write
 
-    // TPU status inputs
-    input logic  [1:0]  tpu_state_i
+    // Bus mux control
+    output logic        tpu_enable_o,
+
+    // TPU state + done detection
+    input  logic [1:0]  tpu_state_i,
+    output logic        tpu_done_o      // pulses high one cycle when TPU returns to IDLE after PC load
 );
 
-    // Register offsets (byte addressed, 32-bit aligned)
+    localparam logic [1:0] TPU_IDLE = 2'b01;
+
     localparam logic [7:0]
-        REG_CTRL        = 8'h00,
-        REG_STATUS      = 8'h04,
-        REG_INPUT_ADDR  = 8'h08,
-        REG_OUTPUT_ADDR = 8'h0C,
-        REG_LENGTH      = 8'h10,
-        REG_PC          = 8'h14;
+        REG_PC     = 8'h00,
+        REG_STATUS = 8'h04,
+        REG_CTRL   = 8'h08;
 
     logic [7:0] reg_offset;
     assign reg_offset = wb_adr_i[7:0];
@@ -58,45 +50,58 @@ module tpu_regs (
         else        wb_ack_o <= wb_cyc_i && wb_stb_i && !wb_ack_o;
     end
 
-    // Registers + TPU control
+    // Done detection: armed by PC write, fires on IDLE transition
+    logic pc_loaded;
+    logic [1:0] tpu_state_prev;
+
     always_ff @(posedge clk_i or posedge rst_i) begin
         if (rst_i) begin
-            tpu_enable_o      <= '0;
-            tpu_reset_o       <= '0;
-            tpu_input_addr_o  <= '0;
-            tpu_output_addr_o <= '0;
-            tpu_length_o      <= '0;
-            tpu_pc_addr_o     <= '0;
-            tpu_pc_stb_o      <= 1'b0;
-            wb_dat_o          <= '0;
+            tpu_state_prev <= TPU_IDLE;
+            pc_loaded      <= 1'b0;
+            tpu_done_o     <= 1'b0;
         end else begin
-           tpu_pc_stb_o <= 1'b0;
+            tpu_state_prev <= tpu_state_i;
+
+            // Arm when PC is written
+            if (tpu_pc_stb_o)
+                pc_loaded <= 1'b1;
+
+            // Fire done when returning to IDLE after a PC load
+            if (pc_loaded && (tpu_state_i == TPU_IDLE) && (tpu_state_prev != TPU_IDLE)) begin
+                tpu_done_o <= 1'b1;
+                pc_loaded  <= 1'b0;  // disarm until next PC write
+            end else begin
+                tpu_done_o <= 1'b0;
+            end
+        end
+    end
+
+    // PC register + wishbone read/write
+    always_ff @(posedge clk_i or posedge rst_i) begin
+        if (rst_i) begin
+            tpu_pc_addr_o <= '0;
+            tpu_pc_stb_o  <= 1'b0;
+            tpu_enable_o  <= 1'b0;
+            wb_dat_o      <= '0;
+        end else begin
+            tpu_pc_stb_o <= 1'b0;  // default: clear strobe
+
             if (wb_cyc_i && wb_stb_i) begin
                 if (wb_we_i) begin
                     case (reg_offset)
-                        REG_CTRL: begin
-                            tpu_enable_o <= wb_dat_i[0];
-                            tpu_reset_o  <= wb_dat_i[1];
-                        end
-                        REG_INPUT_ADDR:  tpu_input_addr_o  <= wb_dat_i;
-                        REG_OUTPUT_ADDR: tpu_output_addr_o <= wb_dat_i;
-                        REG_LENGTH:      tpu_length_o      <= wb_dat_i;
                         REG_PC: begin
-                           tpu_pc_addr_o     <= wb_dat_i;
-                           tpu_pc_stb_o      <= 1'b1;
+                            tpu_pc_addr_o <= wb_dat_i;
+                            tpu_pc_stb_o  <= 1'b1;
                         end
+                        REG_CTRL: tpu_enable_o <= wb_dat_i[0];
                         default: ;
                     endcase
                 end else begin
                     case (reg_offset)
-                        // NOTE: REG_CTRL is possibly unused
-                        REG_CTRL:        wb_dat_o <= {30'h0, tpu_reset_o, tpu_enable_o};
-                        REG_STATUS:      wb_dat_o <= {30'h0, tpu_state_i};
-                        REG_INPUT_ADDR:  wb_dat_o <= tpu_input_addr_o;
-                        REG_OUTPUT_ADDR: wb_dat_o <= tpu_output_addr_o;
-                        REG_LENGTH:      wb_dat_o <= tpu_length_o;
-                        REG_PC:          wb_dat_o <= tpu_pc_addr_o;
-                        default:         wb_dat_o <= 32'hDEAD_BEEF;
+                        REG_PC:     wb_dat_o <= tpu_pc_addr_o;
+                        REG_STATUS: wb_dat_o <= {30'h0, tpu_state_i};
+                        REG_CTRL:   wb_dat_o <= {31'h0, tpu_enable_o};
+                        default:    wb_dat_o <= 32'hDEAD_BEEF;
                     endcase
                 end
             end

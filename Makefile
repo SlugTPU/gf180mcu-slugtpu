@@ -143,6 +143,9 @@ sim-compute-core:
 sim-mxu:
 	python3 -m pytest cocotb/test_mxu.py -s
 
+sim-regs:
+	python3 -m pytest cocotb/test_tpu_regs.py -s
+
 sim-wb-mux:
 	python3 -m pytest cocotb/test_wb_mux.py -s
 
