@@ -25,7 +25,7 @@ module sram_8x256
 
     genvar i;
     generate
-        for (i = 0; i < 8 ; i++ ) begin
+        for (i = 0; i < 8 ; i++ ) begin : sram_gen_blk_8x256
             gf180mcu_ocd_ip_sram__sram256x8m8wm1
             sram_mod_i(
                 .CLK(clk_i),
