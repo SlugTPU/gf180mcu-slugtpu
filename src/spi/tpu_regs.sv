@@ -45,7 +45,7 @@ module tpu_regs (
     assign reg_offset = wb_adr_i[7:0];
 
     // Single-cycle ack
-    always_ff @(posedge clk_i or posedge rst_i) begin
+    always_ff @(posedge clk_i) begin
         if (rst_i) wb_ack_o <= '0;
         else        wb_ack_o <= wb_cyc_i && wb_stb_i && !wb_ack_o;
     end
@@ -54,7 +54,7 @@ module tpu_regs (
     logic pc_loaded;
     logic [1:0] tpu_state_prev;
 
-    always_ff @(posedge clk_i or posedge rst_i) begin
+    always_ff @(posedge clk_i) begin
         if (rst_i) begin
             tpu_state_prev <= TPU_IDLE;
             pc_loaded      <= 1'b0;
@@ -77,7 +77,7 @@ module tpu_regs (
     end
 
     // PC register + wishbone read/write
-    always_ff @(posedge clk_i or posedge rst_i) begin
+    always_ff @(posedge clk_i) begin
         if (rst_i) begin
             tpu_pc_addr_o <= '0;
             tpu_pc_stb_o  <= 1'b0;
