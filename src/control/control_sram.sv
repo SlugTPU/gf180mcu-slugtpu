@@ -22,10 +22,11 @@ module control_sram #(
 
     logic [sram_width_p:0]      wr_ptr_n, wr_ptr_q, rd_ptr_n, rd_ptr_q;
     logic [sram_width_p-1:0]    addr_l;
-    logic                       write_en_w, read_en_w, rw_mode, last_cycle_read;
+    logic                       write_en_w, read_en_w, rw_mode, last_cycle_read, rw_mode_last_cycle;
     wire                        is_full_w, is_empty_w;
 
-    assign read_en_w = (ready_i && ~is_empty_w);
+    assign read_en_w = ready_i && ~is_empty_w;
+    // assign read_en_w = (ready_i && ~is_empty_w && ~rw_mode_last_cycle);
     assign write_en_w = (valid_i && ready_o);
 
     assign rd_ptr_n = (read_en_w) ? rd_ptr_q + 1 : rd_ptr_q;
@@ -49,10 +50,12 @@ module control_sram #(
             wr_ptr_q <= '0;
             rd_ptr_q <= '0;
             last_cycle_read <= '0;
+            rw_mode_last_cycle <= '0;
         end else begin
             wr_ptr_q <= wr_ptr_n;
             rd_ptr_q <= rd_ptr_n;
             last_cycle_read <= read_en_w;
+            rw_mode_last_cycle <= rw_mode;
         end
     end
 

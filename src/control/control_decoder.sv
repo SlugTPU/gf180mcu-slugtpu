@@ -135,7 +135,7 @@ module control_decoder #(
     decoder_state_t;
     decoder_state_t decoder_state_q, decoder_state_d;
 
-    assign instruction_ready_o = decoder_state_q == LOAD_OPCODE | decoder_state_q == LOAD_ALL;
+    assign instruction_ready_o = decoder_state_d == LOAD_OPCODE | decoder_state_d == LOAD_ALL;
     /*
     OP CODES
     codes that start with 1 depend on act_load_ready

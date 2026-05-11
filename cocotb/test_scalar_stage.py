@@ -8,7 +8,7 @@ from shared import clock_start, reset_sequence
 from runner import run_test
 
 N = 8
-FIXED_SHIFT = 16
+FIXED_SHIFT = 31
 
 def to_uint(val, width=32):
     return val & ((1 << width) - 1)

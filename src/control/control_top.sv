@@ -51,6 +51,7 @@ module control_top #(
     logic dec_sram2dram_valid;
     logic [7:0] buffer_data_out, instruction_data;
     logic dec_sram2dram_ready;
+    logic sram_is_full;
 
     typedef enum bit [1:0] {
         RST      = 2'b00,
@@ -76,7 +77,7 @@ module control_top #(
                     tpu_state_d = INIT_PC;
             end
             INIT_PC: begin
-                if (~dma_busy_i & dma_done_i)
+                if (~dma_busy_i& sram_is_full)
                     tpu_state_d = COMPUTE;
             end
             COMPUTE: begin
@@ -98,12 +99,13 @@ module control_top #(
 
     logic [DRAM_ADDR_WIDTH-1:0]    buf_dram_start_addr;
     logic [DRAM_COUNTER_WIDTH-1:0] buf_dram_word_count;
-    logic buf_dram_start;
+    logic buf_dram_start, dec_inst_ready;
 
     assign buf_dram_start_addr = pc_out;
-    assign buf_dram_word_count = (tpu_state_q == INIT_PC) ? 8'd255 : 8'd0;
-    assign buf_dram_start = ~dec_dram_start & dma_done_i & buffer_ready_out &
+    assign buf_dram_word_count = (tpu_state_q == INIT_PC) ? 8'd255 : 8'd1;
+    assign buf_dram_start = ~dec_dram_start & ~dma_busy_i & buffer_ready_out &
                             (tpu_state_q == INIT_PC || tpu_state_q == COMPUTE);
+    assign instruction_ready = (tpu_state_q == COMPUTE) ? dec_inst_ready : 1'b0;
 
     always_comb begin : dram_access_mux
         if (decoder_owns_dma) begin
@@ -149,7 +151,7 @@ module control_top #(
         .rd_data_o (instruction_data),
         .valid_o   (instruction_valid),
 
-        .is_full_o ()
+        .is_full_o (sram_is_full)
     );
 
     control_buffer #(
@@ -183,7 +185,7 @@ module control_top #(
         .clk_i               (clk_i),
         .rst_i               (rst_i),
 
-        .instruction_ready_o (instruction_ready),
+        .instruction_ready_o (dec_inst_ready),
         .instruction_data_i  (instruction_data),
         .instruction_valid_i (instruction_valid),
 

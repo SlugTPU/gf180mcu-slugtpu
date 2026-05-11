@@ -2,7 +2,7 @@ module scalar_stage #(
     parameter int N = 8,
     parameter int PSUM_W = 32,
     parameter int M0_W = 32,
-    parameter int FIXED_SHIFT = 16,
+    parameter int FIXED_SHIFT = 31,
     parameter int BUS_W = 64
 )(
     input logic clk_i,

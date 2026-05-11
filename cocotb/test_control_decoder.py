@@ -182,7 +182,7 @@ async def test_single_layer(dut):
     zp   = [-2, -2, -4, -4, -6, -6, -8, -8]
     # bias = [0,0,0,0,0,0,0,10]
     # zp   = [-1,0,-1,0,-1,0,-1,0]
-    mul  = [1 << 16 for _ in range(8)]
+    mul  = [1 << 31 for _ in range(8)]
     scalar_params = {'bias': bias, 'zp': zp, 'mul': mul} 
     act    = [[random.randint(0, 3) for _ in range(8)] for _ in range(8)]
     weight = [[random.randint(0, 3) for _ in range(8)] for _ in range(8)]
@@ -288,12 +288,12 @@ def test_compute_core_each(testcase):
     )
 
 
-# def test_compute_core_all():
-#     """Runs all tests sequentially in one simulation."""
-#     run_test(
-#         parameters={},
-#         sources=sources,
-#         module_name="test_control_decoder",
-#         hdl_toplevel="control_decoder",
-#         sims=['icarus'],
-#     )
+def test_compute_core_all():
+    """Runs all tests sequentially in one simulation."""
+    run_test(
+        parameters={},
+        sources=sources,
+        module_name="test_control_decoder",
+        hdl_toplevel="control_decoder",
+        sims=['icarus'],
+    )

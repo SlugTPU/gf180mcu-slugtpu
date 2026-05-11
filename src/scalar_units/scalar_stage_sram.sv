@@ -2,7 +2,7 @@ module scalar_stage_sram #(
     parameter int N = 8,
     parameter int BUS_W = 64,
     parameter int DATA_W = 32,
-    parameter int FIXED_SHIFT = 16,
+    parameter int FIXED_SHIFT = 31,
     parameter int DATA_Q = 8,
     parameter int counter_width = 8,
     parameter int address_width = 8
