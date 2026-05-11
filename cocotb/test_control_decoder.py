@@ -79,9 +79,11 @@ def init_act_data(scalar_params, matrix):
     zp    = scalar_params['zp']
     mul   = scalar_params['mul']
 
-    bias_packed = [(b1 | (b2 << 32)) for b1, b2 in zip(bias[0::2], bias[1::2])]
-    zp_packed   = [(z1 | (z2 << 32)) for z1, z2 in zip(zp[0::2],   zp[1::2])]
-    mul_packed  = [(m1 | (m2 << 32)) for m1, m2 in zip(mul[0::2],  mul[1::2])]
+    MASK32 = 0xFFFFFFFF
+
+    bias_packed = [((b1 & MASK32) | ((b2 & MASK32) << 32)) for b1, b2 in zip(bias[0::2], bias[1::2])]
+    zp_packed   = [((z1 & MASK32) | ((z2 & MASK32) << 32)) for z1, z2 in zip(zp[0::2],   zp[1::2])]
+    mul_packed  = [((m1 & MASK32) | ((m2 & MASK32) << 32)) for m1, m2 in zip(mul[0::2],  mul[1::2])]
 
     words = bias_packed + zp_packed + mul_packed + flatten_matrix(matrix)
     return words
@@ -176,10 +178,10 @@ async def test_single_layer(dut):
     await FallingEdge(dut.clk_i)
     dut.dma_busy.value = 0  
 
-    # bias = [1, 2, 3, 4, 5, 6, 7, 8]
-    # zp   = [2, 2, 4, 4, 6, 6, 8, 8]
-    bias = [0,0,0,0,0,0,0,0]
-    zp   = [0,0,0,0,0,0,0,0]
+    bias = [1, 2, 3, 4, 5, 6, 7, 8]
+    zp   = [-2, -2, -4, -4, -6, -6, -8, -8]
+    # bias = [0,0,0,0,0,0,0,10]
+    # zp   = [-1,0,-1,0,-1,0,-1,0]
     mul  = [1 << 16 for _ in range(8)]
     scalar_params = {'bias': bias, 'zp': zp, 'mul': mul} 
     act    = [[random.randint(0, 3) for _ in range(8)] for _ in range(8)]

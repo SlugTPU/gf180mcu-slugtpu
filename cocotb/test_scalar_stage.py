@@ -35,7 +35,7 @@ def scalar_pipe_ref(data, bias, zp, scale):
     for i in range(len(data)):
         v = data[i] + bias[i]
         v = max(0, v)
-        v = v - zp[i]
+        v = v + zp[i]
         v = quantize(v, scale[i])
         out.append(v)
     return out
