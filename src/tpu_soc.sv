@@ -219,10 +219,6 @@ module tpu_soc #(
        .wb_cyc_i          (tpureg_cyc),
        .wb_ack_o          (tpureg_ack),
        .tpu_enable_o      (tpu_enable),
-       .tpu_reset_o       (),
-       .tpu_input_addr_o  (dma_start_addr_wide),
-       .tpu_output_addr_o (),
-       .tpu_length_o      (dma_word_count_wide),
        .tpu_pc_addr_o     (tpureg_pc_addr),
        .tpu_pc_stb_o      (tpureg_pc_stb),
        .tpu_state_i       (tpureg_status)

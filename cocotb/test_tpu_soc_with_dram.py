@@ -246,7 +246,7 @@ sources = [
     proj_path / "scalar_units" / "quantizer_mul.sv",
     proj_path / "scalar_units" / "scalar_stage_sram.sv",
     proj_path / "tri_shift.sv",
-    "ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1.v"
+    "ip/gf180mcu_ocd_ip_sram/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1.v"
 ]
 parameters = {"sys_clk_mhz_p": 100}
 module_name = "test_tpu_soc_with_dram"
