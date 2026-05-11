@@ -5,6 +5,10 @@ module sram_8x256_full
     parameter data_width = 64
 )
 (
+`ifdef USE_POWER_PINS
+    inout  wire VDD,
+    inout  wire VSS,
+`endif
     input clk_i,
     input rst_i,
 
@@ -27,6 +31,10 @@ module sram_8x256_full
 
     sram_8x256
     sram_inst(
+`ifdef USE_POWER_PINS
+        .VDD(VDD),
+        .VSS(VSS),
+`endif
         .clk_i(clk_i),
         .rst_i(rst_i),
         .addr_i(sram_addr),

@@ -5,6 +5,10 @@ module control_decoder #(
     parameter int DRAM_DATA_WIDTH = 64,
     parameter int INST_MAX_WIDTH_BYTES = 4
 ) (
+`ifdef USE_POWER_PINS
+    inout  wire VDD,
+    inout  wire VSS,
+`endif
     input clk_i,
     input rst_i,
 
@@ -404,6 +408,10 @@ module control_decoder #(
         .address_width (SRAM_ADDR_WIDTH),
         .counter_width (SRAM_ADDR_WIDTH)
     ) compute_core_inst (
+`ifdef USE_POWER_PINS
+        .VDD(VDD),
+        .VSS(VSS),
+`endif
         .clk_i                        (clk_i),
         .rst_i                        (rst_i),
 

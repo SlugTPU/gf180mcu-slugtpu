@@ -236,7 +236,6 @@ module wb_sdr_mt48lc16m16a_7e #(
                   .data_o(read_shifter_data),
                   .enable_i(shift_enable));
 
-   assign DEBUG_probe = _data_bits_p  * (dram_burst_p - 0) - 1;
    generate
       for (genvar i = 0; i < dram_burst_p; i++) begin
          assign m_dat_o[_data_bits_p  * (dram_burst_p - i) - 1 -:
@@ -302,6 +301,9 @@ module wb_sdr_mt48lc16m16a_7e #(
       for (int i = 0; i < _banks_p; i++) bank_row_d[i] = bank_row_q[i];
       m_ack_o = 1'b0;
       s_cke_o = 1;
+      s_addr_o = '0;
+      s_ba_o = '0;
+      s_dq_o = '0;
 
       for (int i = 0; i < n_reg_lp; i++) begin
          r_d[i] = r_q[i];
@@ -320,8 +322,10 @@ module wb_sdr_mt48lc16m16a_7e #(
       **/
       INIT_WAIT: begin
          // special case of WAIT for init where cke is held low
-         s_cke_o = 0;
+         dram_initialized = 1'b0;
          set_cmd_NOP();
+
+         s_cke_o = 0;
 
          if (wait_counter_q > 0) begin
             state_d = state_q;
@@ -411,9 +415,9 @@ module wb_sdr_mt48lc16m16a_7e #(
          /** Register map:
           r[0]: Sent LMR command AND need to wait
           **/
+         dram_initialized = 1'b0;
 
          if (!r_q[0]) begin
-            dram_initialized = 1'b0;
             set_cmd_LOAD_MODE_REGISTER();
             /**
              A[12:10] = Reserved
@@ -484,6 +488,7 @@ module wb_sdr_mt48lc16m16a_7e #(
             wait_counter_d = tRCD_wait_cycles_lp - 2;
             bank_active_d[addr_bank_w] = 1'b1;
             r_d[0] = 1'b1;
+            state_d = state_q;
          end else begin
             set_cmd_NOP();
             if (wait_counter_q > 0) begin
@@ -603,7 +608,6 @@ module wb_sdr_mt48lc16m16a_7e #(
          /** Register map:
           r[0]: Auto refresh command sent?
           **/
-
          dram_initialized = 1'b1;
 
          if (!r_q[0]) begin
@@ -635,9 +639,9 @@ module wb_sdr_mt48lc16m16a_7e #(
           r[0]: ARG: Go to auto refresh next? (implies PRECHARGE ALL)
           r[1]: Sent PRECHARGE command
           **/
+         dram_initialized = 1'b1;
 
          if (!r_q[1]) begin
-            dram_initialized = 1'b0;
             r_d[1] = 1'b1;
 
             if (r_q[0]) begin

@@ -4,6 +4,10 @@ module tpu_soc #(
    ,parameter sdr_addr_bits_p = 13
    ,parameter dram_burst_p    = 4
 ) (
+`ifdef USE_POWER_PINS
+    inout  wire VDD,
+    inout  wire VSS,
+`endif
     input clk_i
    ,input rst_i
 
@@ -70,6 +74,7 @@ module tpu_soc #(
    // DMA control (TODO: connect to instruction decoder)
    // -----------------------------------------------------------------------
    wire [dma_addr_w_lp - 1:0]  dma_start_addr;
+   wire                        dma_start;
    wire [15:0]                 dma_word_count;
    wire                        dma_we;
    wire                        dma_busy;
@@ -145,9 +150,8 @@ module tpu_soc #(
    wire [31:0] dma_start_addr_wide;
    wire [31:0] dma_word_count_wide;
    wire [31:0] tpureg_pc_addrwide;
-   assign dma_start_addr = dma_start_addr_wide[dma_addr_w_lp-1:0];
-   assign dma_word_count = dma_word_count_wide[15:0];
-   assign dma_we         = 1'b0; // TPU DMA always reads from DRAM into systolic array
+   // assign dma_start_addr = dma_start_addr_wide[dma_addr_w_lp-1:0];
+   // assign dma_word_count = dma_word_count_wide[15:0];
 
    // -----------------------------------------------------------------------
    // spibone_wb: SPI slave → Wishbone master
@@ -332,11 +336,15 @@ module tpu_soc #(
      .DRAM_DATA_WIDTH(dma_data_w_lp)
   )
   control (
+`ifdef USE_POWER_PINS
+      .VDD(VDD),
+      .VSS(VSS),
+`endif
       .clk_i    (clk_i),
       .rst_i    (rst_i),
 
       .dram_start_addr_o(dma_start_addr),
-      .dram_word_count_o(),
+      .dram_word_count_o(dma_word_count),
       .dram_we_o(dma_we),
       .dram_start_o(dma_start),
       .dma_busy_i(dma_busy),

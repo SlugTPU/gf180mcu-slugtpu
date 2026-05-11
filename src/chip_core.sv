@@ -29,7 +29,7 @@ module chip_core #(
     output wire [NUM_BIDIR_PADS-1:0] bidir_pu,   // Pull-up
     output wire [NUM_BIDIR_PADS-1:0] bidir_pd,   // Pull-down
 
-    inout  wire [NUM_ANALOG_PADS-1:0] analog  // Analog
+    input  wire [NUM_ANALOG_PADS-1:0] analog  // Analog
 );
 
     // input_in[0] = spi_clk, [1] = spi_cs_n, [2] = spi_mosi; [11:3] unused
@@ -90,6 +90,10 @@ module chip_core #(
     tpu_soc #(
         .sys_clk_mhz_p(25)
     ) i_tpu_soc (
+`ifdef USE_POWER_PINS
+        .VDD(VDD),
+        .VSS(VSS),
+`endif
         .clk_i      (clk),
         .rst_i      (~rst_n),
         .spi_clk_i  (input_in[0]),

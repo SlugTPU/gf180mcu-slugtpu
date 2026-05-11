@@ -5,6 +5,10 @@ module control_top #(
     parameter int DRAM_DATA_WIDTH = 64,
     parameter int CONTROL_WIDTH = 8
 ) (
+`ifdef USE_POWER_PINS
+    inout  wire VDD,
+    inout  wire VSS,
+`endif
     input clk_i,
     input rst_i,
 
@@ -140,6 +144,10 @@ module control_top #(
     control_sram #(
         .sram_width_p(CONTROL_WIDTH)
     ) control_sram_inst (
+`ifdef USE_POWER_PINS
+        .VDD(VDD),
+        .VSS(VSS),
+`endif
         .clk_i   (clk_i),
         .rst_i   (rst_i),
 
@@ -182,6 +190,10 @@ module control_top #(
         .DRAM_COUNTER_WIDTH (DRAM_COUNTER_WIDTH),
         .DRAM_DATA_WIDTH    (DRAM_DATA_WIDTH)
     ) control_decoder_inst (
+`ifdef USE_POWER_PINS
+        .VDD(VDD),
+        .VSS(VSS),
+`endif
         .clk_i               (clk_i),
         .rst_i               (rst_i),
 
