@@ -150,8 +150,8 @@ module tpu_soc #(
    wire [31:0] dma_start_addr_wide;
    wire [31:0] dma_word_count_wide;
    wire [31:0] tpureg_pc_addrwide;
-   assign dma_start_addr = dma_start_addr_wide[dma_addr_w_lp-1:0];
-   assign dma_word_count = dma_word_count_wide[15:0];
+   // assign dma_start_addr = dma_start_addr_wide[dma_addr_w_lp-1:0];
+   // assign dma_word_count = dma_word_count_wide[15:0];
 
    // -----------------------------------------------------------------------
    // spibone_wb: SPI slave → Wishbone master
@@ -344,7 +344,7 @@ module tpu_soc #(
       .rst_i    (rst_i),
 
       .dram_start_addr_o(dma_start_addr),
-      .dram_word_count_o(),
+      .dram_word_count_o(dma_word_count),
       .dram_we_o(dma_we),
       .dram_start_o(dma_start),
       .dma_busy_i(dma_busy),
