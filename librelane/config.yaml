@@ -89,7 +89,7 @@ IGNORE_DISCONNECTED_MODULES:
 # Clock
 CLOCK_PORT: clk_PAD
 CLOCK_NET: clk_pad/Y
-CLOCK_PERIOD: 7.519 # 25 MHz
+CLOCK_PERIOD: 40 # 25 MHz
 
 # Fix hold violations
 PL_RESIZER_HOLD_SLACK_MARGIN: 0.35
@@ -231,54 +231,54 @@ MACROS:
         orientation: N
 
       # Weight SRAMs (8x from sram_8x256 inside weight_sram_inst)
-      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[0].sram_mod_i":
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[0].sram_mod_i':
         location: [490, 1100]
         orientation: N
-      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[1].sram_mod_i":
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[1].sram_mod_i':
         location: [980, 1100]
         orientation: N
-      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[2].sram_mod_i":
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[2].sram_mod_i':
         location: [1470, 1100]
         orientation: N
-      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[3].sram_mod_i":
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[3].sram_mod_i':
         location: [1960, 1100]
         orientation: N
-      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[4].sram_mod_i":
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[4].sram_mod_i':
         location: [490, 1700]
         orientation: N
-      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[5].sram_mod_i":
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[5].sram_mod_i':
         location: [980, 1700]
         orientation: N
-      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[6].sram_mod_i":
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[6].sram_mod_i':
         location: [1470, 1700]
         orientation: N
-      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.genblk1[7].sram_mod_i":
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[7].sram_mod_i':
         location: [1960, 1700]
         orientation: N
 
       # Activation SRAMs (8x from sram_8x256 inside scalar_stage_sram_inst)
-      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[0].sram_mod_i":
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[0].sram_mod_i':
         location: [490, 2300]
         orientation: N
-      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[1].sram_mod_i":
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[1].sram_mod_i':
         location: [980, 2300]
         orientation: N
-      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[2].sram_mod_i":
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[2].sram_mod_i':
         location: [1470, 2300]
         orientation: N
-      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[3].sram_mod_i":
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[3].sram_mod_i':
         location: [1960, 2300]
         orientation: N
-      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[4].sram_mod_i":
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[4].sram_mod_i':
         location: [490, 2900]
         orientation: N
-      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[5].sram_mod_i":
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[5].sram_mod_i':
         location: [980, 2900]
         orientation: N
-      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[6].sram_mod_i":
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[6].sram_mod_i':
         location: [1470, 2900]
         orientation: N
-      "i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.genblk1[7].sram_mod_i":
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[7].sram_mod_i':
         location: [1960, 2900]
         orientation: N
 
