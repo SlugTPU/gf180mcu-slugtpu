@@ -11,9 +11,12 @@ from shared import stringify_dict
 
 LANGUAGE = os.getenv("HDL_TOPLEVEL_LANG", "verilog").lower().strip()
 
-def run_test(parameters, sources, module_name, hdl_toplevel, testcase=None, sims = ["icarus", "verilator"]):
+def run_test(parameters, sources, module_name, hdl_toplevel, testcase=None, sims = ["icarus", "verilator"], sim_flag = 1):
     timescale = ("1ps","1ps")
     case_name = "all"
+    defines = {}
+    if sim_flag:
+        defines = {"SIM": sim_flag}
 
     if testcase is not None:
         case_name = testcase
@@ -39,7 +42,7 @@ def run_test(parameters, sources, module_name, hdl_toplevel, testcase=None, sims
             build_dir=build_dir,
             parameters=parameters,
             build_args=build_args,
-            defines={"SIM": 1},
+            defines=defines,
             verbose=True,
             waves=True
         )

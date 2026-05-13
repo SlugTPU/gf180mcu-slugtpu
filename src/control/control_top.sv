@@ -109,7 +109,7 @@ module control_top #(
     logic buf_dram_start, dec_inst_ready;
 
     assign buf_dram_start_addr = pc_out;
-    assign buf_dram_word_count = (tpu_state_q == INIT_PC) ? 8'd32 : 8'd1;
+    assign buf_dram_word_count = (tpu_state_d == INIT_PC) ? 8'd32 : 8'd1;
     assign buf_dram_start = ~dec_dram_start & ~dma_busy_i & buffer_ready_out &
                             (tpu_state_q == INIT_PC || tpu_state_q == COMPUTE);
     assign instruction_ready = (tpu_state_q == COMPUTE) ? dec_inst_ready : 1'b0;

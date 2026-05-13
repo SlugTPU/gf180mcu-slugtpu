@@ -284,6 +284,7 @@ def test_tpu_soc_each(testcase):
         hdl_toplevel=hdl_toplevel,
         testcase=testcase,
         sims=sims,
+        sim_flag=0,
     )
 
 
@@ -295,4 +296,5 @@ def test_tpu_soc_all():
         module_name=module_name,
         hdl_toplevel=hdl_toplevel,
         sims=sims,
+        sim_flag=0,
     )

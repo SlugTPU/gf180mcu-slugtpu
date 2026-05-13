@@ -322,7 +322,7 @@ module control_decoder #(
                     act_load_valid = '1;
                     dram_word_count_o = inst_dma_amount;
                     dram_start_addr_o = inst_dram_addr;
-                    dram_we_o = '0;
+                    dram_we_o = '1;
                     dram_start_i = '1;
                 end
                 DRAM2SRAM_ACT : begin
