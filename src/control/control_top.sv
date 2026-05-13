@@ -1,6 +1,7 @@
 module control_top #(
     parameter int SRAM_ADDR_WIDTH = 8,
-    parameter int DRAM_ADDR_WIDTH = 12,
+    parameter int EXTERNAL_DRAM_ADDR_WIDTH = 20, 
+    parameter int DRAM_ADDR_WIDTH = 12,     // this is the instruction dram width
     parameter int DRAM_COUNTER_WIDTH = 8,
     parameter int DRAM_DATA_WIDTH = 64,
     parameter int CONTROL_WIDTH = 8
@@ -13,7 +14,7 @@ module control_top #(
     input rst_i,
 
     // DMA/DRAM control signals
-    output logic [DRAM_ADDR_WIDTH-1:0] dram_start_addr_o,
+    output logic [EXTERNAL_DRAM_ADDR_WIDTH-1:0] dram_start_addr_o,
     output logic [DRAM_COUNTER_WIDTH-1:0] dram_word_count_o,
     output logic dram_we_o,
     output logic dram_start_o,
@@ -46,7 +47,7 @@ module control_top #(
 
     logic [DRAM_ADDR_WIDTH-1:0] pc_out;
 
-    logic [DRAM_ADDR_WIDTH-1:0]   dec_dram_start_addr;
+    logic [DRAM_ADDR_WIDTH-1:0]   dec_dram_start_addr, dram_start_addr_l;
     logic [DRAM_COUNTER_WIDTH-1:0] dec_dram_word_count;
     logic dec_dram_we;
     logic dec_dram_start;
@@ -68,6 +69,8 @@ module control_top #(
 
     assign tpu_state_o = tpu_state_q;
     assign pc_ready_o  = (tpu_state_q == IDLE);
+    // assign dram_start_addr_o = {{(EXTERNAL_DRAM_ADDR_WIDTH - DRAM_ADDR_WIDTH){1'b0}}, dram_start_addr_l} << 3;
+    assign dram_start_addr_o = {{(EXTERNAL_DRAM_ADDR_WIDTH - DRAM_ADDR_WIDTH){1'b0}}, dram_start_addr_l};
 
     always_comb begin : tpu_state_logic
         tpu_state_d = tpu_state_q;
@@ -113,7 +116,7 @@ module control_top #(
 
     always_comb begin : dram_access_mux
         if (decoder_owns_dma) begin
-            dram_start_addr_o  = dec_dram_start_addr;
+            dram_start_addr_l  = dec_dram_start_addr;
             dram_word_count_o  = dec_dram_word_count;
             dram_we_o          = dec_dram_we;
             dram_start_o       = dec_dram_start;
@@ -127,7 +130,7 @@ module control_top #(
             buffer_valid_in    = 1'b0;
 
         end else begin
-            dram_start_addr_o  = buf_dram_start_addr;
+            dram_start_addr_l  = buf_dram_start_addr;
             dram_word_count_o  = buf_dram_word_count;
             dram_we_o          = 1'b0;  
             dram_start_o       = buf_dram_start;

@@ -82,7 +82,8 @@ module tpu_soc #(
 
    // tpu_enable: software-controlled register bit; 1 = DMA owns the bus, 0 = SPI owns it
    wire tpu_enable;
-   wire tpu_active = tpu_enable;
+//    wire tpu_active = tpu_enable;
+   wire tpu_active;
 
    // Rising edge of tpu_enable generates the one-cycle DMA start pulse
    logic tpu_enable_r;
@@ -145,6 +146,7 @@ module tpu_soc #(
    assign tpureg_cyc   = dec_tpu_cyc;
    assign dec_tpu_dat_r_wide = {{(dma_data_w_lp-32){1'b0}}, tpureg_dat_r};
    assign dec_tpu_ack        = tpureg_ack;
+   assign tpu_active = tpureg_status[1]; 
 
    // tpu_regs outputs (32-bit addresses, truncated to DMA widths)
    wire [31:0] dma_start_addr_wide;
@@ -332,7 +334,7 @@ module tpu_soc #(
    );
 
   control_top #(
-     .DRAM_ADDR_WIDTH(dma_addr_w_lp),
+     .EXTERNAL_DRAM_ADDR_WIDTH(dma_addr_w_lp),
      .DRAM_DATA_WIDTH(dma_data_w_lp)
   )
   control (
@@ -363,8 +365,7 @@ module tpu_soc #(
       .pc_ready_o(),
 
       .tpu_state_o(tpureg_status),
-      .INTERNAL_ERROR_O()
+      .INTERNAL_ERROR_O() //TODO: maybe wire this up as an output debug pin
   );
 
-   // wire up with systolic array
 endmodule
