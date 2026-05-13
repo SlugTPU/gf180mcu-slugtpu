@@ -205,7 +205,7 @@ async def test_tpu_mem_basic(dut):
     spi = await init(dut)
     n_words   = 4
     base_addr = 0x0000_0000
-    patterns  = [i for i in range (32)]
+    patterns  = [0xFFFF_FFFF_FFFF_FFFF - i for i in range (33)]
 
     for i, pat in enumerate(patterns):
         await spibone_write(spi, base_addr + i * 8, pat)

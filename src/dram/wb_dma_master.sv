@@ -45,7 +45,8 @@ module wb_dma_master #(
     input  logic               wb_ack_i
 );
 
-    localparam BYTE_W = DataW / 8;
+    // localparam BYTE_W = DataW / 8;
+    localparam BYTE_W = 1;
 
     typedef enum logic [1:0] {
         IDLE,
