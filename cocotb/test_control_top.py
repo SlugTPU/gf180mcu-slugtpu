@@ -58,7 +58,7 @@ async def test_reset(dut):
 
 @cocotb.test()
 async def test_pc_load(dut):
-    inst = [0b0000100000011110000010000001111000001000000111100000100000011110] * 31 + [0]
+    inst = [0b0000100000011110000010000001111000001000000111100000100000011110] * 32 + [0]
     await do_reset(dut)
     await FallingEdge(dut.clk_i)
     assert dut.tpu_state_o.value == 0b01 # idle state
@@ -72,6 +72,8 @@ async def test_pc_load(dut):
     assert dut.tpu_state_o.value == 0b10 # init pc
     await dram2sram_helper(dut, inst)
     for _ in range(40):
+        await FallingEdge(dut.clk_i)
+    while dut.tpu_state_o.value != 0b01:
         await FallingEdge(dut.clk_i)
     await FallingEdge(dut.clk_i)
 tests = [

@@ -307,6 +307,113 @@ async def no_spurious_output_when_empty_test(dut):
 
     cocotb.log.info("[SPURIOUS OUTPUT TEST] passed")
 
+@cocotb.test()
+async def alternating_single_read_write_test(dut):
+    """
+    Interleave individual writes and reads one at a time.
+
+    Pattern: write X₀ → read X₀ → write X₁ → read X₁ → … for N rounds.
+
+    Checks:
+      - rd_data_o matches the written value on every read
+      - valid_o is asserted exactly when the FIFO is non-empty
+      - valid_o deasserts after draining the single entry
+      - is_full_o never asserts (depth never exceeds 1)
+    """
+    clk_i     = dut.clk_i
+    rst_i     = dut.rst_i
+    valid_i   = dut.valid_i
+    ready_o   = dut.ready_o
+    ready_i   = dut.ready_i
+    valid_o   = dut.valid_o
+    is_full_o = dut.is_full_o
+    wr_data_i = dut.wr_data_i
+    rd_data_o = dut.rd_data_o
+
+    N_ROUNDS = 16
+
+    model  = ControlSramModel()
+    runner = ControlSramModelRunner(dut, model)
+
+    await clock_start(clk_i)
+    await reset_sequence(clk_i, rst_i)
+    runner.start()
+
+    await FallingEdge(rst_i)
+    valid_i.value = 0
+    ready_i.value = 0
+    await FallingEdge(clk_i)
+
+    for i in range(N_ROUNDS):
+        payload = (i * 0x13 + 0x55) & 0xFF   # deterministic but varied
+
+        # ---- Write one entry -----------------------------------------------
+        valid_i.value   = 1
+        ready_i.value   = 0
+        wr_data_i.value = payload
+
+        # Spin until the write handshake fires (ready_o may not be immediate)
+        while True:
+            await RisingEdge(clk_i)
+            fired = (ready_o.value == 1)
+            await FallingEdge(clk_i)
+            if fired:
+                break
+
+        valid_i.value = 0
+
+        # is_full_o must not assert: depth is exactly 1
+        assert is_full_o.value == 0, (
+            f"Round {i}: is_full_o asserted after a single write — "
+            "FIFO depth should be 1, not full"
+        )
+        # ---- Read that entry back ------------------------------------------
+        ready_i.value = 1
+        # Give the FIFO one idle cycle to update valid_o
+        await RisingEdge(clk_i)
+        await FallingEdge(clk_i)
+
+        # valid_o must be high — there is one entry waiting
+        assert valid_o.value == 1, (
+            f"Round {i}: valid_o not asserted after writing {payload:#04x}"
+        )
+
+        # Spin until the read handshake fires
+        while True:
+            await RisingEdge(clk_i)
+            rd_fired = (valid_o.value == 1 and ready_i.value == 1)
+            if rd_fired:
+                got = rd_data_o.value.to_unsigned()
+                assert got == payload, (
+                    f"Round {i}: rd_data_o mismatch — "
+                    f"got {got:#04x}, expected {payload:#04x}"
+                )
+            await FallingEdge(clk_i)
+            if rd_fired:
+                break
+
+        ready_i.value = 0
+
+        # Allow one cycle for the FIFO to update its empty status
+        await RisingEdge(clk_i)
+        await FallingEdge(clk_i)
+
+        # valid_o must be low again — FIFO is empty
+        assert valid_o.value == 0, (
+            f"Round {i}: valid_o still asserted after draining the FIFO"
+        )
+
+        cocotb.log.info(
+            f"[ALT RW TEST] round {i:02d}  payload={payload:#04x}  OK"
+        )
+
+    # Model queue must be empty at the end
+    assert model.depth() == 0, (
+        f"Model not empty after {N_ROUNDS} alternating rounds — "
+        f"depth={model.depth()}"
+    )
+    cocotb.log.info("[ALT RW TEST] passed")
+
 
 # ---------------------------------------------------------------------------
 # Pytest entry points
@@ -323,6 +430,7 @@ TESTS = [
     "read_priority_test",
     "is_full_deasserts_on_read_test",
     "no_spurious_output_when_empty_test",
+    "alternating_single_read_write_test",
 ]
 
 @pytest.mark.parametrize("testcase", TESTS)
