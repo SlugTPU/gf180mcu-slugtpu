@@ -99,7 +99,7 @@ module mxu #(
             assign weight_valid_n[i]    = weight_shift_out[i][DATA_WIDTH];
             assign weight_data_n[i]     = weight_shift_out[i][DATA_WIDTH-1:0];
 
-            assign debug_valids[i]      = weight_shift_out[i][DATA_WIDTH];
+            assign debug_valids[i]      = psum_valid_o[i];
         end
     endgenerate
 

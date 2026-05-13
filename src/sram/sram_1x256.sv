@@ -19,12 +19,18 @@ module sram_1x256
 
 `ifdef SIM
     assign #200 addr_dly = addr_i;
-    assign #200  wr_data_dly = wr_data_i;
-    assign #200  rw_mode_dly = rw_mode_i;
+    assign #200 wr_data_dly = wr_data_i;
+    assign #200 rw_mode_dly = rw_mode_i;
+`else
+`ifdef SIM_TOP
+    assign #2 addr_dly = addr_i;
+    assign #2 wr_data_dly = wr_data_i;
+    assign #2 rw_mode_dly = rw_mode_i;
 `else
     assign addr_dly = addr_i;
     assign wr_data_dly = wr_data_i;
     assign rw_mode_dly = rw_mode_i;
+`endif
 `endif
 
     gf180mcu_ocd_ip_sram__sram256x8m8wm1

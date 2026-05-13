@@ -214,61 +214,63 @@ module control_decoder #(
         decoder_state_d = decoder_state_q;
         if (tpu_state_i != 2'b01)
             tpu_exit_d = '0; 
-        case(decoder_state_q)
-            LOAD_OPCODE : begin
-                if (instruction_valid_i) begin
-                    inst_d[7 : 0] = instruction_data_i;
-                    inst_load_count_d = 2'b01;
-                    decoder_state_d = LOAD_ALL;
+        if (tpu_state_i == 2'b11) begin
+            case(decoder_state_q)
+                LOAD_OPCODE : begin
+                    if (instruction_valid_i) begin
+                        inst_d[7 : 0] = instruction_data_i;
+                        inst_load_count_d = 2'b01;
+                        decoder_state_d = LOAD_ALL;
+                    end
+                    
                 end
-                
-            end
-            LOAD_ALL : begin
-                if (instruction_valid_i) begin
-                    if ((inst_opcode[3] == 1'b1 && inst_opcode[0] != 1'b1) || inst_opcode == LOAD_WEIGHTS) begin
-                        decoder_state_d = WAIT;
+                LOAD_ALL : begin
+                    if (instruction_valid_i) begin
+                        if ((inst_opcode[3] == 1'b1 && inst_opcode[0] != 1'b1) || inst_opcode == LOAD_WEIGHTS) begin
+                            decoder_state_d = WAIT;
+                        end
+                        if (inst_opcode[0] == 1'b1 && inst_load_count_d == 2'b11) begin // DRAM
+                            decoder_state_d = WAIT;
+                        end
+                        if (inst_opcode == MATMUL && inst_load_count_d == 2'b10) begin
+                            decoder_state_d = WAIT;
+                        end
+                        inst_d[inst_load_count_q*8 +: 8] = instruction_data_i;
+                        inst_load_count_d = inst_load_count_d + 1'b1;
                     end
-                    if (inst_opcode[0] == 1'b1 && inst_load_count_d == 2'b11) begin // DRAM
-                        decoder_state_d = WAIT;
+                    if (inst_opcode == EXIT) begin
+                        if (weight_load_ready & act_load_ready & ~dma_busy) begin
+                            decoder_state_d = LOAD_OPCODE;
+                            tpu_exit_d = '1;
+                        end
                     end
-                    if (inst_opcode == MATMUL && inst_load_count_d == 2'b10) begin
-                        decoder_state_d = WAIT;
-                    end
-                    inst_d[inst_load_count_q*8 +: 8] = instruction_data_i;
-                    inst_load_count_d = inst_load_count_d + 1'b1;
                 end
-                if (inst_opcode == EXIT) begin
-                    if (weight_load_ready & act_load_ready & ~dma_busy) begin
-                        decoder_state_d = LOAD_OPCODE;
-                        tpu_exit_d = '1;
+                WAIT : begin
+                    if (inst_opcode[3:2] == 2'b01 && weight_load_ready) begin
+                        if(inst_opcode[0] != 1'b1 || ~dma_busy) begin
+                            do_execute = '1;
+                            decoder_state_d = LOAD_OPCODE;
+                        end
+                    end
+                    if (inst_opcode[3] == 1'b1 && act_load_ready) begin
+                        if(inst_opcode[0] != 1'b1 || ~dma_busy) begin
+                            do_execute = '1;
+                            decoder_state_d = LOAD_OPCODE;
+                        end
+                    end
+                    if (inst_opcode == MATMUL && act_load_ready) begin
+                        do_execute = '1;
+                        decoder_state_d = WAIT_MATMUL;
                     end
                 end
-            end
-            WAIT : begin
-                if (inst_opcode[3:2] == 2'b01 && weight_load_ready) begin
-                    if(inst_opcode[0] != 1'b1 || ~dma_busy) begin
+                WAIT_MATMUL : begin
+                    if (act_load_ready) begin
                         do_execute = '1;
                         decoder_state_d = LOAD_OPCODE;
                     end
                 end
-                if (inst_opcode[3] == 1'b1 && act_load_ready) begin
-                    if(inst_opcode[0] != 1'b1 || ~dma_busy) begin
-                        do_execute = '1;
-                        decoder_state_d = LOAD_OPCODE;
-                    end
-                end
-                if (inst_opcode == MATMUL && act_load_ready) begin
-                    do_execute = '1;
-                    decoder_state_d = WAIT_MATMUL;
-                end
-            end
-            WAIT_MATMUL : begin
-                if (act_load_ready) begin
-                    do_execute = '1;
-                    decoder_state_d = LOAD_OPCODE;
-                end
-            end
-        endcase
+            endcase
+        end
     end
 
     always_comb begin : execute_blk

@@ -15,8 +15,10 @@ def run_test(parameters, sources, module_name, hdl_toplevel, testcase=None, sims
     timescale = ("1ps","1ps")
     case_name = "all"
     defines = {}
-    if sim_flag:
+    if sim_flag == 1:
         defines = {"SIM": sim_flag}
+    elif sim_flag == 2:
+        defines = {"SIM_TOP":sim_flag}
 
     if testcase is not None:
         case_name = testcase

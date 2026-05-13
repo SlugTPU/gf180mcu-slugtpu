@@ -89,7 +89,8 @@ module compute_core #(
     );
 
     // ACTIVATION SRAM IS IN HERE
-    scalar_stage_sram #()
+    scalar_stage_sram #(
+    )
     scalar_stage_sram_inst(
 `ifdef USE_POWER_PINS
         .VDD(VDD),

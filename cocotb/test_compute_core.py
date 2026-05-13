@@ -327,7 +327,7 @@ async def test_single_matmul(dut):
 
     bias = [0, 0, 0, 0, 0, 0, 0, 0]
     zp   = [0 for _ in range(8)]
-    mul  = [1 << 16 for _ in range(8)]
+    mul  = [1 << 31 for _ in range(8)]
     scalar_params = {'bias': bias, 'zp': zp, 'mul': mul}
 
     await load_scalar_values(dut, scalar_params, 0)
@@ -360,7 +360,7 @@ async def test_tiled_matmul(dut):
  
     bias = [0] * N
     zp   = [0] * N
-    mul  = [1 << 16] * N
+    mul  = [1 << 31] * N
     scalar_params = {'bias': bias, 'zp': zp, 'mul': mul}
  
     await load_scalar_values(dut, scalar_params, 0)
@@ -382,7 +382,7 @@ async def test_multiple_tiled_matmul(dut):
  
     bias = [0] * N
     zp   = [0] * N
-    mul  = [1 << 16] * N
+    mul  = [1 << 31] * N
     scalar_params = {'bias': bias, 'zp': zp, 'mul': mul}
  
     await load_scalar_values(dut, scalar_params, 0)
