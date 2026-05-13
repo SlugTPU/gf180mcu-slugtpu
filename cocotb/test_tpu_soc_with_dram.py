@@ -197,6 +197,24 @@ async def test_tpu_load_pc(dut):
 
     await FallingEdge(dut.clk_i)
 
+@cocotb.test()
+async def test_tpu_mem_basic(dut):
+    """
+    Test SPI -> DRAM, SPI PC -> TPU, TPU <-> DRAM
+    """
+    spi = await init(dut)
+    n_words   = 4
+    base_addr = 0x0000_0000
+    patterns  = [i for i in range (32)]
+
+    for i, pat in enumerate(patterns):
+        await spibone_write(spi, base_addr + i * 8, pat)
+
+    await spibone_write(spi, 0x1000_0000, 0x0000_0000_0000_0001)
+
+    await ClockCycles(dut.clk_i, 1000)
+
+    await FallingEdge(dut.clk_i)
 
 # ---------------------------------------------------------------------------
 # Runner
@@ -209,6 +227,7 @@ tests = [
     'test_burst_read',
     'test_burst_then_single',
     'test_tpu_load_pc',
+    'test_tpu_mem_basic',
 ]
 
 proj_path = Path("./src").resolve()
