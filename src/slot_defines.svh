@@ -11,6 +11,20 @@
 
 `endif
 
+`ifdef SLOT_1X1_MAX
+
+// 1x1 max-IO ring. The pad count is the current design demand, not ring's max (much higher). 
+// Grow NUM_BIDIR_PADS if we wire more debug signals out (floorplan slot YAML must agree.)
+`define NUM_DVDD_PADS 8
+`define NUM_DVSS_PADS 10
+
+`define NUM_INPUT_PADS 12
+`define NUM_BIDIR_PADS 56
+`define NUM_ANALOG_PADS 2
+
+`endif
+
+
 `ifdef SLOT_0P5X1
 
 // Power/ground pads for core and I/O

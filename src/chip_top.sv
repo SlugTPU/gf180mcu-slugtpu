@@ -171,6 +171,9 @@ module chip_top #(
         .NUM_INPUT_PADS  (NUM_INPUT_PADS),
         .NUM_BIDIR_PADS  (NUM_BIDIR_PADS),
         .NUM_ANALOG_PADS (NUM_ANALOG_PADS)
+`ifdef SLOT_1X1_MAX
+        , .ENABLE_DEBUG_PORT (1'b1)
+`endif
     ) i_chip_core (
         `ifdef USE_POWER_PINS
         .VDD        (VDD),

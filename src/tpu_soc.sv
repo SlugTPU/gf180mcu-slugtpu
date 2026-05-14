@@ -3,6 +3,7 @@ module tpu_soc #(
    ,parameter sdr_data_bits_p = 16
    ,parameter sdr_addr_bits_p = 13
    ,parameter dram_burst_p    = 4
+   ,parameter dbg_n_words_p = 32
 ) (
 `ifdef USE_POWER_PINS
     inout  wire VDD,
@@ -29,6 +30,7 @@ module tpu_soc #(
    ,output logic sdr_cas_no
    ,output logic sdr_we_no
    ,output logic [1:0] sdr_dqm_o
+   ,output logic [dbg_n_words_p*8 - 1:0] dbg_word_o
 );
    localparam _rows_lp = 8192;
    localparam _cols_lp = 512;
@@ -333,6 +335,8 @@ module tpu_soc #(
        .oe_o     (sdr_dq_oe_o)
    );
 
+   logic internal_error_l; // prev unconnected; now wired into the debug bus below
+
   control_top #(
      .EXTERNAL_DRAM_ADDR_WIDTH(dma_addr_w_lp),
      .DRAM_DATA_WIDTH(dma_data_w_lp)
@@ -365,7 +369,30 @@ module tpu_soc #(
       .pc_ready_o(),
 
       .tpu_state_o(tpureg_status),
-      .INTERNAL_ERROR_O() //TODO: maybe wire this up as an output debug pin
+      .INTERNAL_ERROR_O(internal_error_l)
   );
+
+  //debug observation byte map
+  
+  always_comb begin
+        dbg_word_o = '0;
+        dbg_word_o[ 8'h00*8 +: 8] = {3'b0, internal_error_l, dma_done, dma_busy,
+                                     tpureg_status};
+        dbg_word_o[ 8'h01*8 +: 8] = {3'b0, tpu_enable_r, dma_start, dma_we,
+                                     dma_rd_valid, dma_wr_valid};
+        dbg_word_o[ 8'h02*8 +: 8] = {7'b0, tpureg_pc_stb};
+
+        dbg_word_o[ 8'h10*8 +: 8] = tpureg_pc_addr[ 7: 0];
+        dbg_word_o[ 8'h11*8 +: 8] = tpureg_pc_addr[15: 8];
+        dbg_word_o[ 8'h12*8 +: 8] = tpureg_pc_addr[23:16];
+        dbg_word_o[ 8'h13*8 +: 8] = tpureg_pc_addr[31:24];
+  
+        dbg_word_o[ 8'h14*8 +: 8] = dma_word_count[7:0];
+ 
+        dbg_word_o[ 8'h1C*8 +: 8] = 8'h53; // 'S'
+        dbg_word_o[ 8'h1D*8 +: 8] = 8'h4C; // 'L'
+        dbg_word_o[ 8'h1E*8 +: 8] = 8'h55; // 'U'
+        dbg_word_o[ 8'h1F*8 +: 8] = 8'h47; // 'G'
+    end
 
 endmodule
