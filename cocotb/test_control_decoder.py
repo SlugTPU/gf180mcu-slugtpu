@@ -39,11 +39,12 @@ async def do_reset(dut):
 async def instruction_load_helper(dut, instructions):
     for instruction in instructions:
         for word in instruction:
-            dut.instruction_data_i.value = word
-            dut.instruction_valid_i.value = 1
             while dut.instruction_ready_o.value != 1:
                 await FallingEdge(dut.clk_i)
             await FallingEdge(dut.clk_i)
+            dut.instruction_data_i.value = word
+            dut.instruction_valid_i.value = 1
+        await FallingEdge(dut.clk_i)
     dut.instruction_valid_i.value = 0
 
 async def dram2sram_helper(dut, data):
@@ -121,11 +122,12 @@ async def test_exit(dut):
     await do_reset(dut)
     await FallingEdge(dut.clk_i)
     dut.dma_busy.value = 0
+    dut.tpu_state_i.value = 3
     assert dut.instruction_ready_o.value == 1
-    instructions = [[0b00000000]]
+    instructions = [[0b00000000, 0b00000000]]
     await instruction_load_helper(dut, instructions)
             
-    await FallingEdge(dut.clk_i)
+  #  await FallingEdge(dut.clk_i)
     assert dut.tpu_exit_o.value == 1
     dut.instruction_valid_i.value = 0
     await FallingEdge(dut.clk_i)
@@ -136,11 +138,13 @@ async def test_load_basic(dut):
     await do_reset(dut)
     await FallingEdge(dut.clk_i)
     dut.dma_busy.value = 0
+    dut.tpu_state_i.value = 3
     instructions = [[0b00011111, 0b00010000, 0b00000000, 0b11111111]]
     assert dut.instruction_ready_o.value == 1
     await instruction_load_helper(dut, instructions)
     await FallingEdge(dut.clk_i)
     assert dut.inst_q.value == 0xff00101f
+    print("got here")
     instructions = [
         [0b00100101, 0b00010000, 0b00000000, 0b11111111], # DRAM to weight
         [0b00111000, 0b00000000]] # load bias, should get stuck in wait state
@@ -153,6 +157,7 @@ async def test_dram_inst(dut):
     await do_reset(dut)
     await FallingEdge(dut.clk_i)
     dut.dma_busy.value = 0
+    dut.tpu_state_i.value = 3
     amount = 8
     data = [random.randint(0, math.exp2(64)-1) for _ in range(amount)]
     instructions = [[0b00011101, 0b00010000, 0b00000000, 0b00001000]]
@@ -177,6 +182,7 @@ async def test_single_layer(dut):
     await do_reset(dut)
     await FallingEdge(dut.clk_i)
     dut.dma_busy.value = 0  
+    dut.tpu_state_i.value = 3
 
     bias = [1, 2, 3, 4, 5, 6, 7, 8]
     zp   = [-2, -2, -4, -4, -6, -6, -8, -8]
