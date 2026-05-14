@@ -32,6 +32,8 @@ VERILOG_FILES:
 - dir::../src/debug_mux.sv
 - dir::../src/spi/spibone_wb.sv
 - dir::../src/spi/wb_decoder.sv
+- dir::../src/spi/wb_test_ram.sv
+- dir::../src/spi/wb_demux_1to2.sv
 - dir::../src/spi/tpu_regs.sv
 - dir::../src/dram/wb_dma_master.sv
 - dir::../src/dram/wb_mux_2to1.sv

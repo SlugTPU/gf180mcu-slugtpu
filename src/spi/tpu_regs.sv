@@ -5,6 +5,7 @@
 //   0x00  RW  PC_ADDR  — program counter address
 //   0x04  RO  STATUS   — [1:0] tpu_state_i (2'b01 = IDLE)
 //   0x08  RW  CTRL     — [0]=tpu_enable (1=DMA owns bus)
+//                        [1] is test_mode  (1=DMA routed to on-chip test RAM, SDRAM pads inactive
 //
 // SPDX-License-Identifier: Apache-2.0
 `default_nettype none
@@ -28,6 +29,7 @@ module tpu_regs (
 
     // Bus mux control
     output logic        tpu_enable_o,
+    output logic        test_mode_o,    // CTRL[1]: route DMA to on chip test RAM
 
     // TPU state + done detection
     input  logic [1:0]  tpu_state_i,
@@ -82,6 +84,7 @@ module tpu_regs (
             tpu_pc_addr_o <= '0;
             tpu_pc_stb_o  <= 1'b0;
             tpu_enable_o  <= 1'b0;
+            test_mode_o   <= 1'b0;
             wb_dat_o      <= '0;
         end else begin
             tpu_pc_stb_o <= 1'b0;  // default: clear strobe
@@ -93,14 +96,17 @@ module tpu_regs (
                             tpu_pc_addr_o <= wb_dat_i;
                             tpu_pc_stb_o  <= 1'b1;
                         end
-                        REG_CTRL: tpu_enable_o <= wb_dat_i[0];
+                        REG_CTRL: begin
+                            tpu_enable_o <= wb_dat_i[0];
+                            test_mode_o  <= wb_dat_i[1];
+                        end
                         default: ;
                     endcase
                 end else begin
                     case (reg_offset)
                         REG_PC:     wb_dat_o <= tpu_pc_addr_o;
                         REG_STATUS: wb_dat_o <= {30'h0, tpu_state_i};
-                        REG_CTRL:   wb_dat_o <= {31'h0, tpu_enable_o};
+                        REG_CTRL:   wb_dat_o <= {30'h0, test_mode_o, tpu_enable_o};
                         default:    wb_dat_o <= 32'hDEAD_BEEF;
                     endcase
                 end

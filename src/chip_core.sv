@@ -55,6 +55,13 @@ module chip_core #(
     logic        sdr_cke, sdr_cs_n, sdr_ras_n, sdr_cas_n, sdr_we_n;
     logic [1:0]  sdr_dqm;
     logic [DBG_N_WORDS_P*8 - 1:0] dbg_word;
+    logic test_mode;
+
+    // When test_mode is asserted, hold the SDRAM pads inactive. cke=0 freezes part, cs_n=1 deselects (everything else is don't-care under deselect). dq_oe=0 makes SDRAM act as if disconnected from wire
+    wire sdr_cke_pad   = sdr_cke   & ~test_mode;
+    wire sdr_cs_n_pad  = sdr_cs_n  |  test_mode;
+    wire sdr_dq_oe_pad = sdr_dq_oe & ~test_mode;
+
 
     // Bidir pad assignment:
     //   [15:0]  = sdr_dq[15:0]     (bidir, OE from SDRAM controller)
@@ -75,8 +82,8 @@ module chip_core #(
     //   [55:48]  debug_addr (input)
     assign bidir_out[15:0]  = sdr_dq_o;
     assign bidir_out[16]    = spi_miso;
-    assign bidir_out[17]    = sdr_cke;
-    assign bidir_out[18]    = sdr_cs_n;
+    assign bidir_out[17]    = sdr_cke_pad;
+    assign bidir_out[18]    = sdr_cs_n_pad;
     assign bidir_out[19]    = sdr_ras_n;
     assign bidir_out[20]    = sdr_cas_n;
     assign bidir_out[21]    = sdr_we_n;
@@ -87,7 +94,7 @@ module chip_core #(
     assign bidir_out[38]    = sdr_ba[1];
     assign bidir_out[39]    = clk;
 
-    assign bidir_oe[15:0]  = {16{sdr_dq_oe}};
+    assign bidir_oe[15:0]  = {16{sdr_dq_oe_pad}};
     assign bidir_oe[39:16] = '1;
 
     generate
@@ -151,7 +158,8 @@ module chip_core #(
         .sdr_cas_no (sdr_cas_n),
         .sdr_we_no  (sdr_we_n),
         .sdr_dqm_o  (sdr_dqm),
-        .dbg_word_o (dbg_word)
+        .dbg_word_o (dbg_word),
+        .test_mode_o(test_mode)
     );
 
 endmodule

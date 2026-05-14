@@ -4,6 +4,7 @@ module tpu_soc #(
    ,parameter sdr_addr_bits_p = 13
    ,parameter dram_burst_p    = 4
    ,parameter dbg_n_words_p = 32
+   ,parameter test_ram_words_p = 32
 ) (
 `ifdef USE_POWER_PINS
     inout  wire VDD,
@@ -31,7 +32,8 @@ module tpu_soc #(
    ,output logic sdr_we_no
    ,output logic [1:0] sdr_dqm_o
    ,output logic [dbg_n_words_p*8 - 1:0] dbg_word_o
-);
+   ,output logic test_mode_o 
+
    localparam _rows_lp = 8192;
    localparam _cols_lp = 512;
    localparam _banks_lp = 4;
@@ -71,6 +73,23 @@ module tpu_soc #(
    wire                          mux_s_cyc;
    wire [dma_data_w_lp/8 - 1:0] mux_s_sel;
    wire                          mux_s_ack;
+
+   // test-mode demux outputs.
+   //   sdr_s_* is for SDRAM controller (slave 0, active when test_mode=0)
+   //   tram_s_* is for wb_test_ram (slave 1, active when test_mode=1)
+   wire [dma_addr_w_lp - 1:0]   sdr_s_adr,  tram_s_adr;
+   wire [dma_data_w_lp - 1:0]   sdr_s_dat_w, tram_s_dat_w;
+   wire [dma_data_w_lp - 1:0]   sdr_s_dat_r, tram_s_dat_r;
+   wire                          sdr_s_we,    tram_s_we;
+   wire                          sdr_s_stb,   tram_s_stb;
+   wire                          sdr_s_cyc,   tram_s_cyc;
+   wire [dma_data_w_lp/8 - 1:0] sdr_s_sel,   tram_s_sel;
+   wire                          sdr_s_ack,   tram_s_ack;
+
+   // CTRL[1] from tpu_regs
+   wire test_mode;
+   assign test_mode_o = test_mode;
+
 
    // -----------------------------------------------------------------------
    // DMA control (TODO: connect to instruction decoder)
@@ -227,6 +246,7 @@ module tpu_soc #(
        .wb_cyc_i          (tpureg_cyc),
        .wb_ack_o          (tpureg_ack),
        .tpu_enable_o      (tpu_enable),
+       .test_mode_o       (test_mode),
        .tpu_pc_addr_o     (tpureg_pc_addr),
        .tpu_pc_stb_o      (tpureg_pc_stb),
        .tpu_state_i       (tpureg_status)
@@ -304,6 +324,44 @@ module tpu_soc #(
    );
 
    // -----------------------------------------------------------------------
+   // wb_demux_1to2: route mux output to either the SDRAM controller (s0) or the on-chip test RAM (s1), selected by tpu_regs.CTRL[1] = test_mode.
+   // -----------------------------------------------------------------------
+   wb_demux_1to2 #(
+       .AdrW  (dma_addr_w_lp),
+       .DataW (dma_data_w_lp)
+   ) test_demux (
+       .sel_i    (test_mode),
+       // master: output of wb_mux_2to1
+       .m_adr    (mux_s_adr),
+       .m_dat_w  (mux_s_dat_w),
+       .m_dat_r  (mux_s_dat_r),
+       .m_sel    (mux_s_sel),
+       .m_we     (mux_s_we),
+       .m_stb    (mux_s_stb),
+       .m_cyc    (mux_s_cyc),
+       .m_ack    (mux_s_ack),
+       // s0: SDRAM controller
+       .s0_adr   (sdr_s_adr),
+       .s0_dat_w (sdr_s_dat_w),
+       .s0_dat_r (sdr_s_dat_r),
+       .s0_sel   (sdr_s_sel),
+       .s0_we    (sdr_s_we),
+       .s0_stb   (sdr_s_stb),
+       .s0_cyc   (sdr_s_cyc),
+       .s0_ack   (sdr_s_ack),
+       // s1: test RAM
+       .s1_adr   (tram_s_adr),
+       .s1_dat_w (tram_s_dat_w),
+       .s1_dat_r (tram_s_dat_r),
+       .s1_sel   (tram_s_sel),
+       .s1_we    (tram_s_we),
+       .s1_stb   (tram_s_stb),
+       .s1_cyc   (tram_s_cyc),
+       .s1_ack   (tram_s_ack)
+   );
+
+
+   // -----------------------------------------------------------------------
    // SDRAM controller
    // -----------------------------------------------------------------------
    wb_sdr_mt48lc16m16a_7e #(
@@ -313,14 +371,14 @@ module tpu_soc #(
        .clk_i    (clk_i),
        .rst_i    (rst_i),
        // WB slave
-       .m_adr_i  (mux_s_adr),
-       .m_dat_i  (mux_s_dat_w),
-       .m_we_i   (mux_s_we),
-       .m_stb_i  (mux_s_stb),
-       .m_cyc_i  (mux_s_cyc),
-       .m_sel_i  (mux_s_sel),
-       .m_ack_o  (mux_s_ack),
-       .m_dat_o  (mux_s_dat_r),
+       .m_adr_i  (sdr_s_adr),
+       .m_dat_i  (sdr_s_dat_w),
+       .m_we_i   (sdr_s_we),
+       .m_stb_i  (sdr_s_stb),
+       .m_cyc_i  (sdr_s_cyc),
+       .m_sel_i  (sdr_s_sel),
+       .m_ack_o  (sdr_s_ack),
+       .m_dat_o  (sdr_s_dat_r),
        // SDRAM pins
        .s_dq_i   (sdr_dq_i),
        .s_dq_o   (sdr_dq_o),
@@ -334,6 +392,27 @@ module tpu_soc #(
        .s_dqm_o  (sdr_dqm_o),
        .oe_o     (sdr_dq_oe_o)
    );
+ 
+   // -----------------------------------------------------------------------
+   // wb_test_ram: small on-chip stand-in for SDRAM
+   // -----------------------------------------------------------------------
+   wb_test_ram #(
+       .N_WORDS (test_ram_words_p),
+       .AdrW    (dma_addr_w_lp),
+       .DataW   (dma_data_w_lp)
+   ) test_ram (
+       .clk_i    (clk_i),
+       .rst_i    (rst_i),
+       .wb_adr_i (tram_s_adr),
+       .wb_dat_i (tram_s_dat_w),
+       .wb_dat_o (tram_s_dat_r),
+       .wb_sel_i (tram_s_sel),
+       .wb_we_i  (tram_s_we),
+       .wb_stb_i (tram_s_stb),
+       .wb_cyc_i (tram_s_cyc),
+       .wb_ack_o (tram_s_ack)
+   );
+
 
    logic internal_error_l; // prev unconnected; now wired into the debug bus below
 
@@ -373,7 +452,7 @@ module tpu_soc #(
   );
 
   //debug observation byte map
-  
+
   always_comb begin
         dbg_word_o = '0;
         dbg_word_o[ 8'h00*8 +: 8] = {3'b0, internal_error_l, dma_done, dma_busy,
@@ -381,6 +460,7 @@ module tpu_soc #(
         dbg_word_o[ 8'h01*8 +: 8] = {3'b0, tpu_enable_r, dma_start, dma_we,
                                      dma_rd_valid, dma_wr_valid};
         dbg_word_o[ 8'h02*8 +: 8] = {7'b0, tpureg_pc_stb};
+        dbg_word_o[ 8'h03*8 +: 8] = {7'b0, test_mode};
 
         dbg_word_o[ 8'h10*8 +: 8] = tpureg_pc_addr[ 7: 0];
         dbg_word_o[ 8'h11*8 +: 8] = tpureg_pc_addr[15: 8];
