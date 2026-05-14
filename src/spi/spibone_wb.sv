@@ -37,8 +37,9 @@ module spibone_wb #(
     } state_t;
 
    typedef enum logic [7:0] {
-      READ_SINGLE = 8'h00,
-      WRITE_SINGLE = 8'h10
+      RESERVED = 8'h00,
+      READ_SINGLE = 8'h10,
+      WRITE_SINGLE = 8'h20
    } cmd_t;
 
    localparam int addr_bytes_lp = addr_w_p / 8;
@@ -79,22 +80,6 @@ module spibone_wb #(
       .byte_stb_o(byte_stb)
    );
 
-   // always_ff @(posedge clk_i) begin
-   //    if (rst_i || state_q != S_ADDR) begin
-   //       addr_cntr_q <= '0;
-   //    end else begin
-   //       addr_cntr_q <= addr_cntr_d + 1;
-   //    end
-   // end
-
-   // always_ff @(posedge clk_i) begin
-   //    if (rst_i || state_q != S_WR_PAYLOAD) begin
-   //       data_cntr_q <= '0;
-   //    end else begin
-   //       data_cntr_q <= data_cntr_d + 1;
-   //    end
-   // end
-
    always_ff @(posedge clk_i) begin
       if (rst_i) begin
          addr_reg_q <= '0;
@@ -102,7 +87,7 @@ module spibone_wb #(
          wb_ack_reg_q <= '0;
          addr_cntr_q <= '0;
          data_cntr_q <= '0;
-         cmd_reg_q <= '0;
+         cmd_reg_q <= RESERVED;
       end else begin
          addr_reg_q <= addr_reg_d;
          data_reg_q <= data_reg_d;
@@ -115,7 +100,7 @@ module spibone_wb #(
 
    always_ff @(posedge clk_i) begin
       if (rst_i) begin
-         state_q <= '0;
+         state_q <= S_IDLE;
       end else begin
          state_q <= state_d;
       end
@@ -144,7 +129,7 @@ module spibone_wb #(
 
          addr_reg_d = '0;
          data_reg_d = '0;
-         cmd_reg_d = '0;
+         cmd_reg_d = RESERVED;
          wb_ack_reg_d = '0;
 
          if (active) begin
@@ -154,10 +139,14 @@ module spibone_wb #(
       S_CMD: begin
          byte_tx = '0;
 
+         data_cntr_d = '0;
+         data_reg_d = '0;
+         addr_reg_d = '0;
+
          if (!active) begin
             state_d = S_IDLE;
          end else if (byte_stb) begin
-            cmd_reg_d = byte_rx;
+            cmd_reg_d = cmd_t'(byte_rx);
             if (byte_rx == READ_SINGLE || byte_rx == WRITE_SINGLE) begin
                state_d = S_ADDR;
             end
@@ -170,7 +159,7 @@ module spibone_wb #(
             state_d = S_IDLE;
          end else if (byte_stb) begin
             addr_reg_d = { addr_reg_q[addr_w_p-9:0], byte_rx };
-            if (addr_cntr_q == addr_bytes_lp - 1) begin
+            if (addr_cntr_q == addr_cnt_w_lp'(addr_bytes_lp - 1)) begin
                addr_cntr_d = '0;
                if (cmd_reg_q == READ_SINGLE) begin
                   state_d = S_WB_READ;
@@ -189,7 +178,7 @@ module spibone_wb #(
             state_d = S_IDLE;
          end else if (byte_stb) begin
             data_reg_d = { data_reg_q[data_w_p-9:0], byte_rx };
-            if (data_cntr_q == data_bytes_lp - 1) begin
+            if (data_cntr_q == data_cnt_w_lp'(data_bytes_lp - 1)) begin
                data_cntr_d = '0;
                state_d = S_WB_WRITE;
             end else begin
@@ -266,11 +255,7 @@ module spibone_wb #(
          end else if (byte_stb) begin
             data_reg_d = {data_reg_q[data_w_p - 9:0], 8'h00};
 
-            if (data_cntr_q == data_bytes_lp - 1) begin
-               data_cntr_d = '0;
-               data_reg_d = '0;
-               addr_reg_d = '0;
-               cmd_reg_d = '0;
+            if (data_cntr_q == data_cnt_w_lp'(data_bytes_lp - 1)) begin
                state_d = S_CMD;
             end else begin
                data_cntr_d = data_cntr_q + 1;
@@ -278,6 +263,8 @@ module spibone_wb #(
          end
       end
       default: begin
+         byte_tx = '0;
+
          state_d = S_IDLE;
       end
       endcase
