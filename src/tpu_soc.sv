@@ -362,7 +362,7 @@ module tpu_soc #(
 
       .sram2dram_valid_o(dma_wr_valid),
       .sram2dram_data_o(dma_wr_data),
-      .sram2dram_ready_i(dma_wr_valid),
+      .sram2dram_ready_i(dma_wr_ready),
 
       .pc_in(tpureg_pc_addr[dma_addr_w_lp - 1:0]),
       .pc_valid_i(tpureg_pc_stb),

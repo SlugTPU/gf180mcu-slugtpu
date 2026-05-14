@@ -124,7 +124,8 @@ module control_decoder #(
 
     assign act_rd_ready = (act_enable_dma_q) ? (sram2dram_ready_i & ~dram_rd_last_cycle) : '0;
     assign weight_rd_ready = (weight_enable_dma_q) ? (sram2dram_ready_i & ~dram_rd_last_cycle) : '0;
-    assign sram2dram_valid_o = (act_enable_dma_q) ? act_rd_valid : ((weight_enable_dma_q) ? weight_rd_valid : '0);
+    // assign sram2dram_valid_o = (act_enable_dma_q) ? act_rd_valid : ((weight_enable_dma_q) ? weight_rd_valid : '0);
+    assign sram2dram_valid_o = '1;
 
     /*
     Instruction FSM (Mealy)

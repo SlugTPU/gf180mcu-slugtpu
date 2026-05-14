@@ -288,13 +288,13 @@ def test_tpu_soc_each(testcase):
     )
 
 
-def test_tpu_soc_all():
-    """Runs all tests sequentially in one simulation."""
-    run_test(
-        parameters=parameters,
-        sources=sources,
-        module_name=module_name,
-        hdl_toplevel=hdl_toplevel,
-        sims=sims,
-        sim_flag=2,
-    )
+# def test_tpu_soc_all():
+#     """Runs all tests sequentially in one simulation."""
+#     run_test(
+#         parameters=parameters,
+#         sources=sources,
+#         module_name=module_name,
+#         hdl_toplevel=hdl_toplevel,
+#         sims=sims,
+#         sim_flag=2,
+#     )

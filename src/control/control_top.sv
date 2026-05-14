@@ -101,7 +101,15 @@ module control_top #(
             tpu_state_q <= tpu_state_d;
     end
 
-    logic decoder_owns_dma;
+    logic decoder_owns_dma, decoder_owns_dma_q;
+    always_ff @( posedge clk_i ) begin
+        if (rst_i) 
+            decoder_owns_dma_q <= '0;
+        if(decoder_owns_dma)
+            decoder_owns_dma_q <= '1;
+        else if(~dma_busy_i)
+            decoder_owns_dma_q <= '0;
+    end
     assign decoder_owns_dma = dec_dram_start;
 
     logic [DRAM_ADDR_WIDTH-1:0]    buf_dram_start_addr;
@@ -115,7 +123,7 @@ module control_top #(
     assign instruction_ready = (tpu_state_q == COMPUTE) ? dec_inst_ready : 1'b0;
 
     always_comb begin : dram_access_mux
-        if (decoder_owns_dma) begin
+        if (decoder_owns_dma | decoder_owns_dma_q) begin
             dram_start_addr_l  = dec_dram_start_addr;
             dram_word_count_o  = dec_dram_word_count;
             dram_we_o          = dec_dram_we;
