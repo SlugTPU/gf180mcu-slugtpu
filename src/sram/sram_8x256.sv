@@ -18,13 +18,19 @@ module sram_8x256
     logic        rw_mode_dly;
 
 `ifdef SIM
-    always @(addr_i) addr_dly = #200 addr_i;
-    always @(wr_data_i) wr_data_dly = #200 wr_data_i;
-    always @(rw_mode_i) rw_mode_dly = #200 rw_mode_i;
+    assign #200 addr_dly = addr_i;
+    assign #200 wr_data_dly = wr_data_i;
+    assign #200 rw_mode_dly = rw_mode_i;
+`else
+`ifdef SIM_TOP
+    assign #2 addr_dly = addr_i;
+    assign #2 wr_data_dly = wr_data_i;
+    assign #2 rw_mode_dly = rw_mode_i;
 `else
     assign addr_dly = addr_i;
     assign wr_data_dly = wr_data_i;
     assign rw_mode_dly = rw_mode_i;
+`endif
 `endif
 
 
