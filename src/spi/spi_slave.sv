@@ -18,7 +18,7 @@ module spi_slave (
 );
 
    logic [1:0] sclk_sync_q, sclk_sync_d;
-   logic [1:0] cs_sync_q, cs_sync_d;
+   logic [2:0] cs_sync_q, cs_sync_d;
    logic [1:0] mosi_sync_q, mosi_sync_d;
    logic [3:0] ctr_bits_d, ctr_bits_q;
    logic       byte_valid;
@@ -34,7 +34,7 @@ module spi_slave (
    logic       sclk_rising_edge, sclk_falling_edge;
 
    assign sclk_sync_d = { sclk_sync_q[0], spi_sck_async_i };
-   assign cs_sync_d = { cs_sync_q[0], spi_cs_async_ni };
+   assign cs_sync_d = { cs_sync_q[1:0], spi_cs_async_ni };
    assign mosi_sync_d = { mosi_sync_q[0], spi_mosi_async_i };
 
    assign sclk_prev_d = sclk_sync_q[1];
@@ -50,7 +50,7 @@ module spi_slave (
    assign byte_rx_o = rx_byte_q;
    assign spi_miso_o = tx_q;
 
-   assign active_o = ~cs_sync_q[1];
+   assign active_o = ~cs_sync_q[2];
 
    always_comb begin
       rx_byte_d = rx_byte_q;
