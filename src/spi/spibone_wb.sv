@@ -1,311 +1,286 @@
-// spibone_wb.sv
-// Wishbone master driven by SPI slave (spibone protocol).
-//
-// Protocol (big-endian, CS held low for entire burst):
-//   Write: 0x00 | ADDR[AdrW-1:0] | DATA[DataW-1:0] [DATA ...]
-//   Read:  0x01 | ADDR[AdrW-1:0] | (clock dummy bytes) -> DATA[DataW-1:0] [...]
-//
-// Address is sent in ceil(AdrW/8) bytes MSB-first.
-// Data is sent/received in ceil(DataW/8) bytes MSB-first.
-// Burst: address auto-increments by DataW/8 bytes after each word.
-//
-// Sampling strategy:
-//   SCK is registered once (sck_r). Edge detected as sck_r & ~prev_sck_r.
-//   MOSI is registered once (mosi_r). Sampled at sck_rise using mosi_r
-//   which holds the value from the previous clock — this is the stable MOSI
-//   value that was set up before SCK rose, satisfying SPI Mode 0 setup time.
-//   CS is registered twice for clean deassert detection.
-//
-//   clk_i must be >= 4x SCK for reliable edge detection.
-//
-
-`default_nettype none
+// COMMAND:
+// 0x00: READ_SINGLE
+// 0x01: WRITE_SINGLE
 
 module spibone_wb #(
-    parameter int AdrW  = 32,
-    parameter int DataW = 32
+    parameter int addr_w_p  = 32,
+    parameter int data_w_p = 64
 ) (
-    input  logic        clk_i,
-    input  logic        rst_i,
+    input logic                   clk_i,
+    input logic                   rst_i,
 
     // SPI pins
-    input  logic        spi_sck_i,
-    input  logic        spi_mosi_i,
-    output logic        spi_miso_o,
-    input  logic        spi_cs_n_i,
+    input logic                   spi_sck_i,
+    input logic                   spi_mosi_i,
+    output logic                  spi_miso_o,
+    input logic                   spi_cs_n_i,
 
     // Wishbone master
-    output logic [AdrW-1:0]    wb_adr_o,
-    output logic [DataW-1:0]   wb_dat_o,
-    input  logic [DataW-1:0]   wb_dat_i,
-    output logic               wb_we_o,
-    output logic               wb_stb_o,
-    output logic               wb_cyc_o,
-    output logic [DataW/8-1:0] wb_sel_o,
-    input  logic               wb_ack_i
+    output logic [addr_w_p-1:0]   wb_adr_o,
+    output logic [data_w_p-1:0]   wb_dat_o,
+    input logic [data_w_p-1:0]    wb_dat_i,
+    output logic                  wb_we_o,
+    output logic                  wb_stb_o,
+    output logic                  wb_cyc_o,
+    output logic [data_w_p/8-1:0] wb_sel_o,
+    input logic                   wb_ack_i
 );
-
-    localparam int AdrBytes  = (AdrW  + 7) / 8;
-    localparam int DataBytes = (DataW + 7) / 8;
-    // Internal shift registers are padded to a whole number of bytes
-    localparam int AdrBits  = AdrBytes  * 8;
-    localparam int DataBits = DataBytes * 8;
-
-    // Byte counter widths
-    localparam int AdrCntW  = $clog2(AdrBytes)  + 1;
-    localparam int DataCntW = $clog2(DataBytes) + 1;
-
-    // ------------------------------------------------------------------
-    // Input registers
-    // ------------------------------------------------------------------
-    logic sck_r, prev_sck_r;
-    logic mosi_r;
-    logic cs_n_r, cs_n_rr;
-
-    always_ff @(posedge clk_i) begin
-        if (rst_i) begin
-            sck_r      <= 1'b0;
-            prev_sck_r <= 1'b0;
-            mosi_r     <= 1'b0;
-            cs_n_r     <= 1'b1;
-            cs_n_rr    <= 1'b1;
-        end else begin
-            prev_sck_r <= sck_r;
-            sck_r      <= spi_sck_i;
-            mosi_r     <= spi_mosi_i;
-            cs_n_r     <= spi_cs_n_i;
-            cs_n_rr    <= cs_n_r;
-        end
-    end
-
-    logic sck_rise, sck_fall, cs_active, cs_deassert;
-    assign sck_rise   =  sck_r & ~prev_sck_r;
-    assign sck_fall   = ~sck_r &  prev_sck_r;
-    assign cs_active  = ~cs_n_rr;
-    assign cs_deassert = cs_n_r & ~cs_n_rr;
-
-    // ------------------------------------------------------------------
-    // Receive shift register
-    // ------------------------------------------------------------------
-    logic [7:0] rx_shreg;
-    logic [2:0] rx_bitcnt;
-    logic       rx_byte_done;
-    logic       rx_byte_boundary_fall;
-    logic [7:0] rx_byte_data;
-
-    assign rx_byte_done          = sck_rise & (rx_bitcnt == 3'd7);
-    assign rx_byte_boundary_fall = sck_fall & (rx_bitcnt == 3'd0);
-    assign rx_byte_data          = {rx_shreg[6:0], spi_mosi_i};
-
-    always_ff @(posedge clk_i) begin
-        if (rst_i || !cs_active) begin
-            rx_shreg  <= '0;
-            rx_bitcnt <= '0;
-        end else if (sck_rise) begin
-            rx_shreg  <= {rx_shreg[6:0], spi_mosi_i};
-            rx_bitcnt <= rx_bitcnt + 3'd1;
-        end
-    end
-
-    // ------------------------------------------------------------------
-    // Transmit shift register
-    // ------------------------------------------------------------------
-    logic [7:0] tx_shreg;
-    logic       tx_load;
-    logic [7:0] tx_load_val;
-
-    assign spi_miso_o = tx_shreg[7];
-
-    always_ff @(posedge clk_i) begin
-        if (rst_i || !cs_active)
-            tx_shreg <= '0;
-        else if (tx_load)
-            tx_shreg <= tx_load_val;
-        else if (sck_fall)
-            tx_shreg <= {tx_shreg[6:0], 1'b0};
-    end
-
-    // ------------------------------------------------------------------
-    // Main FSM
-    // ------------------------------------------------------------------
     typedef enum logic [3:0] {
         S_IDLE,
         S_CMD,
         S_ADDR,
+        S_WR_PAYLOAD,
         S_WB_READ,
-        S_TX,
-        S_TX_BURST,
-        S_DATA,
-        S_WB_WRITE
+        S_WB_WRITE,
+        S_READ_TX, // send back data at WB address to master
+        S_ACK
     } state_t;
 
-    state_t                   state;
-    logic                     is_read;
-    logic [AdrBits-1:0]       addr_reg;   // accumulates address bytes
-    logic [DataBits-1:0]      data_reg;   // accumulates write-data bytes
-    logic [DataBits-1:0]      rd_data;    // holds WB read result
-    logic [AdrCntW-1:0]       addr_cnt;
-    logic [DataCntW-1:0]      data_cnt;   // used for both TX and DATA phases
-    logic                     ack_received_q; // latches wb_ack_i between byte boundaries
+   typedef enum logic [7:0] {
+      READ_SINGLE = 8'h00,
+      WRITE_SINGLE = 8'h10
+   } cmd_t;
 
-    // ------------------------------------------------------------------
-    // ------------------------------------------------------------------
-    // Combinational helpers for FSM
-    // ------------------------------------------------------------------
-    // Next shifted value when a new byte is received into addr_reg / data_reg
-    wire [AdrBits-1:0]  addr_shifted = {addr_reg[AdrBits-9:0], rx_byte_data};
-    wire [DataBits-1:0] data_shifted = {data_reg[DataBits-9:0], rx_byte_data};
+   localparam int addr_bytes_lp = addr_w_p / 8;
+   localparam int data_bytes_lp = data_w_p / 8;
 
+   localparam int addr_cnt_w_lp  = $clog2(addr_bytes_lp)  + 1;
+   localparam int data_cnt_w_lp  = $clog2(data_bytes_lp) + 1;
 
-    // sel is always full-word
-    assign wb_sel_o = '1;
+   localparam logic [7:0] byte_stall_lp = 8'hFF;
 
-    always_ff @(posedge clk_i) begin
-        if (rst_i) begin
-            state          <= S_IDLE;
-            is_read        <= '0;
-            addr_reg       <= '0;
-            data_reg       <= '0;
-            rd_data        <= '0;
-            addr_cnt       <= '0;
-            data_cnt       <= '0;
-            wb_adr_o       <= '0;
-            wb_dat_o       <= '0;
-            wb_we_o        <= '0;
-            wb_stb_o       <= '0;
-            wb_cyc_o       <= '0;
-            tx_load        <= '0;
-            tx_load_val    <= '0;
-            ack_received_q <= '0;
-        end else begin
-            tx_load <= '0;
+   logic [addr_cnt_w_lp - 1 : 0] addr_cntr_d, addr_cntr_q;
+   logic [data_cnt_w_lp - 1 : 0] data_cntr_d, data_cntr_q;
 
-            // Deassert WB strobe on ack
-            if (wb_ack_i) begin
-                wb_stb_o <= '0;
-                wb_cyc_o <= '0;
+   cmd_t cmd_reg_d, cmd_reg_q;
+   logic [data_w_p - 1:0] data_reg_d, data_reg_q;
+   logic [addr_w_p - 1:0] addr_reg_d, addr_reg_q;
+   logic                  wb_ack_reg_d, wb_ack_reg_q;
+
+   state_t state_q, state_d;
+   wire active;
+   wire  [7:0] byte_rx;
+   logic [7:0] byte_tx;
+   wire       byte_stb;
+
+   spi_slave slave_inst (
+      .clk_i(clk_i),
+      .rst_i(rst_i),
+
+      .spi_sck_async_i(spi_sck_i),
+      .spi_cs_async_ni(spi_cs_n_i),
+      .spi_mosi_async_i(spi_mosi_i),
+      .spi_miso_o(spi_miso_o),
+
+      .active_o(active),
+
+      .byte_rx_o(byte_rx),
+      .byte_tx_i(byte_tx),
+      .byte_stb_o(byte_stb)
+   );
+
+   // always_ff @(posedge clk_i) begin
+   //    if (rst_i || state_q != S_ADDR) begin
+   //       addr_cntr_q <= '0;
+   //    end else begin
+   //       addr_cntr_q <= addr_cntr_d + 1;
+   //    end
+   // end
+
+   // always_ff @(posedge clk_i) begin
+   //    if (rst_i || state_q != S_WR_PAYLOAD) begin
+   //       data_cntr_q <= '0;
+   //    end else begin
+   //       data_cntr_q <= data_cntr_d + 1;
+   //    end
+   // end
+
+   always_ff @(posedge clk_i) begin
+      if (rst_i) begin
+         addr_reg_q <= '0;
+         data_reg_q <= '0;
+         wb_ack_reg_q <= '0;
+         addr_cntr_q <= '0;
+         data_cntr_q <= '0;
+         cmd_reg_q <= '0;
+      end else begin
+         addr_reg_q <= addr_reg_d;
+         data_reg_q <= data_reg_d;
+         wb_ack_reg_q <= wb_ack_reg_d;
+         addr_cntr_q <= addr_cntr_d;
+         data_cntr_q <= data_cntr_d;
+         cmd_reg_q <= cmd_reg_d;
+      end
+   end
+
+   always_ff @(posedge clk_i) begin
+      if (rst_i) begin
+         state_q <= '0;
+      end else begin
+         state_q <= state_d;
+      end
+   end
+
+   always_comb begin
+      state_d = state_q;
+      addr_reg_d = addr_reg_q;
+      data_reg_d = data_reg_q;
+      cmd_reg_d = cmd_reg_q;
+      wb_ack_reg_d = wb_ack_reg_q;
+
+      wb_adr_o = '0;
+      wb_dat_o = '0;
+      wb_we_o = '0;
+      wb_stb_o = '0;
+      wb_cyc_o = '0;
+      wb_sel_o = '0;
+
+      addr_cntr_d = addr_cntr_q;
+      data_cntr_d = data_cntr_q;
+
+      case (state_q)
+      S_IDLE: begin
+         byte_tx = '0;
+
+         addr_reg_d = '0;
+         data_reg_d = '0;
+         cmd_reg_d = '0;
+         wb_ack_reg_d = '0;
+
+         if (active) begin
+            state_d = S_CMD;
+         end
+      end
+      S_CMD: begin
+         byte_tx = '0;
+
+         if (!active) begin
+            state_d = S_IDLE;
+         end else if (byte_stb) begin
+            cmd_reg_d = byte_rx;
+            if (byte_rx == READ_SINGLE || byte_rx == WRITE_SINGLE) begin
+               state_d = S_ADDR;
             end
+         end
+      end
+      S_ADDR: begin
+         byte_tx = '0;
 
-            // CS deasserted — abort and return to idle
-            if (cs_deassert || !cs_active) begin
-                state          <= S_IDLE;
-                wb_stb_o       <= '0;
-                wb_cyc_o       <= '0;
-                ack_received_q <= '0;
+         if (!active) begin
+            state_d = S_IDLE;
+         end else if (byte_stb) begin
+            addr_reg_d = { addr_reg_q[addr_w_p-9:0], byte_rx };
+            if (addr_cntr_q == addr_bytes_lp - 1) begin
+               addr_cntr_d = '0;
+               if (cmd_reg_q == READ_SINGLE) begin
+                  state_d = S_WB_READ;
+               end else begin
+                  state_d = S_WR_PAYLOAD;
+               end
             end else begin
-
-                case (state)
-
-                    S_IDLE: begin
-                        if (cs_active)
-                            state <= S_CMD;
-                    end
-
-                    // ---- Command byte: bit[0]=0 write, bit[0]=1 read ----
-                    S_CMD: begin
-                        if (rx_byte_done) begin
-                            is_read  <= rx_byte_data[0];
-                            addr_cnt <= '0;
-                            state    <= S_ADDR;
-                        end
-                    end
-
-                    // ---- Address bytes MSB first (AdrBytes total) ----
-                    S_ADDR: if (rx_byte_done) begin
-                        addr_reg <= addr_shifted;
-                        addr_cnt <= addr_cnt + 1;
-                        if (addr_cnt == AdrCntW'(AdrBytes - 1)) begin
-                            if (is_read) begin
-                                wb_adr_o <= addr_shifted[AdrW-1:0];
-                                wb_we_o  <= '0;
-                                wb_stb_o <= '1;
-                                wb_cyc_o <= '1;
-                                state    <= S_WB_READ;
-                            end else begin
-                                data_cnt <= '0;
-                                state    <= S_DATA;
-                            end
-                        end
-                    end
-
-                    // ---- Wait for WB read ack; emit 0x00 wait bytes, then 0x01 ready ----
-                    S_WB_READ: begin
-                        if (wb_ack_i) begin
-                            rd_data        <= wb_dat_i;
-                            ack_received_q <= '1;
-                        end
-                        if (rx_byte_boundary_fall) begin
-                            tx_load <= '1;
-                            if (ack_received_q) begin
-                                tx_load_val    <= 8'h01;
-                                data_cnt       <= '0;
-                                ack_received_q <= '0;
-                                state          <= S_TX;
-                            end else begin
-                                tx_load_val <= 8'h00;
-                            end
-                        end
-                    end
-
-                    // ---- Transmit DataBytes bytes MSB first ----
-                    S_TX: if (rx_byte_boundary_fall) begin
-                        tx_load     <= '1;
-                        tx_load_val <= rd_data[(DataCntW'(DataBytes - 1) - data_cnt) * 8 +: 8];
-                        data_cnt    <= data_cnt + 1;
-                        if (data_cnt == DataCntW'(DataBytes - 1))
-                            state <= S_TX_BURST;
-                    end
-
-                    // ---- Burst: increment addr and start next WB read ----
-                    S_TX_BURST: if (rx_byte_boundary_fall) begin
-                        addr_reg <= AdrBits'(addr_reg[AdrW-1:0] + AdrW'(DataBytes));
-                        wb_adr_o <= addr_reg[AdrW-1:0] + AdrW'(DataBytes);
-                        wb_we_o  <= '0;
-                        wb_stb_o <= '1;
-                        wb_cyc_o <= '1;
-                        data_cnt <= '0;
-                        state    <= S_WB_READ;
-                    end
-
-                    // ---- Receive write data bytes MSB first (DataBytes total) ----
-                    S_DATA: if (rx_byte_done) begin
-                        data_reg <= data_shifted;
-                        data_cnt <= data_cnt + 1;
-                        if (data_cnt == DataCntW'(DataBytes - 1)) begin
-                            wb_dat_o <= data_shifted[DataW-1:0];
-                            wb_adr_o <= addr_reg[AdrW-1:0];
-                            wb_we_o  <= '1;
-                            wb_stb_o <= '1;
-                            wb_cyc_o <= '1;
-                            state    <= S_WB_WRITE;
-                        end
-                    end
-
-                    // ---- Wait for WB write ack; emit 0x00 busy bytes, then 0x01 done ----
-                    // After emitting 0x01 the bridge stays here until CS deasserts.
-                    // Burst writes are not supported: one SPIbone write = one full WB burst.
-                    S_WB_WRITE: begin
-                        if (wb_ack_i) begin
-                            ack_received_q <= '1;
-                        end
-                        if (rx_byte_boundary_fall) begin
-                            tx_load <= '1;
-                            if (ack_received_q) begin
-                                tx_load_val    <= 8'h01;
-                                ack_received_q <= '0;
-                            end else begin
-                                tx_load_val <= 8'h00;
-                            end
-                        end
-                    end
-
-                    default: state <= S_IDLE;
-
-                endcase
+               addr_cntr_d = addr_cntr_q + 1;
             end
-        end
-    end
+         end
+      end
+      S_WR_PAYLOAD: begin
+         byte_tx = '0;
+
+         if (!active) begin
+            state_d = S_IDLE;
+         end else if (byte_stb) begin
+            data_reg_d = { data_reg_q[data_w_p-9:0], byte_rx };
+            if (data_cntr_q == data_bytes_lp - 1) begin
+               data_cntr_d = '0;
+               state_d = S_WB_WRITE;
+            end else begin
+               data_cntr_d = data_cntr_q + 1;
+            end
+         end
+      end
+      S_WB_WRITE: begin
+         byte_tx = byte_stall_lp;
+         wb_sel_o = '1;
+
+         if (!wb_ack_reg_q && wb_ack_i) begin
+            wb_ack_reg_d = 1'b1;
+         end else begin
+            wb_we_o  = 1'b1;
+            wb_stb_o = 1'b1;
+            wb_cyc_o = 1'b1;
+            wb_adr_o = addr_reg_q;
+            wb_dat_o = data_reg_q;
+         end
+
+         if (!active) begin
+            wb_ack_reg_d = '0;
+            state_d = S_IDLE;
+         end else if (byte_stb) begin
+            if (wb_ack_reg_q) begin
+               wb_ack_reg_d = '0;
+               state_d = S_ACK;
+            end
+         end
+      end
+      S_WB_READ: begin
+         byte_tx = byte_stall_lp;
+         wb_sel_o = '1;
+
+         if (!wb_ack_reg_q && wb_ack_i) begin
+            data_reg_d = wb_dat_i;
+            wb_ack_reg_d = 1'b1;
+         end else begin
+            wb_we_o  = '0;
+            wb_stb_o = 1'b1;
+            wb_cyc_o = 1'b1;
+            wb_adr_o = addr_reg_q;
+         end
+
+         if (!active) begin
+            wb_ack_reg_d = '0;
+            state_d = S_IDLE;
+         end else if (byte_stb) begin
+            if (wb_ack_reg_q) begin
+               wb_ack_reg_d = '0;
+               state_d = S_ACK;
+            end
+         end
+      end
+      S_ACK: begin
+         byte_tx = 8'hAC;
+
+         if (!active) begin
+            state_d = S_IDLE;
+         end else if (byte_stb) begin
+            if (cmd_reg_q == READ_SINGLE) begin
+               state_d = S_READ_TX;
+            end else begin
+               state_d = S_CMD;
+            end
+         end
+      end
+      S_READ_TX: begin
+         byte_tx = data_reg_q[data_w_p - 1:data_w_p - 8];
+
+         if (!active) begin
+            state_d = S_IDLE;
+         end else if (byte_stb) begin
+            data_reg_d = {data_reg_q[data_w_p - 9:0], 8'h00};
+
+            if (data_cntr_q == data_bytes_lp - 1) begin
+               data_cntr_d = '0;
+               data_reg_d = '0;
+               addr_reg_d = '0;
+               cmd_reg_d = '0;
+               state_d = S_CMD;
+            end else begin
+               data_cntr_d = data_cntr_q + 1;
+            end
+         end
+      end
+      default: begin
+         state_d = S_IDLE;
+      end
+      endcase
+   end
 
 endmodule
-
-`default_nettype wire
