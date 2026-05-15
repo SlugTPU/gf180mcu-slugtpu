@@ -33,6 +33,7 @@ module spibone_wb #(
         S_WB_READ,
         S_WB_WRITE,
         S_READ_TX, // send back data at WB address to master
+        S_CONT,
         S_ACK
     } state_t;
 
@@ -242,6 +243,8 @@ module spibone_wb #(
          end else if (byte_stb) begin
             if (cmd_reg_q == CMD_READ) begin
                state_d = S_READ_TX;
+            end else if (cmd_reg_q == CMD_WRITE) begin
+               state_d = S_CONT;
             end else begin
                state_d = S_CMD;
             end
@@ -256,9 +259,26 @@ module spibone_wb #(
             data_reg_d = {data_reg_q[data_w_p - 9:0], 8'h00};
 
             if (data_cntr_q == data_cnt_w_lp'(data_bytes_lp - 1)) begin
-               state_d = S_CMD;
+               state_d = S_CONT;
             end else begin
                data_cntr_d = data_cntr_q + 1;
+            end
+         end
+      end
+      S_CONT: begin
+         // auto increments address for burst read/write; also gives master
+         //  ample time to deassert CS to stop transfer
+         byte_tx = '0;
+
+         if (!active) begin
+            state_d = S_IDLE;
+         end else if (byte_stb) begin
+            addr_reg_d = addr_reg_q + 1;
+
+            if (cmd_reg_q == CMD_READ) begin
+               state_d = S_WB_READ;
+            end else if (cmd_reg_q == CMD_WRITE) begin
+               state_d = S_PAYLOAD;
             end
          end
       end
