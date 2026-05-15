@@ -190,9 +190,9 @@ module spibone_wb #(
          byte_tx = byte_stall_lp;
          wb_sel_o = '1;
 
-         if (!wb_ack_reg_q && wb_ack_i) begin
+         if (wb_ack_i) begin
             wb_ack_reg_d = 1'b1;
-         end else begin
+         end else if (!wb_ack_reg_q) begin
             wb_we_o  = 1'b1;
             wb_stb_o = 1'b1;
             wb_cyc_o = 1'b1;
@@ -214,10 +214,10 @@ module spibone_wb #(
          byte_tx = byte_stall_lp;
          wb_sel_o = '1;
 
-         if (!wb_ack_reg_q && wb_ack_i) begin
+         if (wb_ack_i) begin
             data_reg_d = wb_dat_i;
             wb_ack_reg_d = 1'b1;
-         end else begin
+         end else if (!wb_ack_reg_q) begin
             wb_we_o  = '0;
             wb_stb_o = 1'b1;
             wb_cyc_o = 1'b1;
