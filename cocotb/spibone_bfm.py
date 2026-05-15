@@ -1,74 +1,79 @@
-
 from cocotb.triggers import ClockCycles, Timer
+import cocotb
 
+CMD_READ=0x10
+CMD_WRITE=0x20
+
+BYTE_STALL=0xFF
+BYTE_X=0x00
 
 class SpiboneBFM:
-    def __init__(self, dut, clk_period_ns: int = 10, sck_half_ns: int = 250):
+    def __init__(self, dut, signal_clk, signal_cs, spi_master):
         self.dut = dut
-        self.sck_half_ns = sck_half_ns
-        # number of clk_i cycles per SCK half-period. used to align edges to clk_i to avoid setup/hold races against the registered sampler
-        self._sck_half_cycles = sck_half_ns // clk_period_ns
+        self.spi_master = spi_master
+        self.signal_cs = signal_cs
+        self.clk = signal_clk
 
-    def idle(self) -> None:
-        """park SPI lines in inactive state"""
-        self.dut.spi_sck_i.value  = 0
-        self.dut.spi_mosi_i.value = 0
-        self.dut.spi_cs_n_i.value = 1
+    async def read(self, starting_address, count=1, timeout=20):
+        c=0
 
-    async def _byte(self, tx: int) -> int:
-        """shift one byte MSB first, return the byte received on MISO.
+        self.signal_cs.value = 0
+        await ClockCycles(self.clk, 1)  # let CS assert propagate
 
-        each SCK edge is aligned to integer clk_i cycles meaning the registered MOSI sampler in spibone_wb sees a stable bit at every detected rise.
-        """
-        rx = 0
-        for bit in range(7, -1, -1):
-            self.dut.spi_mosi_i.value = (tx >> bit) & 1
-            await ClockCycles(self.dut.clk_i, self._sck_half_cycles)
-            await Timer(1, unit="ps")
-            rx = (rx << 1) | int(self.dut.spi_miso_o.value)
-            self.dut.spi_sck_i.value = 1
-            await ClockCycles(self.dut.clk_i, self._sck_half_cycles)
-            self.dut.spi_sck_i.value = 0
-            await Timer(1, unit="ps")
-        return rx
+        # CMD_READ, addr
+        while (c < count):
+            # Write command + address on first call; subsequent calls only need to wait one byte
+            if (c == 0):
+                # cocotb.log.info(f"READ: Writing {[CMD_READ] + starting_address}")
+                await self.spi_master.write([CMD_READ] + starting_address)
+            else:
+                await self.spi_master.write([BYTE_X])
 
-    async def _cs_assert(self) -> None:
-        self.dut.spi_cs_n_i.value = 0
-        await Timer(self.sck_half_ns, unit="ns")
+            self.spi_master.clear() # clear existing read buffer from writing to slave
+            await self.spi_master.write([BYTE_X]) # poll for ack
+            recv = (await self.spi_master.read(count=1))[0]
+            while (recv == BYTE_STALL and timeout > 0):
+                cocotb.log.info(f"Received {hex(recv)}; waiting...")
+                await self.spi_master.write([BYTE_X]) # poll more...
+                recv = (await self.spi_master.read(count=1))[0]
+                timeout -= 1
 
-    async def _cs_deassert(self) -> None:
-        await Timer(self.sck_half_ns, unit="ns")
-        self.dut.spi_cs_n_i.value = 1
-        # let the WB side drain its current transaction before any next call
-        await Timer(self.sck_half_ns * 4, unit="ns")
+            cocotb.log.info(f"Received {hex(recv)}")
+            assert timeout > 0, "Timed out while waiting for ACK from slave"
+            assert recv == 0xAC, f"Expected 0xAC, got {hex(recv)}"
 
-    async def write(self, addr: int, words: list[int]) -> None:
-        await self._cs_assert()
-        await self._byte(0x00)
-        for shift in (24, 16, 8, 0):
-            await self._byte((addr >> shift) & 0xFF)
-        for word in words: #addr autoincrements by 4 per word
-            for shift in (24, 16, 8, 0):
-                await self._byte((word >> shift) & 0xFF)
-        await self._cs_deassert()
+            await self.spi_master.write([BYTE_X, BYTE_X, BYTE_X, BYTE_X, BYTE_X, BYTE_X, BYTE_X, BYTE_X])
+            recv = await self.spi_master.read(count=8)
+            c+=1
 
-    async def read(self, addr: int, num_words: int) -> list[int]:
-        """addr increments same. one extra dummy byte is clocked between words to give spibone_wb time to fetch the next."""
-        await self._cs_assert()
-        await self._byte(0x01)
-        for shift in (24, 16, 8, 0):
-            await self._byte((addr >> shift) & 0xFF)
+        self.signal_cs.value = 1
+        await ClockCycles(self.clk, 1) # let CS deassert propagate
 
-        out = []
-        for i in range(num_words):
-            if i > 0:
-                # cover the cycle spibone_wb spends issuing the next WB read
-                await self._byte(0xFF)
-            b3 = await self._byte(0xFF)
-            b2 = await self._byte(0xFF)
-            b1 = await self._byte(0xFF)
-            b0 = await self._byte(0xFF)
-            out.append((b3 << 24) | (b2 << 16) | (b1 << 8) | b0)
+        return recv
 
-        await self._cs_deassert()
-        return out
+    async def write(self, starting_address, payloads, timeout=20):
+        self.signal_cs.value = 0
+        await ClockCycles(self.clk, 1)  # let CS assert propagate
+
+        for i in range(len(payloads)):
+            # Write command + address on first call; subsequent calls only need to wait one byte
+            if (i == 0):
+                # cocotb.log.info(f"WRITE: Writing {[CMD_WRITE] + starting_address + payloads[i]}")
+                await self.spi_master.write([CMD_WRITE] + starting_address + payloads[i])
+            else:
+                await self.spi_master.write([0x00] + payloads[i])
+            self.spi_master.clear() # clear existing read buffer from writing to slave
+
+            await self.spi_master.write([0x00]) # poll for ack
+            recv = (await self.spi_master.read(count=1))[0]
+            while (recv == BYTE_STALL and timeout > 0):
+                cocotb.log.info(f"Received {hex(recv)}; waiting...")
+                await self.spi_master.write([0x00]) # poll more...
+                recv = (await self.spi_master.read(count=1))[0]
+                timeout -= 1
+            cocotb.log.info(f"Received {hex(recv)}")
+            assert recv == 0xAC, f"Expected 0xAC, got {hex(recv)}"
+
+        self.signal_cs.value = 1
+        await ClockCycles(self.clk, 1)  # let CS assert propagate
+        # await Timer(100, 'ns')  # keep CS high long enough for the synchronizer to register deassert
