@@ -38,7 +38,13 @@ module wb_mem_model #(
         end
     end
 
-    assign dat_o = mem[addr_w]; //read
+   always_ff @(posedge clk_i) begin
+      if (rst_i) begin
+         dat_o <= '0;
+      end else begin
+         dat_o <= mem[addr_w]; //read
+      end
+   end
 
     //write
     always_ff @(posedge clk_i) begin 
