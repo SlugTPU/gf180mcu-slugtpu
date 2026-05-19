@@ -1,68 +1,56 @@
 import re
 import struct
+import sys
+import argparse
 
-# Instruction encoders
+
+# ── Instruction encoders ──────────────────────────────────────────────────────
+
 def encode_gmem2smem(match):
-    opcode = 0b0101 if match.group('dir') == 'weights' else 0b1111
+    opcode = 0b0101 if match.group('dir').lower() == 'weights' else 0b1101
     sram_addr = int(match.group('sram_addr'), 0)
     dram_addr = int(match.group('dram_addr'), 0)
     tx_amount = int(match.group('tx_amount'), 0)
     word = (opcode & 0xF)
     word |= (sram_addr & 0xFF) << 4
-    word |= (sram_addr & 0xFF) << 12  # bits [11:8] mirror
     word |= (dram_addr & 0xFFF) << 12
-    word |= (dram_addr & 0xFFF) << 20  # bits [23:12] mirror - actually spread
-    word |= (tx_amount & 0xFF) << 24
-    # Proper encoding:
-    word = (opcode & 0xF)
-    word |= ((sram_addr >> 4) & 0xFF) << 4   # sram [11:4] in bits [7:4]
-    word |= ((sram_addr >> 4) & 0xFF) << 8   # sram [11:4] in bits [11:8]
-    word |= ((dram_addr >> 12) & 0xFF) << 12 # dram [23:12] in bits [15:12]
-    word |= ((dram_addr >> 12) & 0xFF) << 16 # dram [23:12] in bits [19:16]
-    word |= ((dram_addr >> 12) & 0xFF) << 20 # dram [23:12] in bits [23:20]
     word |= (tx_amount & 0xFF) << 24
     return word, 32
 
 def encode_smem2gmem(match):
-    opcode = 0b0100
+    opcode = 0b1111
     sram_addr = int(match.group('sram_addr'), 0)
     dram_addr = int(match.group('dram_addr'), 0)
     tx_amount = int(match.group('tx_amount'), 0)
     word = (opcode & 0xF)
-    word |= ((sram_addr >> 4) & 0xFF) << 4
-    word |= ((sram_addr >> 4) & 0xFF) << 8
-    word |= ((dram_addr >> 12) & 0xFF) << 12
-    word |= ((dram_addr >> 12) & 0xFF) << 16
-    word |= ((dram_addr >> 12) & 0xFF) << 20
+    word |= (sram_addr & 0xFF) << 4
+    word |= (dram_addr & 0xFFF) << 12
     word |= (tx_amount & 0xFF) << 24
     return word, 32
 
 def encode_load_bias(match):
-    opcode = 0b1001
+    opcode = 0b1000
     sram_addr = int(match.group('sram_addr'), 0)
     word = (opcode & 0xF)
-    word |= ((sram_addr >> 4) & 0xFF) << 4
-    word |= ((sram_addr >> 4) & 0xFF) << 8
+    word |= (sram_addr & 0xFF) << 4
     return word, 16
 
 def encode_load_zp(match):
-    opcode = 0b1010
-    sram_addr = int(match.group('sram_addr'), 0)
-    word = (opcode & 0xF)
-    word |= ((sram_addr >> 4) & 0xFF) << 4
-    word |= ((sram_addr >> 4) & 0xFF) << 8
-    return word, 16
-
-def encode_load_scale(match):
     opcode = 0b1100
     sram_addr = int(match.group('sram_addr'), 0)
     word = (opcode & 0xF)
-    word |= ((sram_addr >> 4) & 0xFF) << 4
-    word |= ((sram_addr >> 4) & 0xFF) << 8
+    word |= (sram_addr & 0xFF) << 4
+    return word, 16
+
+def encode_load_scale(match):
+    opcode = 0b1010
+    sram_addr = int(match.group('sram_addr'), 0)
+    word = (opcode & 0xF)
+    word |= (sram_addr & 0xFF) << 4
     return word, 16
 
 def encode_pipeline_setup(match):
-    opcode = 0b1000
+    opcode = 0b1110
     relu_mode_str = match.group('relu_mode').strip().lower()
     relu_map = {'enable': 0b1000, 'disable': 0b0100, 'clamped': 0b0010, 'leaky': 0b0001}
     relu_vec = relu_map.get(relu_mode_str, 0b1000)
@@ -70,32 +58,30 @@ def encode_pipeline_setup(match):
     word = (opcode & 0xF)
     word |= (relu_vec & 0xF) << 4
     word |= (k_tile & 0xFF) << 8
-    word |= (k_tile & 0xFF) << 12
     return word, 16
 
 def encode_load_weights(match):
-    opcode = 0b1110
+    opcode = 0b0110
     sram_addr = int(match.group('sram_addr'), 0)
     word = (opcode & 0xF)
-    word |= ((sram_addr >> 4) & 0xFF) << 4
-    word |= ((sram_addr >> 4) & 0xFF) << 8
+    word |= (sram_addr & 0xFF) << 4
     return word, 16
 
 def encode_matmul(match):
     opcode = 0b0001
-    act_addr  = int(match.group('act_addr'), 0)
-    res_addr  = int(match.group('res_addr'), 0)
+    act_addr = int(match.group('act_addr'), 0)
+    res_addr = int(match.group('res_addr'), 0)
     word = (opcode & 0xF)
-    word |= ((act_addr >> 4) & 0xFF) << 4
-    word |= ((act_addr >> 4) & 0xFF) << 8
-    word |= ((res_addr >> 12) & 0xFF) << 12
-    word |= ((res_addr >> 12) & 0xFF) << 16
+    word |= (act_addr & 0xFF) << 4
+    word |= (res_addr & 0xFF) << 12
     return word, 24
 
 def encode_exit(match):
     return 0b0000, 16
 
-# Instruction patterns (case-insensitive)
+
+# ── Instruction patterns (case-insensitive) ───────────────────────────────────
+
 INSTRUCTIONS = [
     (re.compile(
         r'^\s*dram2sram\s+(?P<dir>weights|activations)\s*,\s*sram=(?P<sram_addr>\w+)\s*,\s*dram=(?P<dram_addr>\w+)\s*,\s*n=(?P<tx_amount>\w+)\s*$',
@@ -126,14 +112,17 @@ INSTRUCTIONS = [
         re.IGNORECASE), encode_exit),
 ]
 
+
+# ── Core assembler ────────────────────────────────────────────────────────────
+
 def assemble(source: str) -> list[dict]:
     """
     Assemble source text into a list of encoded instructions.
-    Returns list of dicts with keys: line, mnemonic, bits, value
+    Returns list of dicts with keys: line, mnemonic, bits, value.
     """
     results = []
     for lineno, raw_line in enumerate(source.splitlines(), 1):
-        line = raw_line.split('#')[0].strip()  # strip comments
+        line = raw_line.split('#')[0].strip()   # strip comments
         if not line:
             continue
         matched = False
@@ -153,30 +142,115 @@ def assemble(source: str) -> list[dict]:
             raise SyntaxError(f"Line {lineno}: unrecognized instruction: '{line}'")
     return results
 
-def print_assembled(results):
+
+# ── Output helpers ────────────────────────────────────────────────────────────
+
+def print_assembled(results, file=sys.stdout):
+    """Print a human-readable listing of assembled instructions."""
     for r in results:
         nibbles = r['bits'] // 4
-        fmt = f"0x{{:0{nibbles}X}}"
-        print(f"[line {r['line']:3d}] {fmt.format(r['value'])}  ({r['bits']}b)  {r['mnemonic']}")
+        hex_fmt = f"0x{{:0{nibbles}X}}"
+        bin_str = f"{r['value']:0{r['bits']}b}"
+        # Group binary digits into nibbles (4 bits) separated by underscores
+        grouped = '_'.join(bin_str[i:i+4] for i in range(0, len(bin_str), 4))
+        print(
+            f"[line {r['line']:3d}]"
+            f"  {hex_fmt.format(r['value'])}"
+            f"  {grouped}"
+            f"  ({r['bits']}b)"
+            f"  {r['mnemonic']}",
+            file=file
+        )
 
-# ── Example usage ────────────────────────────────────────────────────────────
-if __name__ == '__main__':
-    source = """
-    dram2sram weights,      sram=0x100, dram=0x1000, n=64
-    dram2sram activations,  sram=0x200, dram=0x2000, n=32
 
-    load_bias   sram=0x300
-    load_zp     sram=0x310
-    load_scale  sram=0x320
-
-    pipeline_setup relu=enable, k_tile=8
-    load_weights sram=0x400
-    matmul act=0x200, res=0x500
-
-    sram2dram sram=0x500, dram=0x3000, n=16
-
-    exit
+def write_binary(results, file):
     """
+    Write assembled instructions as packed binary.
 
-    results = assemble(source)
-    print_assembled(results)
+    Each instruction is written in little-endian byte order using the exact
+    number of bytes its bit-width requires (bits // 8).  The bit-widths
+    produced by the encoders are all multiples of 8, so no padding is needed.
+    """
+    for r in results:
+        n_bytes = r['bits'] // 8
+        file.write(r['value'].to_bytes(n_bytes, byteorder='little'))
+
+
+# ── Built-in test program ─────────────────────────────────────────────────────
+
+BUILTIN_SOURCE = """\
+dram2sram weights,      sram=0x10, dram=0x100, n=16
+dram2sram activations,  sram=0x20, dram=0x200, n=16
+
+load_bias   sram=0x30
+load_zp     sram=0x31 # comment
+load_scale  sram=0x32
+
+pipeline_setup relu=enable, k_tile=2
+load_weights sram=0x20
+matmul act=0x10, res=0x50
+
+sram2dram sram=0x50, dram=0x300, n=16
+
+exit
+"""
+
+
+# ── CLI entry point ───────────────────────────────────────────────────────────
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Assemble a custom ISA source file into binary.')
+    parser.add_argument(
+        'input', nargs='?', default=None,
+        help='Assembly source file (omit to use the built-in test program)')
+    parser.add_argument(
+        '-o', '--output', default=None,
+        help='Output file path. '
+             'Use -o <file>.bin for raw binary, '
+             'or omit for a human-readable hex listing on stdout.')
+    parser.add_argument(
+        '-b', '--binary', action='store_true',
+        help='Write raw binary even when sending to stdout '
+             '(useful for piping: assembler.py --binary | xxd)')
+    args = parser.parse_args()
+
+    # ── Read source ───────────────────────────────────────────────────────────
+    if args.input is None:
+        source = BUILTIN_SOURCE
+        print('(no input file given — using built-in test program)\n',
+              file=sys.stderr)
+    else:
+        with open(args.input, 'r') as f:
+            source = f.read()
+
+    # ── Assemble ──────────────────────────────────────────────────────────────
+    try:
+        results = assemble(source)
+    except SyntaxError as e:
+        print(f'Assembler error: {e}', file=sys.stderr)
+        sys.exit(1)
+
+    # ── Emit output ───────────────────────────────────────────────────────────
+    if args.output is not None:
+        # Decide format from extension; --binary flag overrides to binary.
+        binary_mode = args.binary or args.output.endswith('.bin')
+        if binary_mode:
+            with open(args.output, 'wb') as f:
+                write_binary(results, f)
+            print(f'Wrote {len(results)} instructions → {args.output}',
+                  file=sys.stderr)
+        else:
+            with open(args.output, 'w') as f:
+                print_assembled(results, file=f)
+            print(f'Wrote {len(results)} instructions → {args.output}',
+                  file=sys.stderr)
+    else:
+        if args.binary:
+            write_binary(results, sys.stdout.buffer)
+        else:
+            print_assembled(results)
+
+
+if __name__ == '__main__':
+    main()
