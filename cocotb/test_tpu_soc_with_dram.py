@@ -236,6 +236,8 @@ sources = [
     proj_path / "spi" / "spibone_wb.sv",
     proj_path / "spi" / "wb_decoder.sv",
     proj_path / "spi" / "tpu_regs.sv",
+    proj_path / "spi" / "wb_demux_1to2.sv",
+    proj_path / "spi" / "wb_test_ram.sv",
     proj_path / "dram" / "tpu_soc_with_dram.sv",
     proj_path / "dram" / "wb_dma_master.sv",
     proj_path / "dram" / "wb_mux_2to1.sv",

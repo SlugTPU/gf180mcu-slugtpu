@@ -33,7 +33,7 @@ module tpu_soc #(
    ,output logic [1:0] sdr_dqm_o
    ,output logic [dbg_n_words_p*8 - 1:0] dbg_word_o
    ,output logic test_mode_o 
-
+);
    localparam _rows_lp = 8192;
    localparam _cols_lp = 512;
    localparam _banks_lp = 4;
@@ -204,7 +204,7 @@ module tpu_soc #(
    // -----------------------------------------------------------------------
    wb_decoder #(
        .DataW (dma_data_w_lp)
-   ) decoder (
+   ) spi_wb_decoder (
        .clk_i      (clk_i),
        .rst_i      (rst_i),
        .wbs_adr_i  (dec_adr),
