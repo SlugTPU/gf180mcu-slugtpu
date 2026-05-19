@@ -62,9 +62,10 @@ class SpiboneBFM:
         for i in range(len(payloads)):
             # Write command + address on first call; subsequent calls only need to wait one byte
             if (i == 0):
-                # cocotb.log.info(f"WRITE: Writing {[CMD_WRITE] + starting_address + payloads[i]}")
+                cocotb.log.info(f"WRITE: Writing {[CMD_WRITE] + starting_address + payloads[i]}")
                 await self.spi_master.write([CMD_WRITE] + starting_address + payloads[i])
             else:
+                cocotb.log.info(f"WRITE: Writing {[0x00] + payloads[i]}")
                 await self.spi_master.write([0x00] + payloads[i])
             self.spi_master.clear() # clear existing read buffer from writing to slave
 
