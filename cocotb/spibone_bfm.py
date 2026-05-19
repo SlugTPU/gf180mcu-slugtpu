@@ -16,6 +16,7 @@ class SpiboneBFM:
 
     async def read(self, starting_address, count=1, timeout=20):
         c=0
+        addr_bytes = list(starting_address.to_bytes(4, byteorder='big'))
 
         self.signal_cs.value = 0
         await ClockCycles(self.clk, 1)  # let CS assert propagate
@@ -26,8 +27,8 @@ class SpiboneBFM:
         while (c < count):
             # Write command + address on first call; subsequent calls only need to wait one byte
             if (c == 0):
-                # cocotb.log.info(f"READ: Writing {[CMD_READ] + starting_address}")
-                await self.spi_master.write([CMD_READ] + starting_address)
+                # cocotb.log.info(f"READ: Writing {[CMD_READ] + addr_bytes}")
+                await self.spi_master.write([CMD_READ] + addr_bytes)
             else:
                 await self.spi_master.write([BYTE_X])
 
@@ -56,14 +57,15 @@ class SpiboneBFM:
         return results
 
     async def write(self, starting_address, payloads, timeout=20):
+        addr_bytes = list(starting_address.to_bytes(4, byteorder='big'))
         self.signal_cs.value = 0
         await ClockCycles(self.clk, 1)  # let CS assert propagate
 
         for i in range(len(payloads)):
             # Write command + address on first call; subsequent calls only need to wait one byte
             if (i == 0):
-                cocotb.log.info(f"WRITE: Writing {[CMD_WRITE] + starting_address + payloads[i]}")
-                await self.spi_master.write([CMD_WRITE] + starting_address + payloads[i])
+                cocotb.log.info(f"WRITE: Writing {[CMD_WRITE] + addr_bytes + payloads[i]}")
+                await self.spi_master.write([CMD_WRITE] + addr_bytes + payloads[i])
             else:
                 cocotb.log.info(f"WRITE: Writing {[0x00] + payloads[i]}")
                 await self.spi_master.write([0x00] + payloads[i])
