@@ -1,6 +1,6 @@
 // COMMAND:
-// 0x00: CMD_READ
-// 0x01: CMD_WRITE
+// 0x10: CMD_READ
+// 0x20: CMD_WRITE
 
 module spibone_wb #(
     parameter int addr_w_p  = 32,
@@ -259,6 +259,7 @@ module spibone_wb #(
             data_reg_d = {data_reg_q[data_w_p - 9:0], 8'h00};
 
             if (data_cntr_q == data_cnt_w_lp'(data_bytes_lp - 1)) begin
+               data_cntr_d = '0;
                state_d = S_CONT;
             end else begin
                data_cntr_d = data_cntr_q + 1;
