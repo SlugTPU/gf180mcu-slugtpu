@@ -13,16 +13,15 @@ from spibone_bfm import SpiboneBFM
 from runner import run_test
 
 
-clock_freq_mhz = 100
-clock_period = 1/(clock_freq_mhz*10**6)*10**9
-spi_config = SpiConfig(
-    word_width = 8,     # all parameters optional
-    sclk_freq  = (clock_freq_mhz/6) * 10**6,   # these are the defaults
-    cpol       = False,
-    cpha       = False,
-    msb_first  = True,
-    cs_active_low = True # optional (assumed True)
-)
+def make_spi_config(clock_freq_mhz):
+    return SpiConfig(
+        word_width = 8,
+        sclk_freq  = (clock_freq_mhz / 6) * 10**6,
+        cpol       = False,
+        cpha       = False,
+        msb_first  = True,
+        cs_active_low = True,
+    )
 
 # Tests
 
@@ -30,8 +29,9 @@ spi_config = SpiConfig(
 async def reset_test(dut):
     clk_i = dut.clk_i
     rst_i = dut.rst_i
+    sys_clk_mhz = dut.sys_clk_mhz_p.value.to_unsigned()
 
-    await clock_start(clk_i, period_ns=clock_period)
+    await clock_start(clk_i, period_ns=1000/sys_clk_mhz)
     await reset_sequence(clk_i, rst_i)
 
     await FallingEdge(clk_i)
@@ -43,6 +43,7 @@ async def test_single_write_then_read(dut):
     clk_i = dut.clk_i
     rst_i = dut.rst_i
     spi_cs_ni = dut.spi_cs_n_i
+    sys_clk_mhz = dut.sys_clk_mhz_p.value.to_unsigned()
 
     spi_bus = SpiBus.from_entity(
         dut,
@@ -51,10 +52,10 @@ async def test_single_write_then_read(dut):
         miso_name="spi_miso_o",
         cs_name=None,
     )
-    spi_master = SpiMaster(spi_bus, spi_config)
+    spi_master = SpiMaster(spi_bus, make_spi_config(sys_clk_mhz))
     bfm = SpiboneBFM(dut, clk_i, spi_cs_ni, spi_master)
 
-    await clock_start(clk_i, period_ns=clock_period)
+    await clock_start(clk_i, period_ns=1000/sys_clk_mhz)
     await reset_sequence(clk_i, rst_i)
 
     await FallingEdge(rst_i)
@@ -79,6 +80,7 @@ async def test_burst_write_then_burst_read(dut):
     clk_i = dut.clk_i
     rst_i = dut.rst_i
     spi_cs_ni = dut.spi_cs_n_i
+    sys_clk_mhz = dut.sys_clk_mhz_p.value.to_unsigned()
 
     spi_bus = SpiBus.from_entity(
         dut,
@@ -87,10 +89,10 @@ async def test_burst_write_then_burst_read(dut):
         miso_name="spi_miso_o",
         cs_name=None,
     )
-    spi_master = SpiMaster(spi_bus, spi_config)
+    spi_master = SpiMaster(spi_bus, make_spi_config(sys_clk_mhz))
     bfm = SpiboneBFM(dut, clk_i, spi_cs_ni, spi_master)
 
-    await clock_start(clk_i, period_ns=clock_period)
+    await clock_start(clk_i, period_ns=1000/sys_clk_mhz)
     await reset_sequence(clk_i, rst_i)
 
     starting_addr = [0x00, 0x00, 0x40, 0x00]
@@ -121,6 +123,7 @@ async def test_individual_writes_burst_read(dut):
     clk_i = dut.clk_i
     rst_i = dut.rst_i
     spi_cs_ni = dut.spi_cs_n_i
+    sys_clk_mhz = dut.sys_clk_mhz_p.value.to_unsigned()
 
     spi_bus = SpiBus.from_entity(
         dut,
@@ -129,10 +132,10 @@ async def test_individual_writes_burst_read(dut):
         miso_name="spi_miso_o",
         cs_name=None,
     )
-    spi_master = SpiMaster(spi_bus, spi_config)
+    spi_master = SpiMaster(spi_bus, make_spi_config(sys_clk_mhz))
     bfm = SpiboneBFM(dut, clk_i, spi_cs_ni, spi_master)
 
-    await clock_start(clk_i, period_ns=clock_period)
+    await clock_start(clk_i, period_ns=1000/sys_clk_mhz)
     await reset_sequence(clk_i, rst_i)
 
     base = 0x200
@@ -153,6 +156,7 @@ async def test_overwrite(dut):
     clk_i = dut.clk_i
     rst_i = dut.rst_i
     spi_cs_ni = dut.spi_cs_n_i
+    sys_clk_mhz = dut.sys_clk_mhz_p.value.to_unsigned()
 
     spi_bus = SpiBus.from_entity(
         dut,
@@ -161,10 +165,10 @@ async def test_overwrite(dut):
         miso_name="spi_miso_o",
         cs_name=None,
     )
-    spi_master = SpiMaster(spi_bus, spi_config)
+    spi_master = SpiMaster(spi_bus, make_spi_config(sys_clk_mhz))
     bfm = SpiboneBFM(dut, clk_i, spi_cs_ni, spi_master)
 
-    await clock_start(clk_i, period_ns=clock_period)
+    await clock_start(clk_i, period_ns=1000/sys_clk_mhz)
     await reset_sequence(clk_i, rst_i)
 
     addr = [0x00, 0x00, 0x00, 0x80]
@@ -198,7 +202,7 @@ sources = [
 @pytest.mark.parametrize("testcase", tests)
 def test_spibone_dram_each(testcase):
     run_test(
-        parameters={},
+        parameters={"sys_clk_mhz_p": 100},
         sources=sources,
         module_name="test_spibone_dram",
         hdl_toplevel="spibone_dram_tb_top",
@@ -209,7 +213,7 @@ def test_spibone_dram_each(testcase):
 
 def test_spibone_dram_all():
     run_test(
-        parameters={},
+        parameters={"sys_clk_mhz_p": 100},
         sources=sources,
         module_name="test_spibone_dram",
         hdl_toplevel="spibone_dram_tb_top",
