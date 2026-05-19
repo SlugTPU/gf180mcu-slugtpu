@@ -4,7 +4,9 @@
 
 `default_nettype none
 
-module spibone_dram_tb_top (
+module spibone_dram_tb_top #(
+    parameter sys_clk_mhz_p = 100
+) (
     input  logic        clk_i,
     input  logic        rst_i,
 
