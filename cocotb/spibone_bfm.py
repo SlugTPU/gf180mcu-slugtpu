@@ -20,6 +20,8 @@ class SpiboneBFM:
         self.signal_cs.value = 0
         await ClockCycles(self.clk, 1)  # let CS assert propagate
 
+        results = []
+
         # CMD_READ, addr
         while (c < count):
             # Write command + address on first call; subsequent calls only need to wait one byte
@@ -44,12 +46,14 @@ class SpiboneBFM:
 
             await self.spi_master.write([BYTE_X, BYTE_X, BYTE_X, BYTE_X, BYTE_X, BYTE_X, BYTE_X, BYTE_X])
             recv = await self.spi_master.read(count=8)
+            results += [recv]
+            cocotb.log.info(f"READ {recv}")
             c+=1
 
         self.signal_cs.value = 1
         await ClockCycles(self.clk, 1) # let CS deassert propagate
 
-        return recv
+        return results
 
     async def write(self, starting_address, payloads, timeout=20):
         self.signal_cs.value = 0
