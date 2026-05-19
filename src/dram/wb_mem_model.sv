@@ -3,13 +3,14 @@
 
 module wb_mem_model #(
     parameter DEPTH_LOG2 = 10, // 1K words is 4 KB
-    parameter DATA_W = 32
+    parameter DATA_W = 32,
+    parameter ADDR_W = 32
 )(
     input  logic        clk_i,
     input  logic        rst_i,
 
     // actual WB4 slave
-    input  logic [DATA_W-1:0] adr_i,
+    input  logic [ADDR_W-1:0] adr_i,
     input  logic [DATA_W-1:0] dat_i,
     output logic [DATA_W-1:0] dat_o,
     input  logic        we_i,
