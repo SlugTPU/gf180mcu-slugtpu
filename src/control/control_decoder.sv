@@ -226,7 +226,13 @@ module control_decoder #(
                     
                 end
                 LOAD_ALL : begin
-                    if (instruction_valid_i) begin
+                    if (inst_opcode == EXIT) begin
+                        if (weight_load_ready & act_load_ready & ~dma_busy) begin
+                            decoder_state_d = LOAD_OPCODE;
+                            tpu_exit_d = '1;
+                        end
+                    end
+                    else if (instruction_valid_i) begin
                         if ((inst_opcode[3] == 1'b1 && inst_opcode[0] != 1'b1) || inst_opcode == LOAD_WEIGHTS) begin
                             decoder_state_d = WAIT;
                         end
@@ -238,12 +244,6 @@ module control_decoder #(
                         end
                         inst_d[inst_load_count_q*8 +: 8] = instruction_data_i;
                         inst_load_count_d = inst_load_count_d + 1'b1;
-                    end
-                    if (inst_opcode == EXIT) begin
-                        if (weight_load_ready & act_load_ready & ~dma_busy) begin
-                            decoder_state_d = LOAD_OPCODE;
-                            tpu_exit_d = '1;
-                        end
                     end
                 end
                 WAIT : begin
