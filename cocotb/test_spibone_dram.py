@@ -130,16 +130,34 @@ async def test_burst_write_then_burst_read(dut):
 #     assert got == words
 
 
-# @cocotb.test()
-# async def test_overwrite(dut):
-#     """second write to the same address replaces the first."""
-#     bfm = await setup(dut)
+@cocotb.test()
+async def test_overwrite(dut):
+    """second write to the same address replaces the first."""
+    clk_i = dut.clk_i
+    rst_i = dut.rst_i
+    spi_cs_ni = dut.spi_cs_n_i
 
-#     addr = 0x80
-#     await bfm.write(addr, [0xAAAAAAAA])
-#     await bfm.write(addr, [0x55555555])
-#     got = await bfm.read(addr, 1)
-#     assert got[0] == 0x55555555, f"got 0x{got[0]:08X}"
+    spi_bus = SpiBus.from_entity(
+        dut,
+        sclk_name="spi_sck_i",
+        mosi_name="spi_mosi_i",
+        miso_name="spi_miso_o",
+        cs_name=None,
+    )
+    spi_master = SpiMaster(spi_bus, spi_config)
+    bfm = SpiboneBFM(dut, clk_i, spi_cs_ni, spi_master)
+
+    await clock_start(clk_i, period_ns=clock_period)
+    await reset_sequence(clk_i, rst_i)
+
+    addr = [0x00, 0x00, 0x00, 0x80]
+    await bfm.write(addr, [[0x00, 0x00, 0x00, 0x00, 0xAA, 0xAA, 0xAA, 0xAA]])
+    await bfm.write(addr, [[0x00, 0x00, 0x00, 0x00, 0x55, 0x55, 0x55, 0x55]])
+    got = await bfm.read(addr, 1)
+    expected_val = [0x00, 0x00, 0x00, 0x00, 0x55, 0x55, 0x55, 0x55]
+
+    for i in range(len(expected_val)):
+        assert got[0][i] == expected_val[i]
 
 
 # Runner
@@ -148,7 +166,7 @@ tests = [
     "test_single_write_then_read",
     "test_burst_write_then_burst_read",
     # "test_individual_writes_burst_read",
-    # "test_overwrite",
+    "test_overwrite",
 ]
 
 proj_path = Path("./src").resolve()
