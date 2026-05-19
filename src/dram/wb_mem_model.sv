@@ -20,13 +20,11 @@ module wb_mem_model #(
 );
 
     localparam DEPTH = 1 << DEPTH_LOG2;
-    localparam BYTE_BITS = $clog2(DATA_W/8);
-
     logic [DATA_W-1:0] mem [DEPTH];
     logic [DEPTH_LOG2-1:0] addr_w;
     logic valid_cycle_w;
 
-    assign addr_w        = adr_i[DEPTH_LOG2+BYTE_BITS-1:BYTE_BITS];  // word aligned
+    assign addr_w        = adr_i[DEPTH_LOG2-1:0];
     assign valid_cycle_w = cyc_i & stb_i;
 
     // single-cyc ack
