@@ -8,6 +8,7 @@ from cocotb.triggers import ClockCycles
 from cocotbext.spi import SpiMaster, SpiBus, SpiConfig
 from shared import reset_sequence, clock_start
 from cocotb.triggers import Timer, RisingEdge, FallingEdge, ReadOnly
+from spibone_bfm import SpiboneBFM
 
 from runner import run_test
 
@@ -41,78 +42,77 @@ async def test_single_write_then_read(dut):
     """write one word, read back in a separate transaction"""
     clk_i = dut.clk_i
     rst_i = dut.rst_i
+    spi_cs_ni = dut.spi_cs_n_i
 
     spi_bus = SpiBus.from_entity(
         dut,
         sclk_name="spi_sck_i",
         mosi_name="spi_mosi_i",
         miso_name="spi_miso_o",
-        cs_name="spi_cs_n_i",
+        cs_name=None,
     )
     spi_master = SpiMaster(spi_bus, spi_config)
+    bfm = SpiboneBFM(dut, clk_i, spi_cs_ni, spi_master)
 
     await clock_start(clk_i, period_ns=clock_period)
     await reset_sequence(clk_i, rst_i)
 
     await FallingEdge(rst_i)
 
-    # SINGLE_WRITE, addr->[0x00, 0x00, 0x00, 0x40], data->[0x00, 0x00, 0x00, 0x00, 0xDE,0xAD,0xBE,0xEF]
-    await spi_master.write([0x20,
-                            0x00, 0x00, 0x00, 0x40,
-                            0x00, 0x00, 0x00, 0x00, 0xDE, 0xAD, 0xBE, 0xEF],
-                           burst=True)
-    spi_master.clear()
-    await spi_master.write([0x00])
-    recv = (await spi_master.read(count=1))[0]
-    count = 0
-    while (recv == 0xFF and count < 20):
-        cocotb.log.info(f"Received {hex(recv)}; waiting...")
-        await spi_master.write([0x00])
-        recv = (await spi_master.read(count=1))[0]
-        count += 1
+    expected_val = [0x00, 0x00, 0x00, 0x00, 0xDE, 0xAD, 0xBE, 0xEF]
 
-    if (count > 20):
-        assert 1 == 0, "Timed out while waiting for ACK from slave"
+    await bfm.write(starting_address=[0x00, 0x00, 0x00, 0x04], payloads=[expected_val])
+    recv = (await bfm.read(starting_address=[0x00, 0x00, 0x00, 0x04]))[0]
 
-    cocotb.log.info(f"Received {hex(recv)}")
-    assert recv == 0xAC, f"Expected 0xAC, got {hex(recv)}"
+    print(f"recv is {recv}")
 
-    # SINGLE_READ, addr->[0x00, 0x00, 0x00, 0x40], data->[0x00, 0x00, 0x00, 0x00, 0xDE,0xAD,0xBE,0xEF]
-    await spi_master.write([0x10,
-                            0x00, 0x00, 0x00, 0x40],
-                           burst=True)
-    spi_master.clear()
-    await spi_master.write([0x00])
-    recv = (await spi_master.read(count=1))[0]
-    count = 0
-    while (recv == 0xFF and count < 20):
-        cocotb.log.info(f"Received {hex(recv)}; waiting...")
-        await spi_master.write([0x00])
-        recv = (await spi_master.read(count=1))[0]
-        count += 1
-    cocotb.log.info(f"Received {hex(recv)}")
-    assert recv == 0xAC, f"Expected 0xAC, got {hex(recv)}"
+    for i in range(len(expected_val)):
+        assert recv[i] == expected_val[i]
 
-    await spi_master.write([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], burst=True)
-    recv = await spi_master.read(count=8)
-    expected_bytes = [0x00, 0x00, 0x00, 0x00, 0xDE, 0xAD, 0xBE, 0xEF]
-    for i in range(len(expected_bytes)):
-        assert recv[i] == expected_bytes[i], f"Expected byte {expected_bytes[i]}, got {recv[i]}"
-        cocotb.log.info(f"Received {hex(recv[i])}")
+    await ClockCycles(clk_i, 100)
 
     await FallingEdge(clk_i)
 
-# @cocotb.test()
-# async def test_burst_write_then_burst_read(dut):
-#     """burst write 8 words, burst read them back. Address auto-increments."""
-#     bfm = await setup(dut)
+@cocotb.test()
+async def test_burst_write_then_burst_read(dut):
+    """burst write 8 words, burst read them back. Address auto-increments."""
+    clk_i = dut.clk_i
+    rst_i = dut.rst_i
+    spi_cs_ni = dut.spi_cs_n_i
 
-#     base = 0x100
-#     words = [random.randint(0, 2**32 - 1) for _ in range(8)]
+    spi_bus = SpiBus.from_entity(
+        dut,
+        sclk_name="spi_sck_i",
+        mosi_name="spi_mosi_i",
+        miso_name="spi_miso_o",
+        cs_name=None,
+    )
+    spi_master = SpiMaster(spi_bus, spi_config)
+    bfm = SpiboneBFM(dut, clk_i, spi_cs_ni, spi_master)
 
-#     await bfm.write(base, words)
-#     got = await bfm.read(base, len(words))
-#     assert got == words, f"\nwrote {[hex(w) for w in words]}\nread  {[hex(w) for w in got]}"
+    await clock_start(clk_i, period_ns=clock_period)
+    await reset_sequence(clk_i, rst_i)
+
+    starting_addr = [0x00, 0x00, 0x40, 0x00]
+    expected_vals = [[0x00, 0x00, 0x00, 0x00, 0xDE, 0xAD, 0xBE, 0xEF],
+                     [0x00, 0x00, 0x00, 0x00, 0xCA, 0xFE, 0xBA, 0xBE],
+                     [0xAF, 0xAB, 0xEF, 0xEA, 0x00, 0xFF, 0xBF, 0xFF],
+                     [0x01, 0x02, 0x03, 0x04, 0x05, 0xAB, 0xCD, 0xEF],
+                     [0xFD, 0xFD, 0xFD, 0xFD, 0xFD, 0xFD, 0xFD, 0xFD],
+                     [0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00, 0x11],
+                     [0x00, 0x11, 0x22, 0x33, 0xAA, 0xBB, 0xCC, 0xDD],
+                     [0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE, 0xAC, 0xEF]]
+
+    await bfm.write(starting_address=starting_addr,
+                    payloads=expected_vals)
+
+    recv = await bfm.read(starting_address=starting_addr, count=8)
+
+    for i in range(len(expected_vals)):
+        for j in range(len(expected_vals[0])):
+            assert recv[i][j] == expected_vals[i][j]
+
+    await FallingEdge(clk_i)
 
 
 # @cocotb.test()
@@ -146,7 +146,7 @@ async def test_single_write_then_read(dut):
 
 tests = [
     "test_single_write_then_read",
-    # "test_burst_write_then_burst_read",
+    "test_burst_write_then_burst_read",
     # "test_individual_writes_burst_read",
     # "test_overwrite",
 ]
