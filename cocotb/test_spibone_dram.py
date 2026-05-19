@@ -115,19 +115,36 @@ async def test_burst_write_then_burst_read(dut):
     await FallingEdge(clk_i)
 
 
-# @cocotb.test()
-# async def test_individual_writes_burst_read(dut):
-#     """Each word written in its own SPI transaction. read back as one burst."""
-#     bfm = await setup(dut)
+@cocotb.test()
+async def test_individual_writes_burst_read(dut):
+    """Each word written in its own SPI transaction. read back as one burst."""
+    clk_i = dut.clk_i
+    rst_i = dut.rst_i
+    spi_cs_ni = dut.spi_cs_n_i
 
-#     base = 0x200
-#     words = [random.randint(0, 2**32 - 1) for _ in range(4)]
+    spi_bus = SpiBus.from_entity(
+        dut,
+        sclk_name="spi_sck_i",
+        mosi_name="spi_mosi_i",
+        miso_name="spi_miso_o",
+        cs_name=None,
+    )
+    spi_master = SpiMaster(spi_bus, spi_config)
+    bfm = SpiboneBFM(dut, clk_i, spi_cs_ni, spi_master)
 
-#     for i, w in enumerate(words):
-#         await bfm.write(base + i * 4, [w])
+    await clock_start(clk_i, period_ns=clock_period)
+    await reset_sequence(clk_i, rst_i)
 
-#     got = await bfm.read(base, len(words))
-#     assert got == words
+    base = 0x200
+    words = [[random.randint(0, 2**8- 1) for _ in range(8)] for _ in range(8)]
+
+    for i, w in enumerate(words):
+        await bfm.write(list((base + i).to_bytes(4, byteorder='big')), [w])
+
+    got = await bfm.read(list(base.to_bytes(4, byteorder='big')), len(words))
+    for i in range(len(got)):
+        for j in range(len(words[0])):
+            assert got[i][j] == words[i][j]
 
 
 @cocotb.test()
@@ -165,7 +182,7 @@ async def test_overwrite(dut):
 tests = [
     "test_single_write_then_read",
     "test_burst_write_then_burst_read",
-    # "test_individual_writes_burst_read",
+    "test_individual_writes_burst_read",
     "test_overwrite",
 ]
 
