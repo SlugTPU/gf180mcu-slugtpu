@@ -4,7 +4,9 @@
 
 `default_nettype none
 
-module spibone_dram_tb_top (
+module spibone_dram_tb_top #(
+    parameter sys_clk_mhz_p = 100
+) (
     input  logic        clk_i,
     input  logic        rst_i,
 
@@ -15,10 +17,14 @@ module spibone_dram_tb_top (
 );
 
     // SPIBone -> WB slave
-    logic [31:0] wb_adr, wb_dat_w, wb_dat_r;
+    logic [31:0] wb_adr;
+    logic [63:0]  wb_dat_w, wb_dat_r;
     logic        wb_we, wb_stb, wb_cyc, wb_ack;
 
-    spibone_wb u_spibone (
+    spibone_wb #(
+       .addr_w_p(32),
+       .data_w_p(64)
+    ) u_spibone (
         .clk_i      (clk_i),
         .rst_i      (rst_i),
 
@@ -38,7 +44,7 @@ module spibone_dram_tb_top (
 
     wb_mem_model #(
         .DEPTH_LOG2 (10),// enough for unit tests
-        .DATA_W     (32)
+        .DATA_W     (64)
     ) u_mem (
         .clk_i (clk_i),
         .rst_i (rst_i),
@@ -48,10 +54,11 @@ module spibone_dram_tb_top (
         .we_i  (wb_we),
         .stb_i (wb_stb),
         .cyc_i (wb_cyc),
-        .sel_i (4'b1111), // SPIBone always issues full-word transfers
+        .sel_i (8'hFF), // SPIBone always issues full-word transfers
         .ack_o (wb_ack)
     );
 
 endmodule
 
 `default_nettype wire
+

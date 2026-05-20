@@ -5,82 +5,180 @@ import cocotb
 import pytest
 from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles
-
-from runner import run_test
+from cocotbext.spi import SpiMaster, SpiBus, SpiConfig
+from shared import reset_sequence, clock_start
+from cocotb.triggers import Timer, RisingEdge, FallingEdge, ReadOnly
 from spibone_bfm import SpiboneBFM
 
-
-CLK_PERIOD_NS = 10  # 100 MHz. is much more bigger than the 4x SCK lower bound
-SCK_HALF_NS   = 250 # SCK = 2 MHz
+from runner import run_test
 
 
-async def setup(dut) -> SpiboneBFM:
-    cocotb.start_soon(Clock(dut.clk_i, CLK_PERIOD_NS, unit="ns").start())
-
-    bfm = SpiboneBFM(dut, clk_period_ns=CLK_PERIOD_NS, sck_half_ns=SCK_HALF_NS)
-    bfm.idle()
-
-    dut.rst_i.value = 1
-    await ClockCycles(dut.clk_i, 5)
-    dut.rst_i.value = 0
-    await ClockCycles(dut.clk_i, 3)
-
-    return bfm
-
+def make_spi_config(clock_freq_mhz):
+    return SpiConfig(
+        word_width = 8,
+        sclk_freq  = (clock_freq_mhz / 6) * 10**6,
+        cpol       = False,
+        cpha       = False,
+        msb_first  = True,
+        cs_active_low = True,
+    )
 
 # Tests
 
 @cocotb.test()
+async def reset_test(dut):
+    clk_i = dut.clk_i
+    rst_i = dut.rst_i
+    sys_clk_mhz = dut.sys_clk_mhz_p.value.to_unsigned()
+
+    await clock_start(clk_i, period_ns=1000/sys_clk_mhz)
+    await reset_sequence(clk_i, rst_i)
+
+    await FallingEdge(clk_i)
+
+
+@cocotb.test()
 async def test_single_write_then_read(dut):
     """write one word, read back in a separate transaction"""
-    bfm = await setup(dut)
+    clk_i = dut.clk_i
+    rst_i = dut.rst_i
+    spi_cs_ni = dut.spi_cs_n_i
+    sys_clk_mhz = dut.sys_clk_mhz_p.value.to_unsigned()
 
-    addr = 0x40
-    word = 0xDEADBEEF
+    spi_bus = SpiBus.from_entity(
+        dut,
+        sclk_name="spi_sck_i",
+        mosi_name="spi_mosi_i",
+        miso_name="spi_miso_o",
+        cs_name=None,
+    )
+    spi_master = SpiMaster(spi_bus, make_spi_config(sys_clk_mhz))
+    bfm = SpiboneBFM(dut, clk_i, spi_cs_ni, spi_master)
 
-    await bfm.write(addr, [word])
-    got = await bfm.read(addr, 1)
-    assert got[0] == word, f"got 0x{got[0]:08X} expected 0x{word:08X}"
+    await clock_start(clk_i, period_ns=1000/sys_clk_mhz)
+    await reset_sequence(clk_i, rst_i)
 
+    await FallingEdge(rst_i)
+
+    expected_val = [0x00, 0x00, 0x00, 0x00, 0xDE, 0xAD, 0xBE, 0xEF]
+
+    await bfm.write(starting_address=0x04, payloads=[expected_val])
+    recv = (await bfm.read(starting_address=0x04))[0]
+
+    print(f"recv is {recv}")
+
+    for i in range(len(expected_val)):
+        assert recv[i] == expected_val[i]
+
+    await ClockCycles(clk_i, 100)
+
+    await FallingEdge(clk_i)
 
 @cocotb.test()
 async def test_burst_write_then_burst_read(dut):
     """burst write 8 words, burst read them back. Address auto-increments."""
-    bfm = await setup(dut)
+    clk_i = dut.clk_i
+    rst_i = dut.rst_i
+    spi_cs_ni = dut.spi_cs_n_i
+    sys_clk_mhz = dut.sys_clk_mhz_p.value.to_unsigned()
 
-    base = 0x100
-    words = [random.randint(0, 2**32 - 1) for _ in range(8)]
+    spi_bus = SpiBus.from_entity(
+        dut,
+        sclk_name="spi_sck_i",
+        mosi_name="spi_mosi_i",
+        miso_name="spi_miso_o",
+        cs_name=None,
+    )
+    spi_master = SpiMaster(spi_bus, make_spi_config(sys_clk_mhz))
+    bfm = SpiboneBFM(dut, clk_i, spi_cs_ni, spi_master)
 
-    await bfm.write(base, words)
-    got = await bfm.read(base, len(words))
-    assert got == words, f"\nwrote {[hex(w) for w in words]}\nread  {[hex(w) for w in got]}"
+    await clock_start(clk_i, period_ns=1000/sys_clk_mhz)
+    await reset_sequence(clk_i, rst_i)
+
+    starting_addr = 0x4000
+    expected_vals = [[0x00, 0x00, 0x00, 0x00, 0xDE, 0xAD, 0xBE, 0xEF],
+                     [0x00, 0x00, 0x00, 0x00, 0xCA, 0xFE, 0xBA, 0xBE],
+                     [0xAF, 0xAB, 0xEF, 0xEA, 0x00, 0xFF, 0xBF, 0xFF],
+                     [0x01, 0x02, 0x03, 0x04, 0x05, 0xAB, 0xCD, 0xEF],
+                     [0xFD, 0xFD, 0xFD, 0xFD, 0xFD, 0xFD, 0xFD, 0xFD],
+                     [0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00, 0x11],
+                     [0x00, 0x11, 0x22, 0x33, 0xAA, 0xBB, 0xCC, 0xDD],
+                     [0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE, 0xAC, 0xEF]]
+
+    await bfm.write(starting_address=starting_addr,
+                    payloads=expected_vals)
+
+    recv = await bfm.read(starting_address=starting_addr, count=8)
+
+    for i in range(len(expected_vals)):
+        for j in range(len(expected_vals[0])):
+            assert recv[i][j] == expected_vals[i][j]
+
+    await FallingEdge(clk_i)
 
 
 @cocotb.test()
 async def test_individual_writes_burst_read(dut):
     """Each word written in its own SPI transaction. read back as one burst."""
-    bfm = await setup(dut)
+    clk_i = dut.clk_i
+    rst_i = dut.rst_i
+    spi_cs_ni = dut.spi_cs_n_i
+    sys_clk_mhz = dut.sys_clk_mhz_p.value.to_unsigned()
+
+    spi_bus = SpiBus.from_entity(
+        dut,
+        sclk_name="spi_sck_i",
+        mosi_name="spi_mosi_i",
+        miso_name="spi_miso_o",
+        cs_name=None,
+    )
+    spi_master = SpiMaster(spi_bus, make_spi_config(sys_clk_mhz))
+    bfm = SpiboneBFM(dut, clk_i, spi_cs_ni, spi_master)
+
+    await clock_start(clk_i, period_ns=1000/sys_clk_mhz)
+    await reset_sequence(clk_i, rst_i)
 
     base = 0x200
-    words = [random.randint(0, 2**32 - 1) for _ in range(4)]
+    words = [[random.randint(0, 2**8- 1) for _ in range(8)] for _ in range(8)]
 
     for i, w in enumerate(words):
-        await bfm.write(base + i * 4, [w])
+        await bfm.write(base + i, [w])
 
     got = await bfm.read(base, len(words))
-    assert got == words
+    for i in range(len(got)):
+        for j in range(len(words[0])):
+            assert got[i][j] == words[i][j]
 
 
 @cocotb.test()
 async def test_overwrite(dut):
     """second write to the same address replaces the first."""
-    bfm = await setup(dut)
+    clk_i = dut.clk_i
+    rst_i = dut.rst_i
+    spi_cs_ni = dut.spi_cs_n_i
+    sys_clk_mhz = dut.sys_clk_mhz_p.value.to_unsigned()
+
+    spi_bus = SpiBus.from_entity(
+        dut,
+        sclk_name="spi_sck_i",
+        mosi_name="spi_mosi_i",
+        miso_name="spi_miso_o",
+        cs_name=None,
+    )
+    spi_master = SpiMaster(spi_bus, make_spi_config(sys_clk_mhz))
+    bfm = SpiboneBFM(dut, clk_i, spi_cs_ni, spi_master)
+
+    await clock_start(clk_i, period_ns=1000/sys_clk_mhz)
+    await reset_sequence(clk_i, rst_i)
 
     addr = 0x80
-    await bfm.write(addr, [0xAAAAAAAA])
-    await bfm.write(addr, [0x55555555])
+    await bfm.write(addr, [[0x00, 0x00, 0x00, 0x00, 0xAA, 0xAA, 0xAA, 0xAA]])
+    await bfm.write(addr, [[0x00, 0x00, 0x00, 0x00, 0x55, 0x55, 0x55, 0x55]])
     got = await bfm.read(addr, 1)
-    assert got[0] == 0x55555555, f"got 0x{got[0]:08X}"
+    expected_val = [0x00, 0x00, 0x00, 0x00, 0x55, 0x55, 0x55, 0x55]
+
+    for i in range(len(expected_val)):
+        assert got[0][i] == expected_val[i]
 
 
 # Runner
@@ -94,6 +192,7 @@ tests = [
 
 proj_path = Path("./src").resolve()
 sources = [
+    proj_path / "spi/spi_slave.sv",
     proj_path / "spi/spibone_wb.sv",
     proj_path / "dram/wb_mem_model.sv",
     proj_path / "dram/spibone_dram_tb_top.sv",
@@ -103,7 +202,7 @@ sources = [
 @pytest.mark.parametrize("testcase", tests)
 def test_spibone_dram_each(testcase):
     run_test(
-        parameters={},
+        parameters={"sys_clk_mhz_p": 100},
         sources=sources,
         module_name="test_spibone_dram",
         hdl_toplevel="spibone_dram_tb_top",
@@ -114,7 +213,7 @@ def test_spibone_dram_each(testcase):
 
 def test_spibone_dram_all():
     run_test(
-        parameters={},
+        parameters={"sys_clk_mhz_p": 100},
         sources=sources,
         module_name="test_spibone_dram",
         hdl_toplevel="spibone_dram_tb_top",

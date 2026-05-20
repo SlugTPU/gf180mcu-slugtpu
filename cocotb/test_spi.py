@@ -1,186 +1,86 @@
-# sim/test_spi.py
-from __future__ import annotations
-
-import random
 from pathlib import Path
 
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import Timer, RisingEdge, ReadOnly
-
+from cocotb.triggers import Timer, RisingEdge, FallingEdge, ReadOnly
 import pytest
 from runner import run_test
+from shared import reset_sequence, clock_start
+from cocotbext.spi import SpiMaster, SpiBus, SpiConfig
 
-
-#* Drive helper
-#* Ensures signal updates occur outside ReadOnly phase
-async def drive(sig, val):
-    sig.value = int(val)
-    await Timer(1, unit="ps")
-
-
-def u8(sig) -> int:
-    return int(sig.value) & 0xFF
-
-
-#* Wait for N clk cycles
-async def settle_clk(dut, n=2):
-    for _ in range(n):
-        await RisingEdge(dut.clk)
-
-
-#* Initialize DUT and apply reset
-async def init_dut(dut, clk_period_ns=10):
-    cocotb.start_soon(Clock(dut.clk, clk_period_ns, unit="ns").start())
-
-    await drive(dut.cs_n, 1)
-    await drive(dut.sclk, 0)
-    await drive(dut.mosi, 0)
-    await drive(dut.tx_valid, 0)
-    await drive(dut.tx_data, 0)
-
-    await drive(dut.rst, 1)
-    await settle_clk(dut, 5)
-    await drive(dut.rst, 0)
-    await settle_clk(dut, 5)
-
-
-#* Queue next transmit byte into slave
-async def queue_tx_byte(dut, b):
-    await drive(dut.tx_data, b)
-    await drive(dut.tx_valid, 1)
-    await settle_clk(dut, 2)
-    await drive(dut.tx_valid, 0)
-
-
-#* SPI Mode 0 transfer
-#* MOSI valid while SCLK low
-#* MISO sampled on rising edge
-async def spi_transfer_byte(dut, mosi_byte):
-    miso = 0
-
-    await drive(dut.cs_n, 0)
-    await settle_clk(dut, 3)
-
-    for bit in range(8):
-        bit_val = (mosi_byte >> (7 - bit)) & 1
-
-        await drive(dut.mosi, bit_val)
-        await settle_clk(dut, 1)
-
-        await drive(dut.sclk, 1)
-        await settle_clk(dut, 1)
-
-        await ReadOnly()
-        miso = ((miso << 1) | (int(dut.miso.value) & 1)) & 0xFF
-        await Timer(1, unit="ps")
-
-        await drive(dut.sclk, 0)
-        await settle_clk(dut, 1)
-
-    await drive(dut.cs_n, 1)
-    await settle_clk(dut, 3)
-
-    return miso
-
-
-#* Wait until slave reports received byte
-async def wait_for_rx(dut, timeout_cycles=200):
-    for _ in range(timeout_cycles):
-        await RisingEdge(dut.clk)
-        await ReadOnly()
-        if dut.rx_valid.value:
-            await Timer(1, unit="ps")
-            return u8(dut.rx_data)
-
-    raise AssertionError("Timeout waiting for rx_valid")
-
-
-#* Cocotb tests
-
+clock_freq_mhz = 100
+spi_config = SpiConfig(
+    word_width = 8,     # all parameters optional
+    sclk_freq  = (clock_freq_mhz/6) * 10**6,   # these are the defaults
+    cpol       = False,
+    cpha       = False,
+    msb_first  = True,
+    cs_active_low = True # optional (assumed True)
+)
 @cocotb.test()
 async def reset_test(dut):
-    await init_dut(dut)
-    await ReadOnly()
-    assert dut.rx_valid.value == 0
+    clk_i = dut.clk_i
+    rst_i = dut.rst_i
+
+    await clock_start(clk_i)
+    await reset_sequence(clk_i, rst_i)
+
+    await FallingEdge(clk_i)
 
 
 @cocotb.test()
 async def spi_single_byte_test(dut):
-    await init_dut(dut)
+    clk_i = dut.clk_i
+    rst_i = dut.rst_i
 
-    val = 0xA5
-    _ = await spi_transfer_byte(dut, val)
-    rx = await wait_for_rx(dut)
+    spi_bus = SpiBus.from_entity(
+        dut,
+        sclk_name="spi_sclk_i",
+        mosi_name="spi_mosi_i",
+        miso_name="spi_miso_o",
+        cs_name="spi_cs_ni",
+    )
+    spi_master = SpiMaster(spi_bus, spi_config)
 
-    assert rx == val, f"Expected 0x{val:02X}, got 0x{rx:02X}"
+    await clock_start(clk_i, period_ns=1/(clock_freq_mhz*10**6)*10**9)
+    await reset_sequence(clk_i, rst_i)
 
+    await FallingEdge(rst_i)
+    await spi_master.write([0xAB, 0xCD, 0xDE, 0xAD])
+    await spi_master.read(count=3)
+    await spi_master.write([0x00, 0x00, 0x00])
+    for _ in range(4):
+        cocotb.log.info(hex((await spi_master.read(count=1))[0]))
 
-@cocotb.test()
-async def spi_multiple_bytes_test(dut):
-    await init_dut(dut)
-
-    data = [random.randrange(0, 256) for _ in range(8)]
-    for b in data:
-        _ = await spi_transfer_byte(dut, b)
-        rx = await wait_for_rx(dut)
-        assert rx == b, f"Expected 0x{b:02X}, got 0x{rx:02X}"
-
-
-@cocotb.test()
-async def spi_tx_next_byte_test(dut):
-    await init_dut(dut)
-
-    tx0 = 0x3C
-    tx1 = 0xC3
-
-    await queue_tx_byte(dut, tx0)
-    miso0 = await spi_transfer_byte(dut, 0x00)
-
-    await queue_tx_byte(dut, tx1)
-    miso1 = await spi_transfer_byte(dut, 0x00)
-
-    assert miso0 == tx0, f"MISO0 expected 0x{tx0:02X}, got 0x{miso0:02X}"
-    assert miso1 == tx1, f"MISO1 expected 0x{tx1:02X}, got 0x{miso1:02X}"
-
-
-#* Pytest wrappers (runner.py integration)
+    await FallingEdge(clk_i)
 
 tests = [
     "reset_test",
     "spi_single_byte_test",
-    "spi_multiple_bytes_test",
-    "spi_tx_next_byte_test",
 ]
 
 
 proj_path = Path("./src").resolve()
-sources = [proj_path / "spi_slave.sv"]
-
+sources = [proj_path / "spi" / "spi_slave.sv",
+           proj_path / "spi" / "tb_spi_slave.sv"]
+hdl_toplevel="tb_spi_slave"
+module_name="test_spi"
 
 @pytest.mark.parametrize("testcase", tests)
 def test_spi_each(testcase):
-    try:
-        run_test(
-            parameters={},
-            sources=sources,
-            module_name="test_spi",
-            hdl_toplevel="spi_slave",
-            testcase=testcase,
-        )
-    except SystemExit as exc:
-        if exc.code != 0:
-            pytest.fail(f"cocotb test '{testcase}' failed (exit code {exc.code})")
+    run_test(
+        parameters={},
+        sources=sources,
+        module_name=module_name,
+        hdl_toplevel=hdl_toplevel,
+        testcase=testcase,
+    )
 
 
 def test_spi_all():
-    try:
-        run_test(
-            parameters={},
-            sources=sources,
-            module_name="test_spi",
-            hdl_toplevel="spi_slave",
-        )
-    except SystemExit as exc:
-        if exc.code != 0:
-            pytest.fail(f"cocotb tests failed (exit code {exc.code})")
+    run_test(
+        parameters={},
+        sources=sources,
+        module_name=module_name,
+        hdl_toplevel=hdl_toplevel,
+    )

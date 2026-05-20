@@ -3,13 +3,14 @@
 
 module wb_mem_model #(
     parameter DEPTH_LOG2 = 10, // 1K words is 4 KB
-    parameter DATA_W = 32
+    parameter DATA_W = 32,
+    parameter ADDR_W = 32
 )(
     input  logic        clk_i,
     input  logic        rst_i,
 
     // actual WB4 slave
-    input  logic [DATA_W-1:0] adr_i,
+    input  logic [ADDR_W-1:0] adr_i,
     input  logic [DATA_W-1:0] dat_i,
     output logic [DATA_W-1:0] dat_o,
     input  logic        we_i,
@@ -20,13 +21,11 @@ module wb_mem_model #(
 );
 
     localparam DEPTH = 1 << DEPTH_LOG2;
-    localparam BYTE_BITS = $clog2(DATA_W/8);
-
     logic [DATA_W-1:0] mem [DEPTH];
     logic [DEPTH_LOG2-1:0] addr_w;
     logic valid_cycle_w;
 
-    assign addr_w        = adr_i[DEPTH_LOG2+BYTE_BITS-1:BYTE_BITS];  // word aligned
+    assign addr_w        = adr_i[DEPTH_LOG2-1:0];
     assign valid_cycle_w = cyc_i & stb_i;
 
     // single-cyc ack
@@ -38,7 +37,13 @@ module wb_mem_model #(
         end
     end
 
-    assign dat_o = mem[addr_w]; //read
+   always_ff @(posedge clk_i) begin
+      if (rst_i) begin
+         dat_o <= '0;
+      end else begin
+         dat_o <= mem[addr_w]; //read
+      end
+   end
 
     //write
     always_ff @(posedge clk_i) begin 
