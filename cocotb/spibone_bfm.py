@@ -67,15 +67,15 @@ class SpiboneBFM:
                 cocotb.log.info(f"WRITE: Writing {[CMD_WRITE] + addr_bytes + payloads[i]}")
                 await self.spi_master.write([CMD_WRITE] + addr_bytes + payloads[i])
             else:
-                cocotb.log.info(f"WRITE: Writing {[0x00] + payloads[i]}")
-                await self.spi_master.write([0x00] + payloads[i])
+                cocotb.log.info(f"WRITE: Writing {[BYTE_X] + payloads[i]}")
+                await self.spi_master.write([BYTE_X] + payloads[i])
             self.spi_master.clear() # clear existing read buffer from writing to slave
 
-            await self.spi_master.write([0x00]) # poll for ack
+            await self.spi_master.write([BYTE_X]) # poll for ack
             recv = (await self.spi_master.read(count=1))[0]
             while (recv == BYTE_STALL and timeout > 0):
                 cocotb.log.info(f"Received {hex(recv)}; waiting...")
-                await self.spi_master.write([0x00]) # poll more...
+                await self.spi_master.write([BYTE_X]) # poll more...
                 recv = (await self.spi_master.read(count=1))[0]
                 timeout -= 1
             cocotb.log.info(f"Received {hex(recv)}")
