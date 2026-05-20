@@ -2,219 +2,246 @@ import pytest
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles, FallingEdge, Timer, RisingEdge
+from cocotbext.spi import SpiMaster, SpiBus, SpiConfig
 from pathlib import Path
 from shared import reset_sequence, clock_start
 from runner import run_test
-from spibone_master import SpiboneMaster
-import struct
+from spibone_bfm import SpiboneBFM
+import random
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-async def spibone_write(spi: SpiboneMaster, addr: int, data: int):
-    await spi.write(addr, data)
-
-
-async def spibone_read(spi: SpiboneMaster, addr: int) -> int:
-    return await spi.read(addr)
-
-
-async def spibone_burst_read(spi: SpiboneMaster, addr: int, n_words: int) -> list:
-    return await spi.burst_read(addr, n_words)
-
-
-async def init(dut) -> SpiboneMaster:
-    await clock_start(dut.clk_i, period_ns=10)   # 100 MHz
-    await reset_sequence(dut.clk_i, dut.rst_i)
-    return SpiboneMaster(dut)
-
-
-# ---------------------------------------------------------------------------
-# Tests
-# ---------------------------------------------------------------------------
+def make_spi_config(clock_freq_mhz):
+    return SpiConfig(
+        word_width = 8,
+        sclk_freq  = (clock_freq_mhz / 6) * 10**6,
+        cpol       = False,
+        cpha       = False,
+        msb_first  = True,
+        cs_active_low = True,
+    )
 
 @cocotb.test()
-async def test_reset(dut):
+async def reset_test(dut):
     clk_i = dut.clk_i
     rst_i = dut.rst_i
     sys_clk_mhz = dut.sys_clk_mhz_p.value.to_unsigned()
 
-    print(f"DEBUG: Passed in clock is {1 // sys_clk_mhz}ns")
-    Clock(clk_i, 1/sys_clk_mhz, unit="us").start()
+    await clock_start(clk_i, period_ns=1000/sys_clk_mhz)
     await reset_sequence(clk_i, rst_i)
 
     await FallingEdge(clk_i)
 
+@cocotb.test()
+async def test_single_write_then_read(dut):
+    """write one word, read back in a separate transaction"""
+    clk_i = dut.clk_i
+    rst_i = dut.rst_i
+    spi_cs_ni = dut.spi_cs_ni
+
+    sys_clk_mhz = dut.sys_clk_mhz_p.value.to_unsigned()
+    init_wait_cycles = (100+50) * sys_clk_mhz
+    timeout = init_wait_cycles
+
+    spi_bus = SpiBus.from_entity(
+        dut,
+        sclk_name="spi_clk_i",
+        mosi_name="spi_mosi_i",
+        miso_name="spi_miso_o",
+        cs_name=None,
+    )
+    spi_master = SpiMaster(spi_bus, make_spi_config(sys_clk_mhz))
+    bfm = SpiboneBFM(dut, clk_i, spi_cs_ni, spi_master)
+
+    await clock_start(clk_i, period_ns=1000/sys_clk_mhz)
+    await reset_sequence(clk_i, rst_i)
+
+    await FallingEdge(rst_i)
+
+    await ClockCycles(clk_i, init_wait_cycles)
+
+    addr=0x04
+    expected_val = [0x00, 0x00, 0x00, 0x00, 0xDE, 0xAD, 0xBE, 0xEF]
+
+    cocotb.log.info("writing!")
+    await bfm.write(starting_address=addr, payloads=[expected_val])
+    cocotb.log.info("reading!")
+    recv = (await bfm.read(starting_address=addr))[0]
+
+    print(f"recv is {recv}")
+
+    for i in range(len(expected_val)):
+        assert recv[i] == expected_val[i]
+
+
+    await FallingEdge(clk_i)
 
 @cocotb.test()
-async def test_simple(dut):
-    """Write a distinctive 64-bit pattern to DRAM word 0, read back to verify,
-    then overwrite with a second pattern and verify the update.
-    Uses values that CTRL register [1:0] cannot reproduce, so a mis-route to
-    the register file would be caught immediately.
-    """
+async def test_burst_write_then_burst_read(dut):
+    """burst write 8 words, burst read them back. Address auto-increments."""
     clk_i = dut.clk_i
-    spi = await init(dut)
+    rst_i = dut.rst_i
+    spi_cs_ni = dut.spi_cs_ni
 
-    # Wait for SDRAM initialisation (~100 µs × 100 MHz = 10000 cycles)
+    sys_clk_mhz = dut.sys_clk_mhz_p.value.to_unsigned()
+    init_wait_cycles = 100 * sys_clk_mhz
+    timeout = init_wait_cycles + 50
 
-    pattern_a = 0xDEAD_BEEF_CAFE_1234
-    pattern_b = 0x0123_4567_89AB_CDEF
-    dram_addr = 0x0000_0000
+    spi_bus = SpiBus.from_entity(
+        dut,
+        sclk_name="spi_clk_i",
+        mosi_name="spi_mosi_i",
+        miso_name="spi_miso_o",
+        cs_name=None,
+    )
+    spi_master = SpiMaster(spi_bus, make_spi_config(sys_clk_mhz))
+    bfm = SpiboneBFM(dut, clk_i, spi_cs_ni, spi_master)
 
-    await spibone_write(spi, dram_addr, pattern_a)
-    val = await spibone_read(spi, dram_addr)
-    cocotb.log.info(f"got {hex(val)}, expected {hex(pattern_a)}")
-    assert val == pattern_a, \
-        f"DRAM readback A: got {val:#018x}, expected {pattern_a:#018x}"
+    await clock_start(clk_i, period_ns=1000/sys_clk_mhz)
+    await reset_sequence(clk_i, rst_i)
 
-    await spibone_write(spi, dram_addr, pattern_b)
-    val = await spibone_read(spi, dram_addr)
-    cocotb.log.info(f"got {hex(val)}, expected {hex(pattern_b)}")
-    assert val == pattern_b, \
-        f"DRAM readback B: got {val:#018x}, expected {pattern_b:#018x}"
+    starting_addr = 0x4000
+    expected_vals = [[0x00, 0x00, 0x00, 0x00, 0xDE, 0xAD, 0xBE, 0xEF],
+                     [0x00, 0x00, 0x00, 0x00, 0xCA, 0xFE, 0xBA, 0xBE],
+                     [0xAF, 0xAB, 0xEF, 0xEA, 0x00, 0xFF, 0xBF, 0xFF],
+                     [0x01, 0x02, 0x03, 0x04, 0x05, 0xAB, 0xCD, 0xEF],
+                     [0xFD, 0xFD, 0xFD, 0xFD, 0xFD, 0xFD, 0xFD, 0xFD],
+                     [0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00, 0x11],
+                     [0x00, 0x11, 0x22, 0x33, 0xAA, 0xBB, 0xCC, 0xDD],
+                     [0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE, 0xAC, 0xEF]]
+
+    await bfm.write(starting_address=starting_addr,
+                    payloads=expected_vals,
+                    timeout=timeout)
+
+    recv = await bfm.read(starting_address=starting_addr, count=8)
+
+    for i in range(len(expected_vals)):
+        for j in range(len(expected_vals[0])):
+            print(f"Got value {hex(recv[i][j])} expecting value {hex(expected_vals[i][j])}")
+            assert recv[i][j] == expected_vals[i][j]
 
     await FallingEdge(clk_i)
 
 
 @cocotb.test()
-async def test_multi_addr(dut):
-    """Write distinctive patterns to several consecutive DRAM word addresses,
-    then read them all back to verify each address is independent.
-    Word size = 64 bits = 8 bytes, so byte addresses step by 8.
-    """
-    spi = await init(dut)
-    await ClockCycles(dut.clk_i, 11000)
+async def test_individual_writes_burst_read(dut):
+    """Each word written in its own SPI transaction. read back as one burst."""
+    clk_i = dut.clk_i
+    rst_i = dut.rst_i
+    spi_cs_ni = dut.spi_cs_ni
 
-    addrs   = [0x00, 0x08, 0x10, 0x18, 0x20]
-    patterns = [0xAAAA_AAAA_AAAA_AAAA,
-                0x5555_5555_5555_5555,
-                0xDEAD_BEEF_CAFE_1234,
-                0x0000_0000_0000_0001,
-                0xFFFF_FFFF_FFFF_FFFF]
+    sys_clk_mhz = dut.sys_clk_mhz_p.value.to_unsigned()
+    init_wait_cycles = 100 * sys_clk_mhz
+    timeout = init_wait_cycles + 50
 
-    for addr, pat in zip(addrs, patterns):
-        await spibone_write(spi, addr, pat)
+    spi_bus = SpiBus.from_entity(
+        dut,
+        sclk_name="spi_clk_i",
+        mosi_name="spi_mosi_i",
+        miso_name="spi_miso_o",
+        cs_name=None, # cs is driven manually in SpiboneBFM
+    )
+    spi_master = SpiMaster(spi_bus, make_spi_config(sys_clk_mhz))
+    bfm = SpiboneBFM(dut, clk_i, spi_cs_ni, spi_master)
 
-    for addr, pat in zip(addrs, patterns):
-        val = await spibone_read(spi, addr)
-        cocotb.log.info(f"addr={addr:#010x} got {val:#018x}, expected {pat:#018x}")
-        assert val == pat, \
-            f"addr {addr:#010x}: got {val:#018x}, expected {pat:#018x}"
+    await clock_start(clk_i, period_ns=1000/sys_clk_mhz)
+    await reset_sequence(clk_i, rst_i)
 
-    await FallingEdge(dut.clk_i)
+    base = 0x200
+    words = [[random.randint(0, 2**8- 1) for _ in range(8)] for _ in range(8)]
 
+    for i, w in enumerate(words):
+        await bfm.write(base+i, [w], timeout=timeout)
 
-@cocotb.test()
-async def test_burst_read(dut):
-    """Write 4 words individually, then burst-read all 4 back in one SPI
-    transaction with CS held asserted throughout.  Verifies that S_TX_BURST
-    correctly auto-increments the address and the READY+data sequence appears
-    for each word.  Burst mode is enabled/disabled around the burst read.
-
-    Note: burst writes (multiple words in one CS assertion) are not yet
-    implemented in spibone_wb; the write phase uses single-word transactions.
-    """
-    spi = await init(dut)
-    await ClockCycles(dut.clk_i, 11000)
-
-    n_words  = 4
-    base_addr = 0x0000_0000
-    patterns = [
-        0xAAAA_AAAA_AAAA_AAAA,
-        0x5555_5555_5555_5555,
-        0xDEAD_BEEF_CAFE_1234,
-        0x0123_4567_89AB_CDEF,
-    ]
-    addrs = [base_addr + i * 8 for i in range(n_words)]
-
-    for addr, pat in zip(addrs, patterns):
-        await spibone_write(spi, addr, pat)
-
-    got = await spibone_burst_read(spi, base_addr, n_words)
-
-    for i, (pat, val) in enumerate(zip(patterns, got)):
-        cocotb.log.info(
-            f"word {i} addr={addrs[i]:#010x}: got {val:#018x} expected {pat:#018x}"
-        )
-        assert val == pat, \
-            f"burst word {i} (addr {addrs[i]:#010x}): got {val:#018x}, expected {pat:#018x}"
-
-    await FallingEdge(dut.clk_i)
-
+    got = await bfm.read(base, len(words))
+    for i in range(len(got)):
+        for j in range(len(words[0])):
+            assert got[i][j] == words[i][j]
 
 @cocotb.test()
-async def test_burst_then_single(dut):
-    """Burst-read 4 words, then immediately write and single-read a DRAM word
-    without disabling burst_en between the burst and the single transactions.
-    Verifies that cs_deassert cleanly resets the FSM (S_TX_BURST → S_IDLE) so
-    any subsequent transaction type works correctly.
-    """
-    spi = await init(dut)
-    await ClockCycles(dut.clk_i, 11000)
+async def test_overwrite(dut):
+    """second write to the same address replaces the first."""
+    clk_i = dut.clk_i
+    rst_i = dut.rst_i
+    spi_cs_ni = dut.spi_cs_ni
 
-    n_words   = 4
-    base_addr = 0x0000_0000
-    patterns  = [
-        0xAAAA_AAAA_AAAA_AAAA,
-        0x5555_5555_5555_5555,
-        0xDEAD_BEEF_CAFE_1234,
-        0x0123_4567_89AB_CDEF,
-    ]
-    new_val   = 0x1111_2222_3333_4444
+    sys_clk_mhz = dut.sys_clk_mhz_p.value.to_unsigned()
+    init_wait_cycles = 100 * sys_clk_mhz
+    timeout = init_wait_cycles + 50
 
-    for i, pat in enumerate(patterns):
-        await spibone_write(spi, base_addr + i * 8, pat)
+    spi_bus = SpiBus.from_entity(
+        dut,
+        sclk_name="spi_clk_i",
+        mosi_name="spi_mosi_i",
+        miso_name="spi_miso_o",
+        cs_name=None,
+    )
+    spi_master = SpiMaster(spi_bus, make_spi_config(sys_clk_mhz))
+    bfm = SpiboneBFM(dut, clk_i, spi_cs_ni, spi_master)
 
-    got = await spibone_burst_read(spi, base_addr, n_words)
-    for i, (pat, val) in enumerate(zip(patterns, got)):
-        assert val == pat, \
-            f"burst word {i}: got {val:#018x}, expected {pat:#018x}"
+    await clock_start(clk_i, period_ns=1000/sys_clk_mhz)
+    await reset_sequence(clk_i, rst_i)
 
-    await spibone_write(spi, base_addr, new_val)
-    val = await spibone_read(spi, base_addr)
-    assert val == new_val, \
-        f"single read after burst: got {val:#018x}, expected {new_val:#018x}"
+    addr = 0x80
+    expected_val = [0x00, 0x00, 0x00, 0x00, 0x55, 0x55, 0x55, 0x55]
 
-    # verify adjacent word unchanged
-    val = await spibone_read(spi, base_addr + 8)
-    assert val == patterns[1], \
-        f"word 1 after write: got {val:#018x}, expected {patterns[1]:#018x}"
+    await bfm.write(addr, [[0x00, 0x00, 0x00, 0x00, 0xAA, 0xAA, 0xAA, 0xAA]], timeout=timeout)
+    await bfm.write(addr, [[0x00, 0x00, 0x00, 0x00, 0x55, 0x55, 0x55, 0x55]])
+    got = await bfm.read(addr, 1)
 
-    await FallingEdge(dut.clk_i)
+    for i in range(len(expected_val)):
+        assert got[0][i] == expected_val[i]
 
 @cocotb.test()
 async def test_tpu_load_pc(dut):
     """
     Load in PC and see what happens
     """
-    spi = await init(dut)
+    clk_i = dut.clk_i
+    rst_i = dut.rst_i
+    spi_cs_ni = dut.spi_cs_ni
 
-    await spibone_write(spi, 0x1000_0000, 0x0000_0000_0000_0003)
+    sys_clk_mhz = dut.sys_clk_mhz_p.value.to_unsigned()
+    init_wait_cycles = 100 * sys_clk_mhz
+    timeout = init_wait_cycles + 50
+
+    spi_bus = SpiBus.from_entity(
+        dut,
+        sclk_name="spi_clk_i",
+        mosi_name="spi_mosi_i",
+        miso_name="spi_miso_o",
+        cs_name=None, # cs is driven manually in SpiboneBFM
+    )
+    spi_master = SpiMaster(spi_bus, make_spi_config(sys_clk_mhz))
+    bfm = SpiboneBFM(dut, clk_i, spi_cs_ni, spi_master)
+
+    await clock_start(clk_i, period_ns=1000/sys_clk_mhz)
+    await reset_sequence(clk_i, rst_i)
+
+    await bfm.write(0x1000_0000, [list(0x0000_0000_0000_0003.to_bytes(8, 'big'))], timeout=timeout)
 
     await ClockCycles(dut.clk_i, 1000)
 
     await FallingEdge(dut.clk_i)
 
-@cocotb.test()
-async def test_tpu_mem_basic(dut):
-    """
-    Test SPI -> DRAM, SPI PC -> TPU, TPU <-> DRAM
-    """
-    spi = await init(dut)
-    n_words   = 4
-    base_addr = 0x0000_0000
-    patterns  = [0xFFFF_FFFF_FFFF_FFFF - i for i in range (33)]
 
-    for i, pat in enumerate(patterns):
-        await spibone_write(spi, base_addr + i * 8, pat)
+# @cocotb.test()
+# async def test_tpu_mem_basic(dut):
+    # """
+    # Test SPI -> DRAM, SPI PC -> TPU, TPU <-> DRAM
+    # """
+    # spi = await init(dut)
+    # n_words   = 4
+    # base_addr = 0x0000_0000
+    # patterns  = [0xFFFF_FFFF_FFFF_FFFF - i for i in range (33)]
 
-    await spibone_write(spi, 0x1000_0000, 0x0000_0000_0000_0001)
+    # for i, pat in enumerate(patterns):
+        # await spibone_write(spi, base_addr + i * 8, pat)
 
-    await ClockCycles(dut.clk_i, 1000)
+    # await spibone_write(spi, 0x1000_0000, 0x0000_0000_0000_0001)
 
-    await FallingEdge(dut.clk_i)
+    # await ClockCycles(dut.clk_i, 1000)
+
+    # await FallingEdge(dut.clk_i)
 
 @cocotb.test()
 async def test_tpu_instructions(dut):
@@ -237,12 +264,12 @@ async def test_tpu_instructions(dut):
 # ---------------------------------------------------------------------------
 
 tests = [
-    # 'test_reset',
-    # 'test_simple',
-    # 'test_multi_addr',
-    # 'test_burst_read',
-    # 'test_burst_then_single',
-    # 'test_tpu_load_pc',
+    "test_reset",
+    "test_single_write_then_read",
+    "test_burst_write_then_burst_read",
+    "test_individual_writes_burst_read",
+    "test_overwrite",
+    'test_tpu_load_pc',
     # 'test_tpu_mem_basic',
     'test_tpu_instructions',
 ]
@@ -251,6 +278,7 @@ proj_path = Path("./src").resolve()
 sources = [
     proj_path / "tpu_soc.sv",
     proj_path / "spi" / "spibone_wb.sv",
+    proj_path / "spi" / "spi_slave.sv",
     proj_path / "spi" / "wb_decoder.sv",
     proj_path / "spi" / "tpu_regs.sv",
     proj_path / "spi" / "wb_demux_1to2.sv",
