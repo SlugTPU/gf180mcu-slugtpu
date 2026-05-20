@@ -106,6 +106,7 @@ module scalar_stage_sram #(
         .load_bias_en_i(load_bias_en_i),
         .load_zp_en_i(load_zp_en_i),
         .load_scale_en_i(load_scale_en_i),
+        .relu_enable_i(relu_enable_i),
 
         .data_i(data_i),
         .data_valid_i(data_valid_i),
