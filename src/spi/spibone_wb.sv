@@ -96,15 +96,19 @@ module spibone_wb #(
          addr_cntr_q <= addr_cntr_d;
          data_cntr_q <= data_cntr_d;
          cmd_reg_q <= cmd_reg_d;
-         // Capture wb_ack_i directly in always_ff to keep it out of the
-         // always_comb sensitivity list — reading it there would create a
-         // delta-cycle loop through the SDRAM controller's always_comb
-         // (which is sensitive to m_dat_i via a variable part-select).
-         // Last-assignment-wins overrides wb_ack_reg_d and data_reg_d above.
+         // wb_ack_i is read here in always_ff rather than in always_comb to
+         // keep it out of the combinational sensitivity list. Reading it in
+         // always_comb creates a delta-cycle loop in Icarus: any spibone
+         // output (wb_stb_o, wb_dat_o, ...) feeds back through the SDRAM
+         // always_comb, which transiently toggles m_ack_o, which re-triggers
+         // spibone, and so on. always_ff only evaluates on clock edges so it
+         // cannot participate in delta-cycle feedback. Last-assignment-wins
+         // gives this block priority over the wb_ack_reg_d path above.
+         if (wb_ack_i && state_q == S_WB_READ) begin
+            data_reg_q <= wb_dat_i;
+         end
          if (wb_ack_i) begin
-            $display("[%0t] Ack captured! wb_ack_reg_q=%b", $time, wb_ack_reg_q);
             wb_ack_reg_q <= 1'b1;
-            data_reg_q   <= wb_dat_i; // valid for S_WB_READ; harmless for S_WB_WRITE
          end
       end
    end
@@ -201,8 +205,6 @@ module spibone_wb #(
          byte_tx = byte_stall_lp;
          wb_sel_o = '1;
 
-         // wb_ack_reg_q is set directly in always_ff from wb_ack_i, keeping
-         // wb_ack_i out of this sensitivity list to break the SDRAM delta-cycle loop.
          if (!wb_ack_reg_q) begin
             wb_we_o  = 1'b1;
             wb_stb_o = 1'b1;
@@ -231,7 +233,6 @@ module spibone_wb #(
             wb_cyc_o = 1'b1;
             wb_adr_o = addr_reg_q;
          end
-         // data_reg_q is captured from wb_dat_i directly in always_ff at the ack edge.
 
          if (!active) begin
             wb_ack_reg_d = '0;
