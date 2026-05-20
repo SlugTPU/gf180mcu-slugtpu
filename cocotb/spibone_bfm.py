@@ -79,6 +79,7 @@ class SpiboneBFM:
                 recv = (await self.spi_master.read(count=1))[0]
                 timeout -= 1
             cocotb.log.info(f"Received {hex(recv)}")
+            assert timeout > 0, "Timed out while waiting for ACK from slave"
             assert recv == 0xAC, f"Expected 0xAC, got {hex(recv)}"
 
         self.signal_cs.value = 1
