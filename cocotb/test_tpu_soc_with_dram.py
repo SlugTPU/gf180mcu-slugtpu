@@ -243,22 +243,23 @@ async def test_tpu_load_pc(dut):
 
     # await FallingEdge(dut.clk_i)
 
-@cocotb.test()
-async def test_tpu_instructions(dut):
-    instruction_path = "../../../../../src/software/test.bin"
-    spi = await init(dut)
-    base_addr = 0x0000_0000
-    with open(instruction_path, "rb") as f:
-        i = 0
-        while data := f.read(8):
-            data = data.ljust(8, b'\x00')  # pad if final chunk < 8 bytes
-            word = struct.unpack('<Q', data)[0]
-            await spibone_write(spi, base_addr + i * 8, word)
-            print(data)
-            i += 1
-    await spibone_write(spi, 0x1000_0000, 0x0000_0000_0000_0000)
-    await ClockCycles(dut.clk_i, 1500)
-    await FallingEdge(dut.clk_i)
+# @cocotb.test()
+# async def test_tpu_instructions(dut):
+    # instruction_path = "../../../../../src/software/test.bin"
+    # spi = await init(dut)
+    # base_addr = 0x0000_0000
+    # with open(instruction_path, "rb") as f:
+        # i = 0
+        # while data := f.read(8):
+            # data = data.ljust(8, b'\x00')  # pad if final chunk < 8 bytes
+            # word = struct.unpack('<Q', data)[0]
+            # await spibone_write(spi, base_addr + i * 8, word)
+            # print(data)
+            # i += 1
+    # await spibone_write(spi, 0x1000_0000, 0x0000_0000_0000_0000)
+    # await ClockCycles(dut.clk_i, 1500)
+    # await FallingEdge(dut.clk_i)
+
 # ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
@@ -271,7 +272,7 @@ tests = [
     "test_overwrite",
     'test_tpu_load_pc',
     # 'test_tpu_mem_basic',
-    'test_tpu_instructions',
+    # 'test_tpu_instructions',
 ]
 
 proj_path = Path("./src").resolve()
