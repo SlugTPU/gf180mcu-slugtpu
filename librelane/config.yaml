@@ -30,6 +30,7 @@ VERILOG_FILES:
 - dir::../src/chip_core.sv
 - dir::../src/tpu_soc.sv
 - dir::../src/debug_mux.sv
+- dir::../src/spi/spi_slave.sv
 - dir::../src/spi/spibone_wb.sv
 - dir::../src/spi/wb_decoder.sv
 - dir::../src/spi/wb_test_ram.sv
