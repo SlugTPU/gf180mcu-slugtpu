@@ -137,7 +137,7 @@ module tpu_soc #(
    wire                      dec_dram_we, dec_dram_stb, dec_dram_cyc, dec_dram_ack;
 
    // 32-bit byte address → dma_addr_w_lp word address for wb_mux m0
-   assign spi_wb_adr   = dec_dram_adr[dma_addr_w_lp + 2 : 3];
+   assign spi_wb_adr   = dec_dram_adr;
    assign spi_wb_dat_w = dec_dram_dat_w;
    assign spi_wb_we    = dec_dram_we;
    assign spi_wb_stb   = dec_dram_stb;
@@ -179,8 +179,8 @@ module tpu_soc #(
    // spibone_wb: SPI slave → Wishbone master
    // -----------------------------------------------------------------------
    spibone_wb #(
-       .AdrW  (32),
-       .DataW (dma_data_w_lp)
+       .addr_w_p  (32),
+       .data_w_p  (dma_data_w_lp)
    ) spi_wb_inst (
        .clk_i       (clk_i),
        .rst_i       (rst_i),
