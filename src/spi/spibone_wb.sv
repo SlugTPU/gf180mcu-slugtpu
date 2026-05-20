@@ -15,7 +15,7 @@ module spibone_wb #(
     output logic                  spi_miso_o,
     input logic                   spi_cs_n_i,
 
-    // Wishbone master
+    // Wishbone slave
     output logic [addr_w_p-1:0]   wb_adr_o,
     output logic [data_w_p-1:0]   wb_dat_o,
     input logic [data_w_p-1:0]    wb_dat_i,
@@ -81,6 +81,37 @@ module spibone_wb #(
       .byte_stb_o(byte_stb)
    );
 
+   // Wishbone ouput signals are written here due to issue in
+   // Icarus causing a oscillation loop
+   always_comb begin
+      case (state_q)
+         S_WB_WRITE: begin
+            wb_stb_o = !wb_ack_reg_q;
+            wb_cyc_o = !wb_ack_reg_q;
+            wb_we_o  = 1'b1;
+            wb_adr_o = addr_reg_q;
+            wb_dat_o = data_reg_q;
+            wb_sel_o = '1;
+         end
+         S_WB_READ: begin
+            wb_stb_o = !wb_ack_reg_q;
+            wb_cyc_o = !wb_ack_reg_q;
+            wb_we_o  = '0;
+            wb_adr_o = addr_reg_q;
+            wb_dat_o = '0;
+            wb_sel_o = '1;
+         end
+         default: begin
+            wb_stb_o = '0;
+            wb_cyc_o = '0;
+            wb_we_o  = '0;
+            wb_adr_o = '0;
+            wb_dat_o = '0;
+            wb_sel_o = '0;
+         end
+      endcase
+   end
+
    always_ff @(posedge clk_i) begin
       if (rst_i) begin
          addr_reg_q <= '0;
@@ -96,20 +127,6 @@ module spibone_wb #(
          addr_cntr_q <= addr_cntr_d;
          data_cntr_q <= data_cntr_d;
          cmd_reg_q <= cmd_reg_d;
-         // wb_ack_i is read here in always_ff rather than in always_comb to
-         // keep it out of the combinational sensitivity list. Reading it in
-         // always_comb creates a delta-cycle loop in Icarus: any spibone
-         // output (wb_stb_o, wb_dat_o, ...) feeds back through the SDRAM
-         // always_comb, which transiently toggles m_ack_o, which re-triggers
-         // spibone, and so on. always_ff only evaluates on clock edges so it
-         // cannot participate in delta-cycle feedback. Last-assignment-wins
-         // gives this block priority over the wb_ack_reg_d path above.
-         if (wb_ack_i && state_q == S_WB_READ) begin
-            data_reg_q <= wb_dat_i;
-         end
-         if (wb_ack_i) begin
-            wb_ack_reg_q <= 1'b1;
-         end
       end
    end
 
@@ -127,13 +144,6 @@ module spibone_wb #(
       data_reg_d = data_reg_q;
       cmd_reg_d = cmd_reg_q;
       wb_ack_reg_d = wb_ack_reg_q;
-
-      wb_adr_o = '0;
-      wb_dat_o = '0;
-      wb_we_o = '0;
-      wb_stb_o = '0;
-      wb_cyc_o = '0;
-      wb_sel_o = '0;
 
       addr_cntr_d = addr_cntr_q;
       data_cntr_d = data_cntr_q;
@@ -203,14 +213,9 @@ module spibone_wb #(
       end
       S_WB_WRITE: begin
          byte_tx = byte_stall_lp;
-         wb_sel_o = '1;
 
-         if (!wb_ack_reg_q) begin
-            wb_we_o  = 1'b1;
-            wb_stb_o = 1'b1;
-            wb_cyc_o = 1'b1;
-            wb_adr_o = addr_reg_q;
-            wb_dat_o = data_reg_q;
+         if (wb_ack_i) begin
+            wb_ack_reg_d = 1'b1;
          end
 
          if (!active) begin
@@ -225,13 +230,10 @@ module spibone_wb #(
       end
       S_WB_READ: begin
          byte_tx = byte_stall_lp;
-         wb_sel_o = '1;
 
-         if (!wb_ack_reg_q) begin
-            wb_we_o  = '0;
-            wb_stb_o = 1'b1;
-            wb_cyc_o = 1'b1;
-            wb_adr_o = addr_reg_q;
+         if (wb_ack_i) begin
+            wb_ack_reg_d = 1'b1;
+            data_reg_d = wb_dat_i;
          end
 
          if (!active) begin
