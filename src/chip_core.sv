@@ -6,11 +6,7 @@
 module chip_core #(
     parameter NUM_INPUT_PADS,
     parameter NUM_BIDIR_PADS,
-    parameter NUM_ANALOG_PADS,
-
-    //num of observation bytes assembled in tpu_soc
-    parameter int DBG_N_WORDS_P = 32,
-    parameter bit ENABLE_DEBUG_PORT = 1'b0
+    parameter NUM_ANALOG_PADS
     )(
     `ifdef USE_POWER_PINS
     inout  wire VDD,
@@ -54,7 +50,6 @@ module chip_core #(
     logic [1:0]  sdr_ba;
     logic        sdr_cke, sdr_cs_n, sdr_ras_n, sdr_cas_n, sdr_we_n;
     logic [1:0]  sdr_dqm;
-    logic [DBG_N_WORDS_P*8 - 1:0] dbg_word;
     logic test_mode;
 
     // When test_mode is asserted, hold the SDRAM pads inactive. cke=0 freezes part, cs_n=1 deselects (everything else is don't-care under deselect). dq_oe=0 makes SDRAM act as if disconnected from wire
@@ -64,10 +59,10 @@ module chip_core #(
 
 
     // Bidir pad assignment:
-    //   [15:0]  = sdr_dq[15:0]     (bidir, OE from SDRAM controller)
+    //   [15:0]  = sdr_dq[15:0]     (bidir, OE from SDRAM controller, gated by test_mode)
     //   [16]    = spi_miso          (output)
-    //   [17]    = sdr_cke           (output)
-    //   [18]    = sdr_cs_n          (output)
+    //   [17]    = sdr_cke           (output, gated by test_mode)
+    //   [18]    = sdr_cs_n          (output, gated by test_mode)
     //   [19]    = sdr_ras_n         (output)
     //   [20]    = sdr_cas_n         (output)
     //   [21]    = sdr_we_n          (output)
@@ -77,9 +72,6 @@ module chip_core #(
     //   [37]    = sdr_ba[0]         (output)
     //   [38]    = sdr_ba[1]         (output)
     //   [39]    = clk → SDRAM CLK  (output)
-    //   only when ENABLE_DEBUG_PORT=1
-    //   [47:40]  debug_data (output)
-    //   [55:48]  debug_addr (input)
     assign bidir_out[15:0]  = sdr_dq_o;
     assign bidir_out[16]    = spi_miso;
     assign bidir_out[17]    = sdr_cke_pad;
@@ -98,30 +90,7 @@ module chip_core #(
     assign bidir_oe[39:16] = '1;
 
     generate
-        if (ENABLE_DEBUG_PORT) begin : g_dbg
-            if (NUM_BIDIR_PADS < 56) begin : g_pad_check
-                $error("ENABLE_DEBUG_PORT requires NUM_BIDIR_PADS >= 56");
-            end
-
-            logic [7:0] dbg_data;
-            debug_mux #(.N_WORDS(DBG_N_WORDS_P)) i_dbg_mux (
-                .addr_i (bidir_in[55:48]),
-                .data_i (dbg_word),
-                .data_o (dbg_data)
-            );
-
-            assign bidir_out[47:40] = dbg_data;
-            assign bidir_oe [47:40] = '1;
-            assign bidir_out[55:48] = '0;
-            assign bidir_oe [55:48] = '0;
-
-            // tie off anything above the debug range.
-            if (NUM_BIDIR_PADS > 56) begin : g_tieoff_above
-                assign bidir_out[NUM_BIDIR_PADS-1:56] = '0;
-                assign bidir_oe [NUM_BIDIR_PADS-1:56] = '0;
-            end
-        end else if (NUM_BIDIR_PADS > 40) begin : g_no_dbg_tieoff
-            // slot has unused pads
+        if (NUM_BIDIR_PADS > 40) begin : g_tieoff_unused
             assign bidir_out[NUM_BIDIR_PADS-1:40] = '0;
             assign bidir_oe [NUM_BIDIR_PADS-1:40] = '0;
         end
@@ -134,8 +103,7 @@ module chip_core #(
     assign bidir_pd        = '0;
 
     tpu_soc #(
-        .sys_clk_mhz_p(25),
-        .dbg_n_words_p (DBG_N_WORDS_P)
+        .sys_clk_mhz_p(25)
     ) i_tpu_soc (
 `ifdef USE_POWER_PINS
         .VDD(VDD),
@@ -158,7 +126,6 @@ module chip_core #(
         .sdr_cas_no (sdr_cas_n),
         .sdr_we_no  (sdr_we_n),
         .sdr_dqm_o  (sdr_dqm),
-        .dbg_word_o (dbg_word),
         .test_mode_o(test_mode)
     );
 

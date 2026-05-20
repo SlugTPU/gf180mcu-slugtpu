@@ -6,11 +6,16 @@
 //   0x04  RO  STATUS   — [1:0] tpu_state_i (2'b01 = IDLE)
 //   0x08  RW  CTRL     — [0]=tpu_enable (1=DMA owns bus)
 //                        [1] is test_mode  (1=DMA routed to on-chip test RAM, SDRAM pads inactive
+
+//   0x0C  RW  DBG_ADDR  [7:0] byte index into the SoC debug observation map
+//   0x10  RO  DBG_DATA  [7:0] byte at DBG_ADDR from the debug map
 //
 // SPDX-License-Identifier: Apache-2.0
 `default_nettype none
 
-module tpu_regs (
+module tpu_regs #(
+    parameter int DBG_N_WORDS = 32
+)(
     input  logic        clk_i,
     input  logic        rst_i,
 
@@ -33,7 +38,8 @@ module tpu_regs (
 
     // TPU state + done detection
     input  logic [1:0]  tpu_state_i,
-    output logic        tpu_done_o      // pulses high one cycle when TPU returns to IDLE after PC load
+    output logic        tpu_done_o,      // pulses high one cycle when TPU returns to IDLE after PC load
+    input  logic [DBG_N_WORDS*8 - 1:0] dbg_word_i //soc internal state
 );
 
     localparam logic [1:0] TPU_IDLE = 2'b01;
@@ -41,7 +47,9 @@ module tpu_regs (
     localparam logic [7:0]
         REG_PC     = 8'h00,
         REG_STATUS = 8'h04,
-        REG_CTRL   = 8'h08;
+        REG_CTRL   = 8'h08,
+        REG_DBG_ADDR = 8'h0C,
+        REG_DBG_DATA = 8'h10;
 
     logic [7:0] reg_offset;
     assign reg_offset = wb_adr_i[7:0];
@@ -78,6 +86,16 @@ module tpu_regs (
         end
     end
 
+    // dbg window addr reg and byte sel mux. addr is host writeable, mux is combinaitonal
+    logic [7:0] dbg_addr_q;
+    logic [7:0] dbg_data_w;
+ 
+    debug_mux #(.N_WORDS(DBG_N_WORDS)) i_dbg_mux (
+        .addr_i (dbg_addr_q),
+        .data_i (dbg_word_i),
+        .data_o (dbg_data_w)
+    );
+ 
     // PC register + wishbone read/write
     always_ff @(posedge clk_i) begin
         if (rst_i) begin
@@ -85,6 +103,7 @@ module tpu_regs (
             tpu_pc_stb_o  <= 1'b0;
             tpu_enable_o  <= 1'b0;
             test_mode_o   <= 1'b0;
+            dbg_addr_q <= '0;
             wb_dat_o      <= '0;
         end else begin
             tpu_pc_stb_o <= 1'b0;  // default: clear strobe
@@ -100,6 +119,7 @@ module tpu_regs (
                             tpu_enable_o <= wb_dat_i[0];
                             test_mode_o  <= wb_dat_i[1];
                         end
+                        REG_DBG_ADDR: dbg_addr_q <= wb_dat_i[7:0];
                         default: ;
                     endcase
                 end else begin
@@ -107,6 +127,8 @@ module tpu_regs (
                         REG_PC:     wb_dat_o <= tpu_pc_addr_o;
                         REG_STATUS: wb_dat_o <= {30'h0, tpu_state_i};
                         REG_CTRL:   wb_dat_o <= {30'h0, test_mode_o, tpu_enable_o};
+                        REG_DBG_ADDR: wb_dat_o <= {24'h0, dbg_addr_q};
+                        REG_DBG_DATA: wb_dat_o <= {24'h0, dbg_data_w};
                         default:    wb_dat_o <= 32'hDEAD_BEEF;
                     endcase
                 end
