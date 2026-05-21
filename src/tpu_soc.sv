@@ -175,6 +175,12 @@ module tpu_soc #(
    // assign dma_start_addr = dma_start_addr_wide[dma_addr_w_lp-1:0];
    // assign dma_word_count = dma_word_count_wide[15:0];
 
+  //debug observation byte map
+  // driven into tpu_regs and read by host via REG_DBG_ADDR/DBG_DATA over SPI
+  wire [dbg_n_words_p*8 - 1:0] dbg_word;
+  logic internal_error_l; // prev unconnected; now wired into the debug bus below
+
+
    // -----------------------------------------------------------------------
    // spibone_wb: SPI slave → Wishbone master
    // -----------------------------------------------------------------------
@@ -416,8 +422,6 @@ module tpu_soc #(
    );
 
 
-   logic internal_error_l; // prev unconnected; now wired into the debug bus below
-
   control_top #(
      .EXTERNAL_DRAM_ADDR_WIDTH(dma_addr_w_lp),
      .DRAM_DATA_WIDTH(dma_data_w_lp)
@@ -452,10 +456,6 @@ module tpu_soc #(
       .tpu_state_o(tpureg_status),
       .INTERNAL_ERROR_O(internal_error_l)
   );
-
-  //debug observation byte map
-  // driven into tpu_regs and read by host via REG_DBG_ADDR/DBG_DATA over SPI
-  logic [dbg_n_words_p*8 - 1:0] dbg_word;
 
   always_comb begin
         dbg_word = '0;
