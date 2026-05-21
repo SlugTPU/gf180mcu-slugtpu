@@ -79,6 +79,12 @@ librelane-padring: ## Only create the padring
 	PDK_ROOT=${PDK_ROOT} PDK=${PDK} python3 scripts/padring.py librelane/slots/slot_${SLOT}.yaml librelane/config.yaml --scl ${SCL}
 .PHONY: librelane-padring
 
+lint-tpu-soc: 
+	librelane librelane/slots/slot_1x1.yaml librelane/config.yaml \
+                  --pdk gf180mcuD --pdk-root ${PDK_ROOT} --manual-pdk \
+                  --to Checker.LintWarnings
+.PHONY: lint-tpu-soc
+
 sim: ## Run chip-level RTL simulation of with cocotb
 	cd cocotb; PDK_ROOT=${PDK_ROOT} PDK=${PDK} SLOT=${SLOT} python3 chip_top_tb.py
 .PHONY: sim
@@ -193,3 +199,4 @@ render-image: ## Render an image from the final layout (after copy-final)
 	mkdir -p img/
 	PDK_ROOT=${PDK_ROOT} PDK=${PDK} python3 scripts/lay2img.py final/gds/${TOP}.gds img/${TOP}.png --width 2048 --oversampling 4
 .PHONY: copy-final
+
