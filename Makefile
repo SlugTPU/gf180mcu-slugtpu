@@ -5,7 +5,7 @@ TOP = chip_top
 
 PDK_ROOT ?= $(MAKEFILE_DIR)/gf180mcu
 PDK ?= gf180mcuD
-PDK_TAG ?= 1.6.6
+PDK_TAG ?= 1.8.0
 SCL ?= gf180mcu_as_sc_mcu7t3v3
 
 AVAILABLE_SLOTS = 1x1 0p5x1 1x0p5 0p5x0p5
