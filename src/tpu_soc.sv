@@ -177,7 +177,7 @@ module tpu_soc #(
 
   //debug observation byte map
   // driven into tpu_regs and read by host via REG_DBG_ADDR/DBG_DATA over SPI
-  wire [dbg_n_words_p*8 - 1:0] dbg_word;
+  logic [dbg_n_words_p*8 - 1:0] dbg_word;
   logic internal_error_l; // prev unconnected; now wired into the debug bus below
 
 
