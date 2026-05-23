@@ -100,18 +100,6 @@ module tpu_soc #(
    wire                        dma_busy;
    wire                        dma_done;
 
-   // tpu_enable: software-controlled register bit; 1 = DMA owns the bus, 0 = SPI owns it
-   wire tpu_enable;
-//    wire tpu_active = tpu_enable;
-   wire tpu_active;
-
-   // Rising edge of tpu_enable generates the one-cycle DMA start pulse
-   logic tpu_enable_r;
-   always_ff @(posedge clk_i)
-       if (rst_i) tpu_enable_r <= '0;
-       else        tpu_enable_r <= tpu_enable;
-   // wire dma_start = tpu_enable & ~tpu_enable_r;
-
    // -----------------------------------------------------------------------
    // DMA stream (TODO: connect to systolic-array SRAM)
    // -----------------------------------------------------------------------
@@ -461,7 +449,7 @@ module tpu_soc #(
         dbg_word = '0;
         dbg_word[ 8'h00*8 +: 8] = {3'b0, internal_error_l, dma_done, dma_busy,
                                      tpureg_status};
-        dbg_word[ 8'h01*8 +: 8] = {3'b0, tpu_enable_r, dma_start, dma_we,
+        dbg_word[ 8'h01*8 +: 8] = {4'b0, dma_start, dma_we,
                                      dma_rd_valid, dma_wr_valid};
         dbg_word[ 8'h02*8 +: 8] = {7'b0, tpureg_pc_stb};
         dbg_word[ 8'h03*8 +: 8] = {7'b0, test_mode};
@@ -470,9 +458,9 @@ module tpu_soc #(
         dbg_word[ 8'h11*8 +: 8] = tpureg_pc_addr[15: 8];
         dbg_word[ 8'h12*8 +: 8] = tpureg_pc_addr[23:16];
         dbg_word[ 8'h13*8 +: 8] = tpureg_pc_addr[31:24];
-  
+
         dbg_word[ 8'h14*8 +: 8] = dma_word_count[7:0];
- 
+
         dbg_word[ 8'h1C*8 +: 8] = 8'h53; // 'S'
         dbg_word[ 8'h1D*8 +: 8] = 8'h4C; // 'L'
         dbg_word[ 8'h1E*8 +: 8] = 8'h55; // 'U'
