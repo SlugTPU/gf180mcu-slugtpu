@@ -5,19 +5,19 @@ from pathlib import Path
 from runner import run_test
 
 def _drive_master(dut, adr, dat_w, we, stb, cyc, sel):
-    dut.m_adr.value   = adr
-    dut.m_dat_w.value = dat_w
-    dut.m_we.value    = we
-    dut.m_stb.value   = stb
-    dut.m_cyc.value   = cyc
-    dut.m_sel.value   = sel
+    dut.m_adr_i.value   = adr
+    dut.m_dat_w_i.value = dat_w
+    dut.m_we_i.value    = we
+    dut.m_stb_i.value   = stb
+    dut.m_cyc_i.value   = cyc
+    dut.m_sel_i.value   = sel
 
 
 def _drive_slaves(dut, s0_dat_r=0, s0_ack=0, s1_dat_r=0, s1_ack=0):
-    dut.s0_dat_r.value = s0_dat_r
-    dut.s0_ack.value   = s0_ack
-    dut.s1_dat_r.value = s1_dat_r
-    dut.s1_ack.value   = s1_ack
+    dut.s0_dat_r_i.value = s0_dat_r
+    dut.s0_ack_i.value   = s0_ack
+    dut.s1_dat_r_i.value = s1_dat_r
+    dut.s1_ack_i.value   = s1_ack
 
 
 @cocotb.test()
@@ -28,18 +28,18 @@ async def route_to_s0(dut):
     _drive_slaves(dut, s0_dat_r=0xCAFE, s0_ack=1, s1_dat_r=0xBEEF, s1_ack=1)
     await Timer(1, "ns")
 
-    assert int(dut.s0_adr.value)   == 0x100
-    assert int(dut.s0_dat_w.value) == 0xDEAD
-    assert int(dut.s0_stb.value)   == 1
-    assert int(dut.s0_cyc.value)   == 1
+    assert int(dut.s0_adr_o.value)   == 0x100
+    assert int(dut.s0_dat_w_o.value) == 0xDEAD
+    assert int(dut.s0_stb_o.value)   == 1
+    assert int(dut.s0_cyc_o.value)   == 1
 
     # slave 1 must be idle
-    assert int(dut.s1_stb.value)   == 0
-    assert int(dut.s1_cyc.value)   == 0
+    assert int(dut.s1_stb_o.value)   == 0
+    assert int(dut.s1_cyc_o.value)   == 0
 
     # master sees slave 0's response, not slave 1's
-    assert int(dut.m_dat_r.value)  == 0xCAFE
-    assert int(dut.m_ack.value)    == 1
+    assert int(dut.m_dat_r_o.value)  == 0xCAFE
+    assert int(dut.m_ack_o.value)    == 1
 
 
 @cocotb.test()
@@ -50,18 +50,18 @@ async def route_to_s1(dut):
     _drive_slaves(dut, s0_dat_r=0xCAFE, s0_ack=1, s1_dat_r=0xBEEF, s1_ack=1)
     await Timer(1, "ns")
 
-    assert int(dut.s1_adr.value)   == 0x200
-    assert int(dut.s1_dat_w.value) == 0xF00D
-    assert int(dut.s1_stb.value)   == 1
-    assert int(dut.s1_cyc.value)   == 1
+    assert int(dut.s1_adr_o.value)   == 0x200
+    assert int(dut.s1_dat_w_o.value) == 0xF00D
+    assert int(dut.s1_stb_o.value)   == 1
+    assert int(dut.s1_cyc_o.value)   == 1
 
     # slave 0 must be idle
-    assert int(dut.s0_stb.value)   == 0
-    assert int(dut.s0_cyc.value)   == 0
+    assert int(dut.s0_stb_o.value)   == 0
+    assert int(dut.s0_cyc_o.value)   == 0
 
     # master sees slave 1's response
-    assert int(dut.m_dat_r.value)  == 0xBEEF
-    assert int(dut.m_ack.value)    == 1
+    assert int(dut.m_dat_r_o.value)  == 0xBEEF
+    assert int(dut.m_ack_o.value)    == 1
 
 
 @cocotb.test()
@@ -71,10 +71,10 @@ async def idle_master_idles_both_slaves(dut):
         dut.sel_i.value = sel
         _drive_master(dut, adr=0, dat_w=0, we=0, stb=0, cyc=0, sel=0)
         await Timer(1, "ns")
-        assert int(dut.s0_stb.value) == 0
-        assert int(dut.s0_cyc.value) == 0
-        assert int(dut.s1_stb.value) == 0
-        assert int(dut.s1_cyc.value) == 0
+        assert int(dut.s0_stb_o.value) == 0
+        assert int(dut.s0_cyc_o.value) == 0
+        assert int(dut.s1_stb_o.value) == 0
+        assert int(dut.s1_cyc_o.value) == 0
 
 
 proj_path = Path("./src").resolve()
