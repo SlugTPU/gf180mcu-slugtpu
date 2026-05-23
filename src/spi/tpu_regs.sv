@@ -4,8 +4,7 @@
 // Register map (base = 0x1000_0000):
 //   0x00  RW  PC_ADDR  — program counter address
 //   0x04  RO  STATUS   — [1:0] tpu_state_i (2'b01 = IDLE)
-//   0x08  RW  CTRL     — [0]=tpu_enable (1=DMA owns bus)
-//                        [1] is test_mode  (1=DMA routed to on-chip test RAM, SDRAM pads inactive
+//   0x08  RW  CTRL     — [0]=test_mode (1=DMA routed to on-chip test RAM, SDRAM pads inactive)
 
 //   0x0C  RW  DBG_ADDR  [7:0] byte index into the SoC debug observation map
 //   0x10  RO  DBG_DATA  [7:0] byte at DBG_ADDR from the debug map
@@ -33,7 +32,6 @@ module tpu_regs #(
     output logic        tpu_pc_stb_o,   // pulses high one cycle on PC write
 
     // Bus mux control
-    output logic        tpu_enable_o,
     output logic        test_mode_o,    // CTRL[1]: route DMA to on chip test RAM
 
     // TPU state + done detection
@@ -101,7 +99,6 @@ module tpu_regs #(
         if (rst_i) begin
             tpu_pc_addr_o <= '0;
             tpu_pc_stb_o  <= 1'b0;
-            tpu_enable_o  <= 1'b0;
             test_mode_o   <= 1'b0;
             dbg_addr_q <= '0;
             wb_dat_o      <= '0;
@@ -116,8 +113,7 @@ module tpu_regs #(
                             tpu_pc_stb_o  <= 1'b1;
                         end
                         REG_CTRL: begin
-                            tpu_enable_o <= wb_dat_i[0];
-                            test_mode_o  <= wb_dat_i[1];
+                            test_mode_o  <= wb_dat_i[0];
                         end
                         REG_DBG_ADDR: dbg_addr_q <= wb_dat_i[7:0];
                         default: ;
@@ -126,7 +122,7 @@ module tpu_regs #(
                     case (reg_offset)
                         REG_PC:     wb_dat_o <= tpu_pc_addr_o;
                         REG_STATUS: wb_dat_o <= {30'h0, tpu_state_i};
-                        REG_CTRL:   wb_dat_o <= {30'h0, test_mode_o, tpu_enable_o};
+                        REG_CTRL:   wb_dat_o <= {30'h0, test_mode_o};
                         REG_DBG_ADDR: wb_dat_o <= {24'h0, dbg_addr_q};
                         REG_DBG_DATA: wb_dat_o <= {24'h0, dbg_data_w};
                         default:    wb_dat_o <= 32'hDEAD_BEEF;
