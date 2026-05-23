@@ -31,7 +31,7 @@ module tpu_soc #(
    ,output logic sdr_cas_no
    ,output logic sdr_we_no
    ,output logic [1:0] sdr_dqm_o
-   ,output logic test_mode_o 
+   ,output logic test_mode_o
 );
    localparam _rows_lp = 8192;
    localparam _cols_lp = 512;
@@ -39,11 +39,40 @@ module tpu_soc #(
    localparam dma_data_w_lp  = sdr_data_bits_p * dram_burst_p;
    localparam dma_addr_w_lp  = $clog2(_rows_lp) + $clog2(_banks_lp) + $clog2(_cols_lp) - $clog2(dram_burst_p);
 
-// -----------------------------------------------------------------------
+   // -----------------------------------------------------------------------
    // WishBone bus wires
    // -----------------------------------------------------------------------
 
-   // DMA master → mux m1
+   // spibone → wb_decoder
+   wire [31:0]               dec_adr;
+   wire [dma_data_w_lp-1:0] dec_dat_w;
+   wire [dma_data_w_lp-1:0] dec_dat_r;
+   wire                      dec_we, dec_stb, dec_cyc, dec_ack;
+
+   // wb_decoder port 0 → wb_mux m0 (SPI bridge path to DRAM)
+   wire [dma_addr_w_lp - 1:0]   spi_wb_adr;
+   wire [dma_data_w_lp - 1:0]   spi_wb_dat_w;
+   wire [dma_data_w_lp - 1:0]   spi_wb_dat_r;
+   wire                          spi_wb_we;
+   wire                          spi_wb_stb;
+   wire                          spi_wb_cyc;
+   wire [dma_data_w_lp/8 - 1:0] spi_wb_sel;
+   wire                          spi_wb_ack;
+   assign spi_wb_sel = '1; // decoder has no sel output; always full-word
+
+   // wb_decoder port 1 → tpu_regs (64-bit bus; dat narrowed to 32-bit at tpu_regs ports)
+   wire [31:0]               tpureg_adr;
+   wire [dma_data_w_lp-1:0] tpureg_wb_dat_w;
+   wire [31:0]               tpureg_dat_r;
+   wire [1:0]                tpureg_status;
+   wire [31:0]               tpureg_pc_addr;
+   wire                      tpureg_we, tpureg_stb, tpureg_cyc, tpureg_ack, tpureg_pc_stb;
+
+   wire tpu_active;
+   // TPU active is determined by state of compute controller
+   assign tpu_active = tpureg_status[1];
+
+   // DMA master → wb_mux m1
    wire [dma_addr_w_lp - 1:0]   dma_wb_adr;
    wire [dma_data_w_lp - 1:0]   dma_wb_dat_w;
    wire [dma_data_w_lp - 1:0]   dma_wb_dat_r;
@@ -53,45 +82,42 @@ module tpu_soc #(
    wire [dma_data_w_lp/8 - 1:0] dma_wb_sel;
    wire                          dma_wb_ack;
 
-   // SPI bridge → mux m0
-   wire [dma_addr_w_lp - 1:0]   spi_wb_adr;
-   wire [dma_data_w_lp - 1:0]   spi_wb_dat_w;
-   wire [dma_data_w_lp - 1:0]   spi_wb_dat_r;
-   wire                          spi_wb_we;
-   wire                          spi_wb_stb;
-   wire                          spi_wb_cyc;
-   wire [dma_data_w_lp/8 - 1:0] spi_wb_sel;
-   wire                          spi_wb_ack;
+   // wb_mux output → wb_demux input (arbiter output bus)
+   wire [dma_addr_w_lp - 1:0]   arb_wb_adr;
+   wire [dma_data_w_lp - 1:0]   arb_wb_dat_w;
+   wire [dma_data_w_lp - 1:0]   arb_wb_dat_r;
+   wire                          arb_wb_we;
+   wire                          arb_wb_stb;
+   wire                          arb_wb_cyc;
+   wire [dma_data_w_lp/8 - 1:0] arb_wb_sel;
+   wire                          arb_wb_ack;
 
-   // mux slave → SDRAM controller
-   wire [dma_addr_w_lp - 1:0]   mux_s_adr;
-   wire [dma_data_w_lp - 1:0]   mux_s_dat_w;
-   wire [dma_data_w_lp - 1:0]   mux_s_dat_r;
-   wire                          mux_s_we;
-   wire                          mux_s_stb;
-   wire                          mux_s_cyc;
-   wire [dma_data_w_lp/8 - 1:0] mux_s_sel;
-   wire                          mux_s_ack;
+   // wb_demux s0 → SDRAM controller
+   wire [dma_addr_w_lp - 1:0]   sdram_wb_adr;
+   wire [dma_data_w_lp - 1:0]   sdram_wb_dat_w;
+   wire [dma_data_w_lp - 1:0]   sdram_wb_dat_r;
+   wire                          sdram_wb_we;
+   wire                          sdram_wb_stb;
+   wire                          sdram_wb_cyc;
+   wire [dma_data_w_lp/8 - 1:0] sdram_wb_sel;
+   wire                          sdram_wb_ack;
 
-   // test-mode demux outputs.
-   //   sdr_s_* is for SDRAM controller (slave 0, active when test_mode=0)
-   //   tram_s_* is for wb_test_ram (slave 1, active when test_mode=1)
-   wire [dma_addr_w_lp - 1:0]   sdr_s_adr,  tram_s_adr;
-   wire [dma_data_w_lp - 1:0]   sdr_s_dat_w, tram_s_dat_w;
-   wire [dma_data_w_lp - 1:0]   sdr_s_dat_r, tram_s_dat_r;
-   wire                          sdr_s_we,    tram_s_we;
-   wire                          sdr_s_stb,   tram_s_stb;
-   wire                          sdr_s_cyc,   tram_s_cyc;
-   wire [dma_data_w_lp/8 - 1:0] sdr_s_sel,   tram_s_sel;
-   wire                          sdr_s_ack,   tram_s_ack;
+   // wb_demux s1 → test RAM
+   wire [dma_addr_w_lp - 1:0]   tram_s_adr;
+   wire [dma_data_w_lp - 1:0]   tram_s_dat_w;
+   wire [dma_data_w_lp - 1:0]   tram_s_dat_r;
+   wire                          tram_s_we;
+   wire                          tram_s_stb;
+   wire                          tram_s_cyc;
+   wire [dma_data_w_lp/8 - 1:0] tram_s_sel;
+   wire                          tram_s_ack;
 
    // CTRL[1] from tpu_regs
    wire test_mode;
    assign test_mode_o = test_mode;
 
-
    // -----------------------------------------------------------------------
-   // DMA control (TODO: connect to instruction decoder)
+   // DMA control
    // -----------------------------------------------------------------------
    wire [dma_addr_w_lp - 1:0]  dma_start_addr;
    wire                        dma_start;
@@ -101,7 +127,7 @@ module tpu_soc #(
    wire                        dma_done;
 
    // -----------------------------------------------------------------------
-   // DMA stream (TODO: connect to systolic-array SRAM)
+   // DMA stream
    // -----------------------------------------------------------------------
    wire [dma_data_w_lp - 1:0] dma_rd_data;
    wire                        dma_rd_valid;
@@ -110,62 +136,10 @@ module tpu_soc #(
    wire                        dma_wr_valid;
    wire                        dma_wr_ready;
 
-   // -----------------------------------------------------------------------
-   // spibone → wb_decoder wires (32-bit byte addr, dma_data_w_lp-bit data)
-   // -----------------------------------------------------------------------
-   wire [31:0]               dec_adr;
-   wire [dma_data_w_lp-1:0] dec_dat_w;
-   wire [dma_data_w_lp-1:0] dec_dat_r;
-   wire                      dec_we, dec_stb, dec_cyc, dec_ack;
-
-   // wb_decoder port 0 (DRAM) wires — byte addr converted to word addr below
-   wire [31:0]               dec_dram_adr;
-   wire [dma_data_w_lp-1:0] dec_dram_dat_w;
-   wire [dma_data_w_lp-1:0] dec_dram_dat_r;
-   wire                      dec_dram_we, dec_dram_stb, dec_dram_cyc, dec_dram_ack;
-
-   // 32-bit byte address → dma_addr_w_lp word address for wb_mux m0
-   assign spi_wb_adr   = dec_dram_adr;
-   assign spi_wb_dat_w = dec_dram_dat_w;
-   assign spi_wb_we    = dec_dram_we;
-   assign spi_wb_stb   = dec_dram_stb;
-   assign spi_wb_cyc   = dec_dram_cyc;
-   assign spi_wb_sel   = '1;
-   assign dec_dram_dat_r = spi_wb_dat_r;
-   assign dec_dram_ack   = spi_wb_ack;
-
-   // wb_decoder port 1 (TPU regs) wires
-   wire [31:0]               dec_tpu_adr_wide;
-   wire [dma_data_w_lp-1:0] dec_tpu_dat_w_wide;
-   wire [dma_data_w_lp-1:0] dec_tpu_dat_r_wide;
-   wire                      dec_tpu_we, dec_tpu_stb, dec_tpu_cyc, dec_tpu_ack;
-
-   // tpu_regs bus (32-bit data)
-   wire [31:0] tpureg_adr;
-   wire [31:0] tpureg_dat_w;
-   wire [31:0] tpureg_dat_r;
-   wire [1:0]  tpureg_status;
-   wire [31:0]  tpureg_pc_addr;
-   wire        tpureg_we, tpureg_stb, tpureg_cyc, tpureg_ack, tpureg_pc_stb;
-   assign tpureg_adr   = dec_tpu_adr_wide;
-   assign tpureg_dat_w = dec_tpu_dat_w_wide[31:0];
-   assign tpureg_we    = dec_tpu_we;
-   assign tpureg_stb   = dec_tpu_stb;
-   assign tpureg_cyc   = dec_tpu_cyc;
-   assign dec_tpu_dat_r_wide = {{(dma_data_w_lp-32){1'b0}}, tpureg_dat_r};
-   assign dec_tpu_ack        = tpureg_ack;
-   assign tpu_active = tpureg_status[1]; 
-
-   // tpu_regs outputs (32-bit addresses, truncated to DMA widths)
-   wire [31:0] dma_start_addr_wide;
-   wire [31:0] dma_word_count_wide;
-   wire [31:0] tpureg_pc_addrwide;
-
   //debug observation byte map
   // driven into tpu_regs and read by host via REG_DBG_ADDR/DBG_DATA over SPI
   logic [dbg_n_words_p*8 - 1:0] dbg_word;
-  logic internal_error_l; // prev unconnected; now wired into the debug bus below
-
+  logic internal_error;
 
    // -----------------------------------------------------------------------
    // spibone_wb: SPI slave → Wishbone master
@@ -206,21 +180,21 @@ module tpu_soc #(
        .wbs_cyc_i  (dec_cyc),
        .wbs_ack_o  (dec_ack),
        // port 0: DRAM (byte addr + 64-bit data)
-       .wbm0_adr_o (dec_dram_adr),
-       .wbm0_dat_o (dec_dram_dat_w),
-       .wbm0_dat_i (dec_dram_dat_r),
-       .wbm0_we_o  (dec_dram_we),
-       .wbm0_stb_o (dec_dram_stb),
-       .wbm0_cyc_o (dec_dram_cyc),
-       .wbm0_ack_i (dec_dram_ack),
+       .wbm0_adr_o (spi_wb_adr),
+       .wbm0_dat_o (spi_wb_dat_w),
+       .wbm0_dat_i (spi_wb_dat_r),
+       .wbm0_we_o  (spi_wb_we),
+       .wbm0_stb_o (spi_wb_stb),
+       .wbm0_cyc_o (spi_wb_cyc),
+       .wbm0_ack_i (spi_wb_ack),
        // port 1: TPU registers (32-bit, zero-extended to DataW)
-       .wbm1_adr_o (dec_tpu_adr_wide),
-       .wbm1_dat_o (dec_tpu_dat_w_wide),
-       .wbm1_dat_i (dec_tpu_dat_r_wide),
-       .wbm1_we_o  (dec_tpu_we),
-       .wbm1_stb_o (dec_tpu_stb),
-       .wbm1_cyc_o (dec_tpu_cyc),
-       .wbm1_ack_i (dec_tpu_ack)
+       .wbm1_adr_o (tpureg_adr),
+       .wbm1_dat_o (tpureg_wb_dat_w),
+       .wbm1_dat_i ({{(dma_data_w_lp-32){1'b0}}, tpureg_dat_r}),
+       .wbm1_we_o  (tpureg_we),
+       .wbm1_stb_o (tpureg_stb),
+       .wbm1_cyc_o (tpureg_cyc),
+       .wbm1_ack_i (tpureg_ack)
    );
 
    // -----------------------------------------------------------------------
@@ -232,13 +206,12 @@ module tpu_soc #(
        .clk_i             (clk_i),
        .rst_i             (rst_i),
        .wb_adr_i          (tpureg_adr),
-       .wb_dat_i          (tpureg_dat_w),
+       .wb_dat_i          (tpureg_wb_dat_w[31:0]),
        .wb_dat_o          (tpureg_dat_r),
        .wb_we_i           (tpureg_we),
        .wb_stb_i          (tpureg_stb),
        .wb_cyc_i          (tpureg_cyc),
        .wb_ack_o          (tpureg_ack),
-       .tpu_enable_o      (tpu_enable),
        .test_mode_o       (test_mode),
        .tpu_pc_addr_o     (tpureg_pc_addr),
        .tpu_pc_stb_o      (tpureg_pc_stb),
@@ -306,15 +279,15 @@ module tpu_soc #(
        .m1_cyc      (dma_wb_cyc),
        .m1_sel      (dma_wb_sel),
        .m1_ack      (dma_wb_ack),
-       // slave: SDRAM
-       .s_adr       (mux_s_adr),
-       .s_dat_w     (mux_s_dat_w),
-       .s_dat_r     (mux_s_dat_r),
-       .s_we        (mux_s_we),
-       .s_stb       (mux_s_stb),
-       .s_cyc       (mux_s_cyc),
-       .s_sel       (mux_s_sel),
-       .s_ack       (mux_s_ack)
+       // slave: arbiter output
+       .s_adr       (arb_wb_adr),
+       .s_dat_w     (arb_wb_dat_w),
+       .s_dat_r     (arb_wb_dat_r),
+       .s_we        (arb_wb_we),
+       .s_stb       (arb_wb_stb),
+       .s_cyc       (arb_wb_cyc),
+       .s_sel       (arb_wb_sel),
+       .s_ack       (arb_wb_ack)
    );
 
    // -----------------------------------------------------------------------
@@ -326,23 +299,23 @@ module tpu_soc #(
    ) test_demux (
        .sel_i    (test_mode),
        // master: output of wb_mux_2to1
-       .m_adr    (mux_s_adr),
-       .m_dat_w  (mux_s_dat_w),
-       .m_dat_r  (mux_s_dat_r),
-       .m_sel    (mux_s_sel),
-       .m_we     (mux_s_we),
-       .m_stb    (mux_s_stb),
-       .m_cyc    (mux_s_cyc),
-       .m_ack    (mux_s_ack),
+       .m_adr    (arb_wb_adr),
+       .m_dat_w  (arb_wb_dat_w),
+       .m_dat_r  (arb_wb_dat_r),
+       .m_sel    (arb_wb_sel),
+       .m_we     (arb_wb_we),
+       .m_stb    (arb_wb_stb),
+       .m_cyc    (arb_wb_cyc),
+       .m_ack    (arb_wb_ack),
        // s0: SDRAM controller
-       .s0_adr   (sdr_s_adr),
-       .s0_dat_w (sdr_s_dat_w),
-       .s0_dat_r (sdr_s_dat_r),
-       .s0_sel   (sdr_s_sel),
-       .s0_we    (sdr_s_we),
-       .s0_stb   (sdr_s_stb),
-       .s0_cyc   (sdr_s_cyc),
-       .s0_ack   (sdr_s_ack),
+       .s0_adr   (sdram_wb_adr),
+       .s0_dat_w (sdram_wb_dat_w),
+       .s0_dat_r (sdram_wb_dat_r),
+       .s0_sel   (sdram_wb_sel),
+       .s0_we    (sdram_wb_we),
+       .s0_stb   (sdram_wb_stb),
+       .s0_cyc   (sdram_wb_cyc),
+       .s0_ack   (sdram_wb_ack),
        // s1: test RAM
        .s1_adr   (tram_s_adr),
        .s1_dat_w (tram_s_dat_w),
@@ -365,14 +338,14 @@ module tpu_soc #(
        .clk_i    (clk_i),
        .rst_i    (rst_i),
        // WB slave
-       .m_adr_i  (sdr_s_adr),
-       .m_dat_i  (sdr_s_dat_w),
-       .m_we_i   (sdr_s_we),
-       .m_stb_i  (sdr_s_stb),
-       .m_cyc_i  (sdr_s_cyc),
-       .m_sel_i  (sdr_s_sel),
-       .m_ack_o  (sdr_s_ack),
-       .m_dat_o  (sdr_s_dat_r),
+       .m_adr_i  (sdram_wb_adr),
+       .m_dat_i  (sdram_wb_dat_w),
+       .m_we_i   (sdram_wb_we),
+       .m_stb_i  (sdram_wb_stb),
+       .m_cyc_i  (sdram_wb_cyc),
+       .m_sel_i  (sdram_wb_sel),
+       .m_ack_o  (sdram_wb_ack),
+       .m_dat_o  (sdram_wb_dat_r),
        // SDRAM pins
        .s_dq_i   (sdr_dq_i),
        .s_dq_o   (sdr_dq_o),
@@ -386,7 +359,7 @@ module tpu_soc #(
        .s_dqm_o  (sdr_dqm_o),
        .oe_o     (sdr_dq_oe_o)
    );
- 
+
    // -----------------------------------------------------------------------
    // wb_test_ram: small on-chip stand-in for SDRAM
    // -----------------------------------------------------------------------
@@ -440,12 +413,12 @@ module tpu_soc #(
       .pc_ready_o(),
 
       .tpu_state_o(tpureg_status),
-      .INTERNAL_ERROR_O(internal_error_l)
+      .INTERNAL_ERROR_O(internal_error)
   );
 
   always_comb begin
         dbg_word = '0;
-        dbg_word[ 8'h00*8 +: 8] = {3'b0, internal_error_l, dma_done, dma_busy,
+        dbg_word[ 8'h00*8 +: 8] = {3'b0, internal_error, dma_done, dma_busy,
                                      tpureg_status};
         dbg_word[ 8'h01*8 +: 8] = {4'b0, dma_start, dma_we,
                                      dma_rd_valid, dma_wr_valid};
