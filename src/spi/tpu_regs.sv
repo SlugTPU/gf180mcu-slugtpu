@@ -1,5 +1,5 @@
 // tpu_regs.sv
-// Wishbone slave: TPU PC register + done detection
+// Specialized 32-bit registers for reading status or controlling parts of TPU
 //
 // Register map (base = 0x1000_0000):
 //   0x00  RW  PC_ADDR  — program counter address
