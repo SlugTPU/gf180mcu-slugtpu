@@ -160,8 +160,6 @@ module tpu_soc #(
    wire [31:0] dma_start_addr_wide;
    wire [31:0] dma_word_count_wide;
    wire [31:0] tpureg_pc_addrwide;
-   // assign dma_start_addr = dma_start_addr_wide[dma_addr_w_lp-1:0];
-   // assign dma_word_count = dma_word_count_wide[15:0];
 
   //debug observation byte map
   // driven into tpu_regs and read by host via REG_DBG_ADDR/DBG_DATA over SPI
