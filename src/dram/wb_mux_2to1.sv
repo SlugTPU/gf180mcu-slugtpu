@@ -2,45 +2,45 @@ module wb_mux_2to1 #(
     parameter AdrW  = 32,
     parameter DataW = 32
 ) (
-    input  logic tpu_active,  // 0 for SPI bridge to use bus, 1 = TPU
+    input  logic tpu_active_i,  // 0 for SPI bridge to use bus, 1 = TPU
 
     //SPI Bridge (basically SPIBone)
-    input  logic [AdrW-1:0]    m0_adr,
-    input  logic [DataW-1:0]   m0_dat_w,
-    input  logic               m0_we, m0_stb, m0_cyc,
-    input  logic [DataW/8-1:0] m0_sel,
-    output logic [DataW-1:0]   m0_dat_r,
-    output logic               m0_ack,
+    input  logic [AdrW-1:0]    m0_adr_i,
+    input  logic [DataW-1:0]   m0_dat_w_i,
+    input  logic               m0_we_i, m0_stb_i, m0_cyc_i,
+    input  logic [DataW/8-1:0] m0_sel_i,
+    output logic [DataW-1:0]   m0_dat_r_o,
+    output logic               m0_ack_o,
 
     //TPU
-    input  logic [AdrW-1:0]    m1_adr,
-    input  logic [DataW-1:0]   m1_dat_w,
-    input  logic               m1_we, m1_stb, m1_cyc,
-    input  logic [DataW/8-1:0] m1_sel,
-    output logic [DataW-1:0]   m1_dat_r,
-    output logic               m1_ack,
+    input  logic [AdrW-1:0]    m1_adr_i,
+    input  logic [DataW-1:0]   m1_dat_w_i,
+    input  logic               m1_we_i, m1_stb_i, m1_cyc_i,
+    input  logic [DataW/8-1:0] m1_sel_i,
+    output logic [DataW-1:0]   m1_dat_r_o,
+    output logic               m1_ack_o,
 
     //slave-LiteDRAM
-    output logic [AdrW-1:0]    s_adr,
-    output logic [DataW-1:0]   s_dat_w,
-    output logic               s_we, s_stb, s_cyc,
-    output logic [DataW/8-1:0] s_sel,
-    input  logic [DataW-1:0]   s_dat_r,
-    input  logic               s_ack
+    output logic [AdrW-1:0]    s_adr_o,
+    output logic [DataW-1:0]   s_dat_w_o,
+    output logic               s_we_o, s_stb_o, s_cyc_o,
+    output logic [DataW/8-1:0] s_sel_o,
+    input  logic [DataW-1:0]   s_dat_r_i,
+    input  logic               s_ack_i
 );
     always_comb begin
-        if (tpu_active) begin
-            s_adr   = m1_adr;   s_dat_w = m1_dat_w;
-            s_we    = m1_we;    s_stb   = m1_stb;
-            s_cyc   = m1_cyc;   s_sel   = m1_sel;
-            m1_dat_r = s_dat_r; m1_ack  = s_ack;
-            m0_dat_r = '0;      m0_ack  = 1'b0;
+        if (tpu_active_i) begin
+            s_adr_o   = m1_adr_i;   s_dat_w_o = m1_dat_w_i;
+            s_we_o    = m1_we_i;    s_stb_o   = m1_stb_i;
+            s_cyc_o   = m1_cyc_i;   s_sel_o   = m1_sel_i;
+            m1_dat_r_o = s_dat_r_i; m1_ack_o  = s_ack_i;
+            m0_dat_r_o = '0;        m0_ack_o  = 1'b0;
         end else begin
-            s_adr   = m0_adr;   s_dat_w = m0_dat_w;
-            s_we    = m0_we;    s_stb   = m0_stb;
-            s_cyc   = m0_cyc;   s_sel   = m0_sel;
-            m0_dat_r = s_dat_r; m0_ack  = s_ack;
-            m1_dat_r = '0;      m1_ack  = 1'b0;
+            s_adr_o   = m0_adr_i;   s_dat_w_o = m0_dat_w_i;
+            s_we_o    = m0_we_i;    s_stb_o   = m0_stb_i;
+            s_cyc_o   = m0_cyc_i;   s_sel_o   = m0_sel_i;
+            m0_dat_r_o = s_dat_r_i; m0_ack_o  = s_ack_i;
+            m1_dat_r_o = '0;        m1_ack_o  = 1'b0;
         end
     end
 endmodule

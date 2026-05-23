@@ -312,6 +312,7 @@ sources = [
     proj_path / "scalar_units" / "scalar_stage.sv",
     proj_path / "scalar_units" / "quantizer_mul.sv",
     proj_path / "scalar_units" / "scalar_stage_sram.sv",
+    proj_path / "debug_mux.sv",
     proj_path / "tri_shift.sv",
     "ip/gf180mcu_ocd_ip_sram/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1.v"
 ]
