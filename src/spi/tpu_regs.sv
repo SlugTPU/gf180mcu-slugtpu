@@ -9,7 +9,6 @@
 //   0x0C  RW  DBG_ADDR  [7:0] byte index into the SoC debug observation map
 //   0x10  RO  DBG_DATA  [7:0] byte at DBG_ADDR from the debug map
 //
-// SPDX-License-Identifier: Apache-2.0
 `default_nettype none
 
 module tpu_regs #(
