@@ -323,5 +323,7 @@ MAGIC_EXT_ABSTRACT_CELLS:
 - gf180mcu_ws_ip__id
 - gf180mcu_ws_ip__logo
 
+# these warnings are always benign
 LINTER_DISABLE_WARNINGS:
 - TIMESCALEMOD
+- DECLFILENAME
