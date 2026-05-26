@@ -12,9 +12,6 @@
 module wb_decoder #(
     parameter int DataW = 32
 ) (
-    input  logic        clk_i,
-    input  logic        rst_i,
-
     // Wishbone slave port (from spibone_wb)
     input  logic [31:0]       wbs_adr_i,
     input  logic [DataW-1:0]  wbs_dat_i,

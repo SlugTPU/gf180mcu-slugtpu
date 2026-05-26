@@ -173,8 +173,6 @@ module tpu_soc #(
    wb_decoder #(
        .DataW (dma_data_w_lp)
    ) spi_wb_decoder (
-       .clk_i      (clk_i),
-       .rst_i      (rst_i),
        .wbs_adr_i  (dec_adr),
        .wbs_dat_i  (dec_dat_w),
        .wbs_dat_o  (dec_dat_r),
