@@ -59,8 +59,6 @@ module wb_sdr_mt48lc16m16a_7e #(
    localparam init_wait_cycles_lp = sys_clk_mhz_p * init_wait_us_lp;
    localparam tRP_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRP_us_lp));
    localparam tRFC_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRFC_us_lp));
-   localparam tREF_dist_wait_cycles = sys_clk_mhz_p * tREF_dist_us_lp;
-   // localparam tWR_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tWR_us_lp));
    localparam tRCD_wait_cycles_lp = int'($ceil(sys_clk_mhz_p * tRCD_us_lp));
    localparam autorefresh_cycles_lp = sys_clk_mhz_p * tREF_dist_us_lp;
 
