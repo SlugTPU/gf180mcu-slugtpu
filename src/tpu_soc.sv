@@ -5,6 +5,9 @@ module tpu_soc #(
    ,parameter dram_burst_p    = 4
    ,parameter dbg_n_words_p = 32
    ,parameter test_ram_words_p = 32
+
+   ,parameter control_top_instruction_addr_width_p = 12
+   ,parameter control_top_dram_counter_width_p = 8
 ) (
 `ifdef USE_POWER_PINS
     inout  wire VDD,
@@ -121,7 +124,7 @@ module tpu_soc #(
    // -----------------------------------------------------------------------
    wire [dma_addr_w_lp - 1:0]  dma_start_addr;
    wire                        dma_start;
-   wire [15:0]                 dma_word_count;
+   wire [control_top_dram_counter_width_p - 1:0] dma_word_count;
    wire                        dma_we;
    wire                        dma_busy;
    wire                        dma_done;
@@ -383,7 +386,9 @@ module tpu_soc #(
 
   control_top #(
      .EXTERNAL_DRAM_ADDR_WIDTH(dma_addr_w_lp),
-     .DRAM_DATA_WIDTH(dma_data_w_lp)
+     .DRAM_DATA_WIDTH(dma_data_w_lp),
+     .DRAM_ADDR_WIDTH(control_top_instruction_addr_width_p),
+     .DRAM_COUNTER_WIDTH(control_top_dram_counter_width_p)
   )
   control (
 `ifdef USE_POWER_PINS
@@ -408,7 +413,7 @@ module tpu_soc #(
       .sram2dram_data_o(dma_wr_data),
       .sram2dram_ready_i(dma_wr_ready),
 
-      .pc_in(tpureg_pc_addr[dma_addr_w_lp - 1:0]),
+      .pc_in(tpureg_pc_addr[control_top_instruction_addr_width_p - 1:0]),
       .pc_valid_i(tpureg_pc_stb),
       .pc_ready_o(),
 
