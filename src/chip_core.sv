@@ -57,34 +57,48 @@ module chip_core #(
     wire sdr_cs_n_pad  = sdr_cs_n  |  test_mode;
     wire sdr_dq_oe_pad = sdr_dq_oe & ~test_mode;
 
-
-    // Bidir pad assignment:
-    //   [15:0]  = sdr_dq[15:0]     (bidir, OE from SDRAM controller, gated by test_mode)
-    //   [16]    = spi_miso          (output)
-    //   [17]    = sdr_cke           (output, gated by test_mode)
-    //   [18]    = sdr_cs_n          (output, gated by test_mode)
-    //   [19]    = sdr_ras_n         (output)
-    //   [20]    = sdr_cas_n         (output)
-    //   [21]    = sdr_we_n          (output)
-    //   [22]    = sdr_dqm[0]        (output)
-    //   [23]    = sdr_dqm[1]        (output)
-    //   [36:24] = sdr_addr[12:0]    (output)
-    //   [37]    = sdr_ba[0]         (output)
-    //   [38]    = sdr_ba[1]         (output)
-    //   [39]    = clk → SDRAM CLK  (output)
+    // Pad ring layout (1x1 slot).  [P] = power pad.  Bidir indices in [brackets].
+    //
+    //                                TOP (left → right)
+    //  NC   NC  MISO CLK  BA1 BA0 A12 A11 [P] A10  A9  A8  A7  A6  A5  A4  A3
+    //  |    |    |    |    |   |   |   |       |    |   |   |   |   |   |   |
+    // ┌┴────┴────┴────┴────┴───┴───┴───┴───────┴────┴───┴───┴───┴───┴───┴───┴───┐
+    // │                                                                            │
+    // ├─ SPI_CLK  [i0]                                      DQ[14]   [14] ───── ─┤
+    // ├─ SPI_CS_N [i1]                                      DQ[15]   [15] ───── ─┤
+    // ├─ [PWR]                                              DQM[0]   [16] ───── ─┤
+    // ├─ [PWR]                                              DQM[1]   [17] ───── ─┤
+    // ├─ SPI_MOSI [i2]                                      SDR_CKE  [18] ───── ─┤
+    // ├─ NC       [i3]                                      SDR_CS_N [19] ───── ─┤
+    // ├─ NC       [i4]                                [PWR] ──────────────────── ─┤
+    // ├─ NC       [i5]                                [PWR] ──────────────────── ─┤
+    // ├─ [PWR]                                    SDR_RAS_N [20] ─────────────── ─┤
+    // ├─ [PWR]                                    SDR_CAS_N [21] ─────────────── ─┤
+    // ├─ NC       [i6]                             SDR_WE_N [22] ─────────────── ─┤
+    // ├─ NC       [i7]                             SDR_A[0] [23] ─────────────── ─┤
+    // ├─ NC       [i8]                             SDR_A[1] [24] ─────────────── ─┤
+    // ├─ NC       [i9]                             SDR_A[2] [25] ─────────────── ─┤
+    // ├─ NC      [i10]                                [PWR] ──────────────────── ─┤
+    // ├─ NC      [i11]                                [PWR] ──────────────────── ─┤
+    // ├─ [PWR]                                        [PWR] ──────────────────── ─┤
+    // ├─ [PWR]                                        [PWR] ──────────────────── ─┤
+    // └───┬──┬───┬───┬───┬───┬───┬───┬─[P]─┬───┬───┬───┬───┬───┬───┬───┬───────┘
+    //     |  |   |   |   |   |   |   |     |   |   |   |   |   |   |   |
+    //    CLK RST DQ0 DQ1 DQ2 DQ3 DQ4 DQ5  DQ6 DQ7 DQ8 DQ9 D10 D11 D12 D13
+    //                                BOTTOM (left → right)
     assign bidir_out[15:0]  = sdr_dq_o;
-    assign bidir_out[16]    = spi_miso;
-    assign bidir_out[17]    = sdr_cke_pad;
-    assign bidir_out[18]    = sdr_cs_n_pad;
-    assign bidir_out[19]    = sdr_ras_n;
-    assign bidir_out[20]    = sdr_cas_n;
-    assign bidir_out[21]    = sdr_we_n;
-    assign bidir_out[22]    = sdr_dqm[0];
-    assign bidir_out[23]    = sdr_dqm[1];
-    assign bidir_out[36:24] = sdr_addr;
-    assign bidir_out[37]    = sdr_ba[0];
-    assign bidir_out[38]    = sdr_ba[1];
-    assign bidir_out[39]    = clk;
+    assign bidir_out[16]    = sdr_dqm[0];
+    assign bidir_out[17]    = sdr_dqm[1];
+    assign bidir_out[18]    = sdr_cke_pad;
+    assign bidir_out[19]    = sdr_cs_n_pad;
+    assign bidir_out[20]    = sdr_ras_n;
+    assign bidir_out[21]    = sdr_cas_n;
+    assign bidir_out[22]    = sdr_we_n;
+    assign bidir_out[35:23] = sdr_addr;
+    assign bidir_out[36]    = sdr_ba[0];
+    assign bidir_out[37]    = sdr_ba[1];
+    assign bidir_out[38]    = clk;
+    assign bidir_out[39]    = spi_miso;
 
     assign bidir_oe[15:0]  = {16{sdr_dq_oe_pad}};
     assign bidir_oe[39:16] = '1;

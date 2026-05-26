@@ -258,54 +258,54 @@ MACROS:
 
       # Weight SRAMs (8x from sram_8x256 inside weight_sram_inst)
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[0].sram_mod_i':
-        location: [490, 1100]
+        location: [1500, 1550]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[1].sram_mod_i':
-        location: [980, 1100]
+        location: [1850, 1550]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[2].sram_mod_i':
-        location: [1470, 1100]
+        location: [2200, 1550]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[3].sram_mod_i':
-        location: [1960, 1100]
+        location: [2550, 2000]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[4].sram_mod_i':
-        location: [490, 1700]
+        location: [1500, 1900]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[5].sram_mod_i':
-        location: [980, 1700]
+        location: [1850, 1900]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[6].sram_mod_i':
-        location: [1470, 1700]
+        location: [2200, 1900]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[7].sram_mod_i':
-        location: [1960, 1700]
+        location: [2550, 1900]
         orientation: N
 
       # Activation SRAMs (8x from sram_8x256 inside scalar_stage_sram_inst)
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[0].sram_mod_i':
-        location: [490, 2300]
+        location: [1500, 2300]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[1].sram_mod_i':
-        location: [980, 2300]
+        location: [1850, 2300]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[2].sram_mod_i':
-        location: [1470, 2300]
+        location: [2200, 2300]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[3].sram_mod_i':
-        location: [1960, 2300]
+        location: [2550, 2300]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[4].sram_mod_i':
-        location: [490, 2900]
+        location: [1500, 2650]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[5].sram_mod_i':
-        location: [980, 2900]
+        location: [1850, 2650]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[6].sram_mod_i':
-        location: [1470, 2900]
+        location: [2200, 2650]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[7].sram_mod_i':
-        location: [1960, 2900]
+        location: [2550, 2550]
         orientation: N
 
 # Halo size around macros while cutting rows.
