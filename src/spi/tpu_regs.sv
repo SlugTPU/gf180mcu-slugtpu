@@ -35,7 +35,6 @@ module tpu_regs #(
 
     // TPU state + done detection
     input  logic [1:0]  tpu_state_i,
-    output logic        tpu_done_o,      // pulses high one cycle when TPU returns to IDLE after PC load
     input  logic [DBG_N_WORDS*8 - 1:0] dbg_word_i //soc internal state
 );
 
@@ -55,32 +54,6 @@ module tpu_regs #(
     always_ff @(posedge clk_i) begin
         if (rst_i) wb_ack_o <= '0;
         else        wb_ack_o <= wb_cyc_i && wb_stb_i && !wb_ack_o;
-    end
-
-    // Done detection: armed by PC write, fires on IDLE transition
-    logic pc_loaded;
-    logic [1:0] tpu_state_prev;
-
-    always_ff @(posedge clk_i) begin
-        if (rst_i) begin
-            tpu_state_prev <= TPU_IDLE;
-            pc_loaded      <= 1'b0;
-            tpu_done_o     <= 1'b0;
-        end else begin
-            tpu_state_prev <= tpu_state_i;
-
-            // Arm when PC is written
-            if (tpu_pc_stb_o)
-                pc_loaded <= 1'b1;
-
-            // Fire done when returning to IDLE after a PC load
-            if (pc_loaded && (tpu_state_i == TPU_IDLE) && (tpu_state_prev != TPU_IDLE)) begin
-                tpu_done_o <= 1'b1;
-                pc_loaded  <= 1'b0;  // disarm until next PC write
-            end else begin
-                tpu_done_o <= 1'b0;
-            end
-        end
     end
 
     // dbg window addr reg and byte sel mux. addr is host writeable, mux is combinaitonal
