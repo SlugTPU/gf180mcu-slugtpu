@@ -207,7 +207,7 @@ module wb_sdr_mt48lc16m16a_7e #(
 
    /** general state registers */
    generate
-      for (genvar i = 0; i < n_reg_lp; i++) begin
+      for (genvar i = 0; i < n_reg_lp; i++) begin : gen_state_regs
          always_ff @(posedge clk_i) begin
             if (rst_i) begin
                r_q[i] <= '0;
@@ -237,7 +237,7 @@ module wb_sdr_mt48lc16m16a_7e #(
                   .enable_i(shift_enable));
 
    generate
-      for (genvar i = 0; i < dram_burst_p; i++) begin
+      for (genvar i = 0; i < dram_burst_p; i++) begin : gen_read_data
          assign m_dat_o[_data_bits_p  * (dram_burst_p - i) - 1 -:
                         _data_bits_p ] = read_shifter_data[dram_burst_p - 1 - i];
       end
