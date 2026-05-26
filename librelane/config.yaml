@@ -253,7 +253,7 @@ MACROS:
 
       # Control instruction SRAM (1x sram_1x256)
       i_chip_core.i_tpu_soc.control.control_sram_inst.control_sram_block.sram_inst:
-        location: [490, 500]
+        location: [1000, 2000]
         orientation: N
 
       # Weight SRAMs (8x from sram_8x256 inside weight_sram_inst)
