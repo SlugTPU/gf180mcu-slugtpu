@@ -38,8 +38,6 @@ module tpu_regs #(
     input  logic [DBG_N_WORDS*8 - 1:0] dbg_word_i //soc internal state
 );
 
-    localparam logic [1:0] TPU_IDLE = 2'b01;
-
     localparam logic [7:0]
         REG_PC     = 8'h00,
         REG_STATUS = 8'h04,
