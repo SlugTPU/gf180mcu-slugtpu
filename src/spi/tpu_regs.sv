@@ -94,7 +94,7 @@ module tpu_regs #(
                     case (reg_offset)
                         REG_PC:     wb_dat_o <= tpu_pc_addr_o;
                         REG_STATUS: wb_dat_o <= {30'h0, tpu_state_i};
-                        REG_CTRL:   wb_dat_o <= {30'h0, test_mode_o};
+                        REG_CTRL:   wb_dat_o <= {31'h0, test_mode_o};
                         REG_DBG_ADDR: wb_dat_o <= {24'h0, dbg_addr_q};
                         REG_DBG_DATA: wb_dat_o <= {24'h0, dbg_data_w};
                         default:    wb_dat_o <= 32'hDEAD_BEEF;
