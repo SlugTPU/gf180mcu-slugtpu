@@ -71,10 +71,10 @@ module mxu #(
     always_ff @( posedge clk_i ) begin
         if(rst_i | (~act_enable_i & ~weight_enable_i))
             act_ready_q <= '0;
-        else if(weight_count == 4'b0110)
+        else if(weight_count >= 4'b0110)
             act_ready_q <= '1;
     end
-    assign act_ready_o = act_ready_q & ~(~act_enable_i & ~weight_enable_i);
+    assign act_ready_o = act_ready_q & act_enable_i;
 
 
     logic [DATA_WIDTH+1:0] act_shift_in [N-1:0];
@@ -110,7 +110,7 @@ module mxu #(
         .clk(clk_i),
         .rst(rst_i),
         .data_i(act_shift_in),
-        .enable_i(shift_en),
+        .enable_i('1),
         .data_o(act_shift_out)
     );
 

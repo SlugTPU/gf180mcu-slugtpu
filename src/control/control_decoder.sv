@@ -306,12 +306,12 @@ module control_decoder #(
             load_bias_en_d = '0;
             load_scale_en_d = '0;
             load_zp_en_d = '0;
-            act_enable_d = '0;
+            // act_enable_d = '0;
             act_enable_dma_d = '0;
         end
 
         if (weight_load_ready == '1) begin
-            weight_enable_d = '0;
+            // weight_enable_d = '0;
             weight_enable_dma_d = '0;
         end
         
@@ -394,6 +394,8 @@ module control_decoder #(
                         act_transaction_amount = 8'd8;
                         act_transaction_rw_mode = '1;
                         act_load_valid = '1;
+                        act_enable_d = '0;
+                        weight_enable_d = '0;
                     end
                 end
                 default begin

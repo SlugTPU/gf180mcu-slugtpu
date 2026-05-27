@@ -179,18 +179,18 @@ def write_binary(results, file):
 # ── Built-in test program ─────────────────────────────────────────────────────
 
 BUILTIN_SOURCE = """\
-dram2sram weights,      sram=0x10, dram=0x100, n=16
-dram2sram activations,  sram=0x20, dram=0x100, n=16
-pipeline_setup relu=enable, k_tile=16
-load_weights sram=0x20
+dram2sram weights,      sram=0x10, dram=0x100, n=8
+dram2sram activations,  sram=0x20, dram=0x300, n=20
+pipeline_setup relu=enable, k_tile=8
+load_weights sram=0x10
 
-load_bias   sram=0x30
-load_zp     sram=0x31 # comment
-load_scale  sram=0x32
+load_bias   sram=0x20
+load_zp     sram=0x24 # comment
+load_scale  sram=0x28
 
-matmul act=0x10, res=0x50
+matmul act=0x2C, res=0x50
 
-sram2dram sram=0x50, dram=0x300, n=8
+sram2dram sram=0x50, dram=0x400, n=8
 
 exit
 """

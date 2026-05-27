@@ -8,6 +8,7 @@ from shared import reset_sequence, clock_start
 from runner import run_test
 from spibone_bfm import SpiboneBFM
 import random
+from test_control_decoder import flatten_matrix, init_act_data, scalar_pipe_ref, tiled_matmul_saturating_ref
 
 def make_spi_config(clock_freq_mhz):
     return SpiConfig(
@@ -36,6 +37,11 @@ def init_bfm(dut):
     bfm = SpiboneBFM(dut, clk_i, spi_cs_ni, spi_master)
     return bfm
 
+def data_to_bytes(data):
+    result = []
+    for row in data:
+        result.append(list(row.to_bytes(8, 'big')))
+    return result
 
 @cocotb.test()
 async def test_tpu_mem_basic(dut):
@@ -87,6 +93,18 @@ async def test_tpu_instructions(dut):
     await clock_start(dut.clk_i, period_ns=1000/sys_clk_mhz)
     await reset_sequence(dut.clk_i, dut.rst_i)
 
+    bias = [1, 2, 3, 4, 5, 6, 7, 8]
+    zp   = [-2, -2, -4, -4, -6, -6, -8, -8]
+    mul  = [1 << 31 for _ in range(8)]
+    scalar_params = {'bias': bias, 'zp': zp, 'mul': mul} 
+    act    = [[random.randint(0, 3) for _ in range(8)] for _ in range(8)]
+    weight = [[random.randint(0, 3) for _ in range(8)] for _ in range(8)]
+    weight_flipped = weight[::-1]
+    scalar_data = init_act_data(scalar_params, act)
+    weight_matrix = flatten_matrix(weight_flipped)
+
+    await bfm.write(0x300, data_to_bytes(scalar_data), timeout=timeout)
+    await bfm.write(0x100, data_to_bytes(weight_matrix), timeout=timeout)
 
     base_addr = 0x0000_0001
     words = []
