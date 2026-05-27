@@ -19,7 +19,7 @@ class SpiboneBFM:
         addr_bytes = list(starting_address.to_bytes(4, byteorder='big'))
 
         self.signal_cs.value = 0
-        await ClockCycles(self.clk, 1)  # let CS assert propagate
+        await ClockCycles(self.clk, 100)  # let CS assert propagate
 
         results = []
 
@@ -52,14 +52,14 @@ class SpiboneBFM:
             c+=1
 
         self.signal_cs.value = 1
-        await ClockCycles(self.clk, 1) # let CS deassert propagate
+        await ClockCycles(self.clk, 100) # let CS deassert propagate
 
         return results
 
     async def write(self, starting_address, payloads, timeout=20):
         addr_bytes = list(starting_address.to_bytes(4, byteorder='big'))
         self.signal_cs.value = 0
-        await ClockCycles(self.clk, 1)  # let CS assert propagate
+        await ClockCycles(self.clk, 100)  # let CS assert propagate
 
         for i in range(len(payloads)):
             # Write command + address on first call; subsequent calls only need to wait one byte
@@ -83,5 +83,4 @@ class SpiboneBFM:
             assert recv == 0xAC, f"Expected 0xAC, got {hex(recv)}"
 
         self.signal_cs.value = 1
-        await ClockCycles(self.clk, 1)  # let CS assert propagate
-        # await Timer(100, 'ns')  # keep CS high long enough for the synchronizer to register deassert
+        await ClockCycles(self.clk, 100)  # let CS assert propagate
