@@ -223,6 +223,41 @@ async def test_tpu_load_pc(dut):
 
     await FallingEdge(dut.clk_i)
 
+
+@cocotb.test()
+async def test_tpu_mem_basic(dut):
+    """
+    Test SPI -> DRAM, SPI PC -> TPU, TPU <-> DRAM
+    """
+    clk_i = dut.clk_i
+    rst_i = dut.rst_i
+    spi_cs_ni = dut.spi_cs_ni
+
+    sys_clk_mhz = dut.sys_clk_mhz_p.value.to_unsigned()
+    init_wait_cycles = 100 * sys_clk_mhz
+
+    spi_bus = SpiBus.from_entity(
+        dut,
+        sclk_name="spi_clk_i",
+        mosi_name="spi_mosi_i",
+        miso_name="spi_miso_o",
+        cs_name=None, # cs is driven manually in SpiboneBFM
+    )
+    spi_master = SpiMaster(spi_bus, make_spi_config(sys_clk_mhz))
+    bfm = SpiboneBFM(dut, clk_i, spi_cs_ni, spi_master)
+    timeout = init_wait_cycles + 50
+
+    await clock_start(clk_i, period_ns=1000/sys_clk_mhz)
+    await reset_sequence(clk_i, rst_i)
+
+    patterns  = [list((0xFFFF_FFFF_FFFF_FFFF - i).to_bytes(8, 'big')) for i in range (33)]
+    base_addr = 0
+
+    await bfm.write(base_addr, patterns, timeout=timeout)
+    await bfm.write(0x1000_0000, [list(0x0000_0000_0000_0001.to_bytes(8, 'big'))], timeout=timeout)
+
+    await ClockCycles(clk_i, 100)
+
 # ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
@@ -234,6 +269,7 @@ tests = [
     "test_individual_writes_burst_read",
     "test_overwrite",
     'test_tpu_load_pc',
+    'test_tpu_mem_basic',
 ]
 
 proj_path = Path("./src").resolve()
