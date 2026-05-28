@@ -99,7 +99,7 @@ module chip_core #(
     assign bidir_out[35:23] = sdr_addr;
     assign bidir_out[36]    = sdr_ba[0];
     assign bidir_out[37]    = sdr_ba[1];
-    assign bidir_out[38]    = clk;
+    // assign bidir_out[38]    = clk;
     assign bidir_out[39]    = spi_miso;
 
     assign bidir_oe[15:0]  = {16{sdr_dq_oe_pad}};
