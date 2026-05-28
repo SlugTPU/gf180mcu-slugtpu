@@ -261,6 +261,8 @@ module tpu_soc #(
        .AdrW  (dma_addr_w_lp),
        .DataW (dma_data_w_lp)
    ) wb_mux (
+       .clk_i        (clk_i),
+       .rst_i        (rst_i),
        .tpu_active_i (tpu_active),
        // m0: SPI bridge
        .m0_adr_i     (spi_wb_adr),

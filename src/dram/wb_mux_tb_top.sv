@@ -31,6 +31,8 @@ module wb_mux_tb_top (
     logic [3:0]  s_sel;
 
     wb_mux_2to1 u_mux (
+        .clk_i        (clk_i),
+        .rst_i        (rst_i),
         .tpu_active_i (tpu_active),
         .m0_adr_i     (m0_adr),
         .m0_dat_w_i   (m0_dat_w),
