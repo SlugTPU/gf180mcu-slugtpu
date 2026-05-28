@@ -183,6 +183,7 @@ async def test_scalar_pipe_basic(dut):
 
     await clock_start(clk_i)
     await reset_sequence(clk_i, rst_i)
+    dut.relu_enable_i.value = 1
 
     m.start()
     task_im = input_model.start()
@@ -229,6 +230,7 @@ async def test_scalar_pipe_backpressure(dut):
 
     await clock_start(clk_i)
     await reset_sequence(clk_i, rst_i)
+    dut.relu_enable_i.value = 1
 
     m.start()
     task_im = input_model.start()
@@ -250,7 +252,7 @@ SOURCES = [
     Path("./src/scalar_units/add_n.sv").resolve(),
     Path("./src/scalar_units/relu_n.sv").resolve(),
     Path("./src/scalar_units/scale_n.sv").resolve(),
-    Path("./src/quantizer_mul.sv").resolve(),
+    Path("./src/scalar_units/quantizer_mul.sv").resolve(),
     Path("./src/common/elastic.sv").resolve(),
 ]
 

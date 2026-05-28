@@ -258,7 +258,7 @@ async def scale_n_stream_test(dut):
 
 tests = ["reset_test", "scale_n_simple_test"]
 proj_path = Path("./src").resolve()
-sources = [ proj_path/"common/elastic.sv", proj_path/"scalar_units"/"scale_n.sv", proj_path/"quantizer_mul.sv"]
+sources = [ proj_path/"common/elastic.sv", proj_path/"scalar_units"/"scale_n.sv", proj_path/"scalar_units"/"quantizer_mul.sv"]
 
 @pytest.mark.parametrize("testcase", tests)
 def test_scale_n_each(testcase):

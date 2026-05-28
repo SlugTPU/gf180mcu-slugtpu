@@ -52,6 +52,7 @@ async def init(dut):
     dut.load_scale_en_i.value = 0
 
     # init pipeline inputs
+    dut.relu_enable_i.value = 1
     dut.data_valid_i.value = 0
     dut.data_ready_i.value = 1
     drive_array(dut.data_i,[0] * N)
@@ -172,7 +173,7 @@ SOURCES =[
     Path("./src/scalar_units/scale_n.sv").resolve(),
     Path("./src/scalar_units/relu_n.sv").resolve(),
     Path("./src/scalar_units/load_data.sv").resolve(),
-    Path("./src/quantizer_mul.sv").resolve(),
+    Path("./src/scalar_units/quantizer_mul.sv").resolve(),
     Path("./src/common/elastic.sv").resolve(),
     Path("./src/common/shift.sv").resolve(),
 ]

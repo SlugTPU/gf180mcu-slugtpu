@@ -19,20 +19,32 @@ module scale_n
 );
 
     logic signed [Q_WIDTH_P-1:0] data_r [N-1:0];
+    logic q_valid [N-1:0];
+    logic q_ready [N-1:0];
+    logic elastic_ready;
+
     genvar i;
     generate
-        for (i = 0; i < N; i++) begin
+        for (i = 0; i < N; i++) begin : gen_qmul
             quantizer_mul
                 #(.ACC_WIDTH(ACC_WIDTH_P),
                 .M0_WIDTH(M0_WIDTH_P),
                 .FIXED_SHIFT(FIXED_SHIFT_P))
             quantizer_mul_inst
-                (.psum(data_i[i]),
+                (.clk_i(clk_i),
+                .rst_i(rst_i),
+                .valid_i(data_valid_i),
+                .ready_i(elastic_ready),
+                .valid_o(q_valid[i]),
+                .ready_o(q_ready[i]),
+                .psum(data_i[i]),
                 .m0(m0_i[i]),
                 .q_out(data_r[i])
             );
         end
     endgenerate
+
+    assign data_ready_o = q_ready[0];
 
     elastic
         #(.width_p(Q_WIDTH_P),
@@ -41,8 +53,8 @@ module scale_n
         (.clk_i(clk_i)
         ,.rst_i(rst_i)
         ,.data_i(data_r)
-        ,.valid_i(data_valid_i)
-        ,.ready_o(data_ready_o)
+        ,.valid_i(q_valid[0])
+        ,.ready_o(elastic_ready)
         ,.valid_o(data_valid_o)
         ,.ready_i(data_ready_i)
         ,.data_o(data_o)
