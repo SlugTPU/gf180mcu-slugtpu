@@ -42,6 +42,8 @@ module chip_core #(
     logic _unused_analog;
     assign _unused_analog = &analog;
 
+   logic [1:0] rst_sync_d, rst_sync_q;
+
     // Intermediate wires from tpu_soc
     logic        spi_miso;
     logic [15:0] sdr_dq_o;
@@ -103,6 +105,8 @@ module chip_core #(
     assign bidir_oe[15:0]  = {16{sdr_dq_oe_pad}};
     assign bidir_oe[39:16] = '1;
 
+   assign rst_sync_d = {rst_sync_q[0], ~rst_n};
+
     generate
         if (NUM_BIDIR_PADS > 40) begin : g_tieoff_unused
             assign bidir_out[NUM_BIDIR_PADS-1:40] = '0;
@@ -116,6 +120,14 @@ module chip_core #(
     assign bidir_pu        = '0;
     assign bidir_pd        = '0;
 
+   always_ff @(posedge clk or negedge rst_n) begin
+      if (!rst_n) begin
+         rst_sync_q <= '1;
+      end else begin
+         rst_sync_q <= rst_sync_d;
+      end
+   end
+
     tpu_soc #(
         .sys_clk_mhz_p(25)
     ) i_tpu_soc (
@@ -124,7 +136,7 @@ module chip_core #(
         .VSS(VSS),
 `endif
         .clk_i      (clk),
-        .rst_i      (~rst_n),
+        .rst_i      (rst_sync_q[1]),
         .spi_clk_i  (input_in[0]),
         .spi_cs_ni  (input_in[1]),
         .spi_mosi_i (input_in[2]),
