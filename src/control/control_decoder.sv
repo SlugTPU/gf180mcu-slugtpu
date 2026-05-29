@@ -64,6 +64,7 @@ module control_decoder #(
     // MXU enables
     logic                        act_enable_q, act_enable_d, act_enable_dma_d, act_enable_dma_q;
     logic                        weight_enable_q, weight_enable_d, weight_enable_dma_d, weight_enable_dma_q;
+    logic                        mxu_enable_q, mxu_enable_d;
 
     // Activation SRAM control
     logic [SRAM_ADDR_WIDTH-1:0]  act_addr;
@@ -185,6 +186,7 @@ module control_decoder #(
             tpu_exit_o <= '0;
             weight_enable_dma_q <= '0;
             act_enable_dma_q <= '0;
+            mxu_enable_q <= '0;
         end
         else begin
             decoder_state_q <= decoder_state_d;
@@ -202,6 +204,7 @@ module control_decoder #(
             tpu_exit_o <= tpu_exit_d;
             weight_enable_dma_q <= weight_enable_dma_d;
             act_enable_dma_q <= act_enable_dma_d;
+            mxu_enable_q <= mxu_enable_d;
         end
     end
 
@@ -286,6 +289,7 @@ module control_decoder #(
         weight_enable_dma_d = weight_enable_dma_q;
         pipeline_amount_d = pipeline_amount_q;
         act_enable_dma_d = act_enable_dma_q;
+        mxu_enable_d = mxu_enable_q;
 
         act_addr = '0;
         act_transaction_amount = '0;
@@ -306,12 +310,12 @@ module control_decoder #(
             load_bias_en_d = '0;
             load_scale_en_d = '0;
             load_zp_en_d = '0;
-            // act_enable_d = '0;
+            act_enable_d = '0;
             act_enable_dma_d = '0;
         end
 
         if (weight_load_ready == '1) begin
-            // weight_enable_d = '0;
+            weight_enable_d = '0;
             weight_enable_dma_d = '0;
         end
         
@@ -356,6 +360,7 @@ module control_decoder #(
                     weight_transaction_rw_mode = '0;
                     weight_load_valid = '1;
                     weight_enable_d = '1;
+                    mxu_enable_d = '1;
                 end
                 LOAD_BIAS : begin
                     act_addr = inst_sram_addr;
@@ -389,13 +394,15 @@ module control_decoder #(
                         act_transaction_rw_mode = '0;
                         act_load_valid = '1;
                         act_enable_d = '1;
+                        mxu_enable_d = '1;
                     end else begin
                         act_addr = inst_result_sram_addr;
                         act_transaction_amount = 8'd8;
                         act_transaction_rw_mode = '1;
                         act_load_valid = '1;
-                        act_enable_d = '0;
-                        weight_enable_d = '0;
+                        mxu_enable_d = '0;
+                        // act_enable_d = '0;
+                        // weight_enable_d = '0;
                     end
                 end
                 default begin
@@ -427,6 +434,7 @@ module control_decoder #(
 
         .act_enable_i                 (act_enable_q),
         .weight_enable_i              (weight_enable_q),
+        .mxu_enable_i                 (mxu_enable_q),
 
         .act_addr_i                   (act_addr),
         .act_transaction_amount_i     (act_transaction_amount),

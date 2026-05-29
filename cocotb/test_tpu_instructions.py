@@ -120,7 +120,21 @@ async def test_tpu_instructions(dut):
             i += 1
     await bfm.write(base_addr, words, timeout=timeout)
     await bfm.write(0x1000_0000, [list(0x0000_0000_0000_0001.to_bytes(8, 'big'))], timeout=timeout)
-    await ClockCycles(dut.clk_i, 1500)
+    await ClockCycles(dut.clk_i, 1000)
+    got = await bfm.read(0x400, 8)
+    expected_matmul = tiled_matmul_saturating_ref([act], [weight])
+    expected_output = []
+    for row in expected_matmul:
+        expected_output.append(scalar_pipe_ref(row, bias, zp, mul))
+    assert len(got) == len(expected_output)
+    print(got)
+    print(expected_output)
+    for i, got_row_bytes in enumerate(got):
+        got_row_bytes.reverse()
+        for j, got_elem_bytes in enumerate(got_row_bytes):
+            expected_elem = expected_output[i][j]
+            got_elem = int(got_elem_bytes)
+            assert got_elem == expected_elem
     await FallingEdge(dut.clk_i)
 
 tests = [

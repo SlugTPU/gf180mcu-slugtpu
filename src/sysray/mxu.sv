@@ -12,6 +12,8 @@ module mxu #(
     input clk_i,
     input rst_i,
 
+    input mxu_enable_i,
+
     //activations
     input act_enable_i, // from control
     input act_valid_i,  // from sram
@@ -41,7 +43,7 @@ module mxu #(
         .width_p(4)
     ) weight_counter(
         .clk_i(clk_i),
-        .rst_i(rst_i | ~weight_enable_i),
+        .rst_i(rst_i | ~mxu_enable_i),
 
         .up_i(weight_valid_l),
         .count_o(weight_count)
@@ -51,7 +53,7 @@ module mxu #(
         .width_p(4)
     ) activation_counter(
         .clk_i(clk_i),
-        .rst_i(rst_i | ~act_enable_i),
+        .rst_i(rst_i | ~mxu_enable_i),
 
         .up_i(act_valid_l),
         .count_o(activation_count)
@@ -69,7 +71,7 @@ module mxu #(
     assign weight_ready_o = shift_en;
 
     always_ff @( posedge clk_i ) begin
-        if(rst_i | (~act_enable_i & ~weight_enable_i))
+        if(rst_i | ~mxu_enable_i)
             act_ready_q <= '0;
         else if(weight_count >= 4'b0110)
             act_ready_q <= '1;

@@ -333,7 +333,7 @@ async def test_single_matmul(dut):
     await load_scalar_values(dut, scalar_params, 0)
 
     cocotb.start_soon(load_weight_banks_via_sram(dut, N, [weight]))
-    for _ in range(12):
+    for _ in range(10):
         await FallingEdge(dut.clk_i)
     await stream_acts_and_capture(dut, N, [act], expected, 12, 100)
     # cocotb.start_soon(stream_acts_and_capture(dut, N, [act], expected, 12, 100))

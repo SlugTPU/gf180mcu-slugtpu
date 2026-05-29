@@ -21,6 +21,7 @@ module compute_core #(
     // mxu
     input act_enable_i,
     input weight_enable_i,
+    input mxu_enable_i,
 
     input  [address_width-1:0] act_addr_i,
     input  [counter_width-1:0] act_transaction_amount_i,
@@ -127,7 +128,7 @@ module compute_core #(
     mxu_inst(
         .clk_i(clk_i),
         .rst_i(rst_i),
-
+        .mxu_enable_i(mxu_enable_i),
         .act_enable_i(act_enable_i),
         .act_valid_i(act_rd_valid_o),
         .act_bus_i(act_rd_data_o),
