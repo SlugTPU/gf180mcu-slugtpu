@@ -45,7 +45,10 @@ module chip_core #(
    logic [1:0] rst_sync_d, rst_sync_q;
 
     // Intermediate wires from/out of tpu_soc
+    logic       spi_clk;
     logic        spi_miso;
+    logic        spi_mosi;
+    logic        spi_cs_n;
     logic [15:0] sdr_dq_o;
     logic        sdr_dq_oe;
     logic [12:0] sdr_addr;
@@ -110,6 +113,10 @@ module chip_core #(
     //     |  |   |   |   |   |   |   |     |   |   |   |   |   |   |   |
     //    CLK RST DQ0 DQ1 DQ2 DQ3 DQ4 DQ5  DQ6 DQ7 DQ8 DQ9 D10 D11 D12 D13
     //                                BOTTOM (left → right)
+    assign spi_clk  = input_in[0];
+    assign spi_cs_n = input_in[1];
+    assign spi_mosi = input_in[2];
+
     assign bidir_out[15:0]  = sdr_dq_o_q;
     assign bidir_out[16]    = sdr_dqm_q[0];
     assign bidir_out[17]    = sdr_dqm_q[1];
@@ -191,9 +198,9 @@ module chip_core #(
 `endif
         .clk_i      (clk),
         .rst_i      (rst_sync_q[1]),
-        .spi_clk_i  (input_in[0]),
-        .spi_cs_ni  (input_in[1]),
-        .spi_mosi_i (input_in[2]),
+        .spi_clk_i  (spi_clk),
+        .spi_cs_ni  (spi_cs_n),
+        .spi_mosi_i (spi_mosi),
         .spi_miso_o (spi_miso),
         .sdr_dq_i   (sdr_dq_i_q),
         .sdr_dq_o   (sdr_dq_o),
