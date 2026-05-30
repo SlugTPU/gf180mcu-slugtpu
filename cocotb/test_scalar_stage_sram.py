@@ -177,12 +177,13 @@ sources = [
     proj_path / "scalar_units/relu_n.sv",
     proj_path / "scalar_units/load_data.sv",
     proj_path / "scalar_units/quantizer_mul.sv",
+    proj_path / "tri_shift.sv",
     proj_path / "common/elastic.sv",
     proj_path / "common/shift.sv",
     proj_path / "sram/memory_transaction.sv",
     proj_path / "sram/sram_8x256_full.sv",
     proj_path / "sram/sram_8x256.sv",
-    "./ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1.v",
+    "./ip/gf180mcu_ocd_ip_sram/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1.v",
 ]
 
 @pytest.mark.parametrize("testcase", tests)
