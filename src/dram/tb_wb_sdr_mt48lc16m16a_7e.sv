@@ -1,6 +1,8 @@
 module tb_wb_sdr_mt48lc16m16a_7e #(
     parameter sys_clk_mhz_p  = 100
    ,parameter dram_burst_p    = 4
+   // Note: SDRAM Pin buffering not implemented on this testbench
+   ,parameter with_sdram_pin_buffering_p  = 0
    ,parameter data_bits_p     = 16
    ,parameter rows_p          = 8192
    ,parameter cols_p          = 512
@@ -30,9 +32,26 @@ module tb_wb_sdr_mt48lc16m16a_7e #(
     // Tristate buffer for bidirectional DQ bus
     assign sdram_dq = oe ? s_dq_o : 'z;
 
+    // Input pipeline to model the pad register in chip_core
+    wire [data_bits_p-1:0] s_dq_i_buf;
+    generate
+        if (with_sdram_pin_buffering_p == 0) begin : g_no_dq_buf
+            assign s_dq_i_buf = sdram_dq;
+        end else begin : g_dq_buf
+            logic [data_bits_p-1:0] dq_pipe [0:with_sdram_pin_buffering_p-1];
+            always_ff @(posedge clk_i) begin
+                dq_pipe[0] <= sdram_dq;
+                for (int i = 1; i < with_sdram_pin_buffering_p; i++)
+                    dq_pipe[i] <= dq_pipe[i-1];
+            end
+            assign s_dq_i_buf = dq_pipe[with_sdram_pin_buffering_p-1];
+        end
+    endgenerate
+
     wb_sdr_mt48lc16m16a_7e #(
         .sys_clk_mhz_p   (sys_clk_mhz_p),
         .dram_burst_p     (dram_burst_p),
+        .with_sdram_pin_buffering_p   (with_sdram_pin_buffering_p),
         ._data_bits_p     (data_bits_p),
         ._rows_p          (rows_p),
         ._cols_p          (cols_p),
@@ -51,7 +70,7 @@ module tb_wb_sdr_mt48lc16m16a_7e #(
         .m_ack_o  (m_ack_o),
         .m_dat_o  (m_dat_o),
 
-        .s_dq_i   (sdram_dq),
+        .s_dq_i   (s_dq_i_buf),
         .s_dq_o   (s_dq_o),
         .s_addr_o (s_addr),
         .s_ba_o   (s_ba),

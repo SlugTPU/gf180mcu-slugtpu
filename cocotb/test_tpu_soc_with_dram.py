@@ -320,11 +320,12 @@ sims = ["icarus"]
 # note: verilator doesn't like specify blocks in the SDRAM controller
 
 
+@pytest.mark.parametrize("with_sdram_pin_buffering_p", [0, 1])
 @pytest.mark.parametrize("testcase", tests)
-def test_tpu_soc_each(testcase):
+def test_tpu_soc_each(testcase, with_sdram_pin_buffering_p):
     """Runs each test independently. Continues on test failure."""
     run_test(
-        parameters=parameters,
+        parameters={**parameters, "with_sdram_pin_buffering_p": with_sdram_pin_buffering_p},
         sources=sources,
         module_name=module_name,
         hdl_toplevel=hdl_toplevel,
@@ -334,10 +335,11 @@ def test_tpu_soc_each(testcase):
     )
 
 
-def test_tpu_soc_all():
+@pytest.mark.parametrize("with_sdram_pin_buffering_p", [0, 1])
+def test_tpu_soc_all(with_sdram_pin_buffering_p):
     """Runs all tests sequentially in one simulation."""
     run_test(
-        parameters=parameters,
+        parameters={**parameters, "with_sdram_pin_buffering_p": with_sdram_pin_buffering_p},
         sources=sources,
         module_name=module_name,
         hdl_toplevel=hdl_toplevel,

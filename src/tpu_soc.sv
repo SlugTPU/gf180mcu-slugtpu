@@ -3,6 +3,7 @@ module tpu_soc #(
    ,parameter sdr_data_bits_p = 16
    ,parameter sdr_addr_bits_p = 13
    ,parameter dram_burst_p    = 4
+   ,parameter with_sdram_pin_buffering_p = 0
    ,parameter dbg_n_words_p = 32
    ,parameter test_ram_words_p = 32
 
@@ -336,7 +337,8 @@ module tpu_soc #(
    // -----------------------------------------------------------------------
    wb_sdr_mt48lc16m16a_7e #(
        .sys_clk_mhz_p   (sys_clk_mhz_p),
-       .dram_burst_p     (dram_burst_p)
+       .dram_burst_p     (dram_burst_p),
+       .with_sdram_pin_buffering_p   (with_sdram_pin_buffering_p)
    ) sdram_ctrl (
        .clk_i    (clk_i),
        .rst_i    (rst_i),

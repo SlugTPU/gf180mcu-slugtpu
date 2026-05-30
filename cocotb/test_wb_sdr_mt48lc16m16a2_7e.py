@@ -486,11 +486,13 @@ hdl_toplevel="tb_wb_sdr_mt48lc16m16a_7e"
 sims = ['icarus']
 # note: verilator doesn't like specify
 
+@pytest.mark.parametrize("with_sdram_pin_buffering_p", [0])
 @pytest.mark.parametrize("testcase", tests)
-def test_sdr_ctrl_each(testcase):
+def test_sdr_ctrl_each(testcase, with_sdram_pin_buffering_p):
     """Runs each test independently. Continues on test failure."""
-    run_test(parameters=parameters, sources=sources, module_name=module_name, hdl_toplevel=hdl_toplevel, testcase=testcase, sims=sims)
+    run_test(parameters={**parameters, "with_sdram_pin_buffering_p": with_sdram_pin_buffering_p}, sources=sources, module_name=module_name, hdl_toplevel=hdl_toplevel, testcase=testcase, sims=sims)
 
-def test_sdr_ctrl_all():
+@pytest.mark.parametrize("with_sdram_pin_buffering_p", [0])
+def test_sdr_ctrl_all(with_sdram_pin_buffering_p):
     """Runs all tests sequentially in one simulation."""
-    run_test(parameters=parameters, sources=sources, module_name=module_name, hdl_toplevel=hdl_toplevel, sims=sims)
+    run_test(parameters={**parameters, "with_sdram_pin_buffering_p": with_sdram_pin_buffering_p}, sources=sources, module_name=module_name, hdl_toplevel=hdl_toplevel, sims=sims)

@@ -2,6 +2,7 @@
 module wb_sdr_mt48lc16m16a_7e #(
     parameter sys_clk_mhz_p = 67
    ,parameter dram_burst_p = 4
+   ,parameter with_sdram_pin_buffering_p = 0
    // below should never be modified
    ,parameter _data_bits_p = 16
    ,parameter _rows_p = 8192
@@ -514,7 +515,9 @@ module wb_sdr_mt48lc16m16a_7e #(
 
             if (CL_lp - 1 > 0) begin
                state_d = state_q;
-               wait_counter_d = CL_lp - 2;
+               // with_sdram_pin_buffering_p is a boolean: when set, account for pads buffering
+               // adding  1 cycle each side (output + input = 2 total cycles of round-trip latency).
+               wait_counter_d = CL_lp - 2 + (with_sdram_pin_buffering_p ? 2 : 0);
             end else begin
                reset_registers();
                state_d = READ_OUT;
