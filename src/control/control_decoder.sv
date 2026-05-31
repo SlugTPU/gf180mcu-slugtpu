@@ -1,7 +1,7 @@
 module control_decoder #(
-    parameter int SRAM_ADDR_WIDTH = 8,
+    parameter int SRAM_ADDR_WIDTH = 10,
     parameter int DRAM_ADDR_WIDTH = 12,
-    parameter int DRAM_COUNTER_WIDTH = 8,
+    parameter int DRAM_COUNTER_WIDTH = 10,
     parameter int DRAM_DATA_WIDTH = 64,
     parameter int INST_MAX_WIDTH_BYTES = 4
 ) (
@@ -48,12 +48,12 @@ module control_decoder #(
     logic [1:0] inst_load_count_q, inst_load_count_d;
     logic [DRAM_COUNTER_WIDTH-1:0] inst_pipeline_amount, pipeline_amount_q, pipeline_amount_d , inst_dma_amount ;
 
-    assign inst_sram_addr           = inst_q[11:4];
-    assign inst_dram_addr           = inst_q[23:12];
-    assign inst_result_sram_addr    = inst_q[19:12];
+    assign inst_sram_addr           = {inst_q[11:4], 2'b00};
+    assign inst_dram_addr           = {inst_q[23:12], 2'b00};
+    assign inst_result_sram_addr    = {inst_q[19:12], 2'b00};
     assign inst_relu_mode           = inst_q[7:4];
-    assign inst_pipeline_amount     = inst_q[15:8];
-    assign inst_dma_amount          = inst_q[31:24];
+    assign inst_pipeline_amount     = {inst_q[15:8], 2'b00};
+    assign inst_dma_amount          = {inst_q[31:24], 2'b00};
 
     // Scalar stage controls
     logic                        load_bias_en_q, load_bias_en_d;

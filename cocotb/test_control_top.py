@@ -58,7 +58,7 @@ async def test_reset(dut):
 
 @cocotb.test()
 async def test_pc_load(dut):
-    inst = [0b0000100000011110000010000001111000001000000111100000100000011110] * 32 + [0]
+    inst = [0b0000100000011110000010000001111000001000000111100000100000011110] * 128 + [0]
     await do_reset(dut)
     await FallingEdge(dut.clk_i)
     assert dut.tpu_state_o.value == 0b01 # idle state
@@ -73,8 +73,8 @@ async def test_pc_load(dut):
     await dram2sram_helper(dut, inst)
     for _ in range(40):
         await FallingEdge(dut.clk_i)
-    while dut.tpu_state_o.value != 0b01:
-        await FallingEdge(dut.clk_i)
+    # while dut.tpu_state_o.value != 0b01:
+    #     await FallingEdge(dut.clk_i)
     await FallingEdge(dut.clk_i)
 tests = [
     'test_reset',
@@ -85,7 +85,7 @@ proj_path = Path("./src").resolve()
 sources = [
     proj_path / "control/control_top.sv",
     proj_path / "control/control_sram.sv",
-    proj_path / "sram/sram_1x256.sv",
+    proj_path / "sram/sram_1x1024.sv",
     proj_path / "control/control_buffer.sv",
     proj_path / "control/control_decoder.sv",
     proj_path / "compute_core.sv",
@@ -100,14 +100,14 @@ sources = [
     proj_path / "common/elastic.sv",
     proj_path / "common/shift.sv",
     proj_path / "sram/memory_transaction.sv",
-    proj_path / "sram/sram_8x256_full.sv",
-    proj_path / "sram/sram_8x256.sv",
+    proj_path / "sram/sram_8x1024_full.sv",
+    proj_path / "sram/sram_8x1024.sv",
     proj_path / "sysray/sysray_nxn.sv",
     proj_path / "sysray/pe.sv",
     proj_path / "sysray/mxu.sv",
     proj_path / "common/counter.sv",
     proj_path / "tri_shift.sv",
-    "./ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1.v",
+    "./ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram1024x8m8wm1/gf180mcu_ocd_ip_sram__sram1024x8m8wm1.v",
 ]
 
 

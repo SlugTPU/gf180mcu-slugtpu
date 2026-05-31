@@ -4,8 +4,8 @@ module scalar_stage_sram #(
     parameter int DATA_W = 32,
     parameter int FIXED_SHIFT = 31,
     parameter int DATA_Q = 8,
-    parameter int counter_width = 8,
-    parameter int address_width = 8
+    parameter int counter_width = 10,
+    parameter int address_width = 10
 ) (
 `ifdef USE_POWER_PINS
     inout  wire VDD,
@@ -71,7 +71,7 @@ module scalar_stage_sram #(
             sram_wr_data = wr_data_i;
     end
 
-    sram_8x256_full
+    sram_8x1024_full
         #()
     activation_sram_inst (
 `ifdef USE_POWER_PINS
