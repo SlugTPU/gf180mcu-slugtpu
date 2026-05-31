@@ -430,14 +430,14 @@ sources = [
     proj_path / "common/elastic.sv",
     proj_path / "common/shift.sv",
     proj_path / "sram/memory_transaction.sv",
-    proj_path / "sram/sram_8x256_full.sv",
-    proj_path / "sram/sram_8x256.sv",
+    proj_path / "sram/sram_8x1024_full.sv",
+    proj_path / "sram/sram_8x1024.sv",
     proj_path / "sysray/sysray_nxn.sv",
     proj_path / "sysray/pe.sv",
     proj_path / "sysray/mxu.sv",
     proj_path / "common/counter.sv",
     proj_path / "tri_shift.sv",
-    "./ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1.v",
+    "./ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram1024x8m8wm1/gf180mcu_ocd_ip_sram__sram1024x8m8wm1.v",
 ]
 
 

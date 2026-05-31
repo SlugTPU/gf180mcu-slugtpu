@@ -312,9 +312,9 @@ _sources = [
     _proj_path / "control" / "control_buffer.sv",
     _proj_path / "control" / "control_sram.sv",
     _proj_path / "compute_core.sv",
-    _proj_path / "sram" / "sram_1x256.sv",
-    _proj_path / "sram" / "sram_8x256.sv",
-    _proj_path / "sram" / "sram_8x256_full.sv",
+    _proj_path / "sram" / "sram_1x1024.sv",
+    _proj_path / "sram" / "sram_8x1024.sv",
+    _proj_path / "sram" / "sram_8x1024_full.sv",
     _proj_path / "sram" / "memory_transaction.sv",
     _proj_path / "sysray" / "mxu.sv",
     _proj_path / "sysray" / "sysray_nxn.sv",
@@ -330,8 +330,8 @@ _sources = [
     _proj_path / "debug_mux.sv",
     _proj_path / "tri_shift.sv",
     (
-        "ip/gf180mcu_ocd_ip_sram/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/"
-        "gf180mcu_ocd_ip_sram__sram256x8m8wm1.v"
+        "ip/gf180mcu_ocd_ip_sram/cells/gf180mcu_ocd_ip_sram__sram1024x8m8wm1/"
+        "gf180mcu_ocd_ip_sram__sram1024x8m8wm1.v"
     ),
 ]
 
