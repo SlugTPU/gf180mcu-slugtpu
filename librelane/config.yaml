@@ -267,7 +267,7 @@ MACROS:
         location: [2200, 1550]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[3].sram_mod_i':
-        location: [2550, 2000]
+        location: [2550, 1550]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[4].sram_mod_i':
         location: [1500, 1900]
