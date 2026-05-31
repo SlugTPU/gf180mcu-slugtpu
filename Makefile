@@ -185,6 +185,15 @@ sim-tpu-soc-with-dram:
 sim-tpu-instructions:
 	python3 -m pytest cocotb/test_tpu_instructions.py -s
 
+sim-general-test-example:
+	python3 -m pytest cocotb/general_test/test_tpu_workload.py -s -v \
+	--tpu-bin     	 cocotb/general_test/single_layer_8x8_test/test.bin \
+	--tpu-dram-init  cocotb/general_test/single_layer_8x8_test/input_data.toml  \
+	--tpu-expected   cocotb/general_test/single_layer_8x8_test/expected.toml   \
+	--tpu-pc         0x1                  \
+	--tpu-post-cycles 2000                \
+	--tpu-timeout-mult 1.5                  
+
 sim-gl: ## Run gate-level simulation with cocotb (after copy-final)
 	cd cocotb; GL=1 PDK_ROOT=${PDK_ROOT} PDK=${PDK} SLOT=${SLOT} python3 chip_top_tb.py
 .PHONY: sim-gl

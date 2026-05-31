@@ -199,6 +199,7 @@ async def load_weight_banks_via_sram(dut, N, weight_banks):
 
     # Read sequentially from address 0 — no index math needed.
     await w_mem.load_address('r', 0, total_words)
+    dut.mxu_enable_i.value = 1
     dut.weight_enable_i.value = 1
     # await w_mem.read_data_no_ready(all_rows_packed)
     while dut.weight_load_ready_o.value != 1:
@@ -225,7 +226,7 @@ async def stream_acts_and_capture(dut, N, act_banks, expected_output, start_addr
     total_act_words = K * N
     await a_mem.load_address('w', start_addr, total_act_words)
     await a_mem.write_data(all_act_packed)
-
+    dut.mxu_enable_i.value = 1
     dut.act_enable_i.value = 1
     await a_mem.load_address('r', start_addr, total_act_words)
     # await a_mem.read_data_no_ready(all_act_packed)
@@ -237,7 +238,7 @@ async def stream_acts_and_capture(dut, N, act_banks, expected_output, start_addr
     await FallingEdge(dut.clk_i)
     await FallingEdge(dut.clk_i)
     await a_mem.load_address('w', write_addr, N)
-
+    dut.mxu_enable_i.value = 0
     if dut.act_load_ready_o.value != 1:
         await RisingEdge(dut.act_load_ready_o)
     await FallingEdge(dut.clk_i)
@@ -333,7 +334,7 @@ async def test_single_matmul(dut):
     await load_scalar_values(dut, scalar_params, 0)
 
     cocotb.start_soon(load_weight_banks_via_sram(dut, N, [weight]))
-    for _ in range(10):
+    for _ in range(25):
         await FallingEdge(dut.clk_i)
     await stream_acts_and_capture(dut, N, [act], expected, 12, 100)
     # cocotb.start_soon(stream_acts_and_capture(dut, N, [act], expected, 12, 100))
@@ -366,7 +367,7 @@ async def test_tiled_matmul(dut):
     await load_scalar_values(dut, scalar_params, 0)
  
     cocotb.start_soon(load_weight_banks_via_sram(dut, N, weight_banks))
-    for _ in range(15):
+    for _ in range(25):
         await FallingEdge(dut.clk_i)
  
     await stream_acts_and_capture(dut, N, act_banks, expected, start_addr=12, write_addr=100)
