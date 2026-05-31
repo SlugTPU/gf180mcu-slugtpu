@@ -1,8 +1,8 @@
 // Direct SRAM interface
 // TRANSACTION MODE IS 0 FOR READ, 1 FOR WRITE
 module memory_transaction #(
-    parameter counter_width = 8,
-    parameter address_width = 8
+    parameter counter_width = 10,
+    parameter address_width = 10
 )(
     input clk_i,
     input rst_i,

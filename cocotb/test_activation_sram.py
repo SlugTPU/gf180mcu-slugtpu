@@ -92,16 +92,16 @@ tests =[
 proj_path = Path("./src").resolve()
 sources = [
     proj_path / "sram/memory_transaction.sv",
-    proj_path / "sram/sram_8x256_full.sv",
-    proj_path / "sram/sram_8x256.sv",
-    "ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1.v"
+    proj_path / "sram/sram_8x1024_full.sv",
+    proj_path / "sram/sram_8x1024.sv",
+    "ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram1024x8m8wm1/gf180mcu_ocd_ip_sram__sram1024x8m8wm1.v"
 ]
 
 @pytest.mark.parametrize("testcase", tests)
 def test_mem_each(testcase):
     """Runs each test independently. Continues on test failure."""
-    run_test(parameters={}, sources=sources, module_name="test_activation_sram", hdl_toplevel="sram_8x256_full", testcase=testcase, sims=['icarus'])
+    run_test(parameters={}, sources=sources, module_name="test_activation_sram", hdl_toplevel="sram_8x1024_full", testcase=testcase, sims=['icarus'])
 
 def test_mem_all():
     """Runs all tests sequentially in one simulation."""
-    run_test(parameters={}, sources=sources, module_name="test_activation_sram", hdl_toplevel="sram_8x256_full", sims=['icarus'])
+    run_test(parameters={}, sources=sources, module_name="test_activation_sram", hdl_toplevel="sram_8x1024_full", sims=['icarus'])

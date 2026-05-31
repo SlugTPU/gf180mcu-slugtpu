@@ -1,10 +1,10 @@
-[line   1]  0x08100105  0000_1000_0001_0000_0000_0001_0000_0101  (32b)  dram2sram weights,      sram=0x10, dram=0x100, n=8
-[line   2]  0x1430020D  0001_0100_0011_0000_0000_0010_0000_1101  (32b)  dram2sram activations,  sram=0x20, dram=0x300, n=20
-[line   3]  0x088E  0000_1000_1000_1110  (16b)  pipeline_setup relu=enable, k_tile=8
-[line   4]  0x0106  0000_0001_0000_0110  (16b)  load_weights sram=0x10
-[line   6]  0x0208  0000_0010_0000_1000  (16b)  load_bias   sram=0x20
-[line   7]  0x024C  0000_0010_0100_1100  (16b)  load_zp     sram=0x24
-[line   8]  0x028A  0000_0010_1000_1010  (16b)  load_scale  sram=0x28
-[line  10]  0x0502C1  0000_0101_0000_0010_1100_0001  (24b)  matmul act=0x2C, res=0x50
-[line  12]  0x0840050F  0000_1000_0100_0000_0000_0101_0000_1111  (32b)  sram2dram sram=0x50, dram=0x400, n=8
+[line   1]  0x02040045  0000_0010_0000_0100_0000_0000_0100_0101  (32b)  dram2sram weights,      sram=0x10, dram=0x100, n=8
+[line   2]  0x050C008D  0000_0101_0000_1100_0000_0000_1000_1101  (32b)  dram2sram activations,  sram=0x20, dram=0x300, n=20
+[line   3]  0x028E  0000_0010_1000_1110  (16b)  pipeline_setup relu=enable, k_tile=8
+[line   4]  0x0046  0000_0000_0100_0110  (16b)  load_weights sram=0x10
+[line   6]  0x0088  0000_0000_1000_1000  (16b)  load_bias   sram=0x20
+[line   7]  0x009C  0000_0000_1001_1100  (16b)  load_zp     sram=0x24
+[line   8]  0x00AA  0000_0000_1010_1010  (16b)  load_scale  sram=0x28
+[line  10]  0x0140B1  0000_0001_0100_0000_1011_0001  (24b)  matmul act=0x2C, res=0x50
+[line  12]  0x0210014F  0000_0010_0001_0000_0000_0001_0100_1111  (32b)  sram2dram sram=0x50, dram=0x400, n=8
 [line  14]  0x0000  0000_0000_0000_0000  (16b)  exit

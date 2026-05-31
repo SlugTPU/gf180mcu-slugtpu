@@ -12,9 +12,9 @@ def encode_gmem2smem(match):
     dram_addr = int(match.group('dram_addr'), 0)
     tx_amount = int(match.group('tx_amount'), 0)
     word = (opcode & 0xF)
-    word |= (sram_addr & 0xFF) << 4
-    word |= (dram_addr & 0xFFF) << 12
-    word |= (tx_amount & 0xFF) << 24
+    word |= (sram_addr>>2 & 0xFF) << 4
+    word |= (dram_addr>>2 & 0xFFF) << 12
+    word |= (tx_amount>>2 & 0xFF) << 24
     return word, 32
 
 def encode_smem2gmem(match):
@@ -23,30 +23,30 @@ def encode_smem2gmem(match):
     dram_addr = int(match.group('dram_addr'), 0)
     tx_amount = int(match.group('tx_amount'), 0)
     word = (opcode & 0xF)
-    word |= (sram_addr & 0xFF) << 4
-    word |= (dram_addr & 0xFFF) << 12
-    word |= (tx_amount & 0xFF) << 24
+    word |= (sram_addr>>2 & 0xFF) << 4
+    word |= (dram_addr>>2 & 0xFFF) << 12
+    word |= (tx_amount>>2 & 0xFF) << 24
     return word, 32
 
 def encode_load_bias(match):
     opcode = 0b1000
     sram_addr = int(match.group('sram_addr'), 0)
     word = (opcode & 0xF)
-    word |= (sram_addr & 0xFF) << 4
+    word |= (sram_addr>>2 & 0xFF) << 4
     return word, 16
 
 def encode_load_zp(match):
     opcode = 0b1100
     sram_addr = int(match.group('sram_addr'), 0)
     word = (opcode & 0xF)
-    word |= (sram_addr & 0xFF) << 4
+    word |= (sram_addr>>2 & 0xFF) << 4
     return word, 16
 
 def encode_load_scale(match):
     opcode = 0b1010
     sram_addr = int(match.group('sram_addr'), 0)
     word = (opcode & 0xF)
-    word |= (sram_addr & 0xFF) << 4
+    word |= (sram_addr>>2 & 0xFF) << 4
     return word, 16
 
 def encode_pipeline_setup(match):
@@ -57,14 +57,14 @@ def encode_pipeline_setup(match):
     k_tile = int(match.group('k_tile'), 0)
     word = (opcode & 0xF)
     word |= (relu_vec & 0xF) << 4
-    word |= (k_tile & 0xFF) << 8
+    word |= (k_tile>>2 & 0xFF) << 8
     return word, 16
 
 def encode_load_weights(match):
     opcode = 0b0110
     sram_addr = int(match.group('sram_addr'), 0)
     word = (opcode & 0xF)
-    word |= (sram_addr & 0xFF) << 4
+    word |= (sram_addr>>2 & 0xFF) << 4
     return word, 16
 
 def encode_matmul(match):
@@ -72,8 +72,8 @@ def encode_matmul(match):
     act_addr = int(match.group('act_addr'), 0)
     res_addr = int(match.group('res_addr'), 0)
     word = (opcode & 0xF)
-    word |= (act_addr & 0xFF) << 4
-    word |= (res_addr & 0xFF) << 12
+    word |= (act_addr>>2 & 0xFF) << 4
+    word |= (res_addr>>2 & 0xFF) << 12
     return word, 24
 
 def encode_exit(match):

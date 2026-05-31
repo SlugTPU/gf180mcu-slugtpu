@@ -2,7 +2,7 @@
 SRAM FIFO that interfaces with and serves as arbiter for both dram and decoder
 */
 module control_sram #(
-    parameter int sram_width_p = 8
+    parameter int sram_width_p = 10
 ) (
 `ifdef USE_POWER_PINS
     inout  wire VDD,
@@ -63,7 +63,7 @@ module control_sram #(
         end
     end
 
-    sram_1x256
+    sram_1x1024
     control_sram_block(
 `ifdef USE_POWER_PINS
         .VDD(VDD),
