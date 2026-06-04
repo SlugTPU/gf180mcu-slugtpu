@@ -192,7 +192,16 @@ sim-general-test-example:
 	--tpu-expected   cocotb/general_test/single_layer_8x8_test/expected.toml   \
 	--tpu-pc         0x1                  \
 	--tpu-post-cycles 2000                \
-	--tpu-timeout-mult 1.5                  
+	--tpu-timeout-mult 1.5 
+
+sim-general-8x16:
+	python3 -m pytest cocotb/general_test/test_tpu_workload.py -s -v \
+	--tpu-bin     	 cocotb/general_test/single_layer_8x16/inst.bin \
+	--tpu-dram-init  cocotb/general_test/single_layer_8x16/input_data.toml  \
+	--tpu-expected   cocotb/general_test/single_layer_8x16/expected.toml   \
+	--tpu-pc         0x1                  \
+	--tpu-post-cycles 2000                \
+	--tpu-timeout-mult 1.5                       
 
 sim-gl: ## Run gate-level simulation with cocotb (after copy-final)
 	cd cocotb; GL=1 PDK_ROOT=${PDK_ROOT} PDK=${PDK} SLOT=${SLOT} python3 chip_top_tb.py
