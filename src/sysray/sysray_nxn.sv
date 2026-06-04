@@ -60,8 +60,12 @@ generate
       end else if (i == N-1) begin : gen_last_row
         assign psum_out_n_o[j] = psum_conn[i+1][j];
         assign psum_out_valid_intermediate[j] = a_valid_conn[i+1][act_col];
-        assign psum_out_valid_n_o[j] = psum_out_valid_intermediate[j] & ~act_valid_n_i[j];
       end
+
+      always_ff @( posedge clk_i ) begin
+        psum_out_valid_n_o[j] <= psum_out_valid_intermediate[j] & ~act_valid_n_i[j];
+      end
+
 
       pe #(.DATA_WIDTH(DATA_WIDTH), .ACC_WIDTH(ACC_WIDTH)) pe_ij (
         .clk_i(clk_i),
