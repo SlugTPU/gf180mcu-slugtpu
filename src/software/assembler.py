@@ -188,6 +188,8 @@ load_bias   sram=0x20
 load_zp     sram=0x24 # comment
 load_scale  sram=0x28
 
+matmul act=0x2C, res=0x00
+load_weights sram=0x10
 matmul act=0x2C, res=0x50
 
 sram2dram sram=0x50, dram=0x400, n=8

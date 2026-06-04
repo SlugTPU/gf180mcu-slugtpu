@@ -120,7 +120,7 @@ async def test_tpu_instructions(dut):
             i += 1
     await bfm.write(base_addr, words, timeout=timeout)
     await bfm.write(0x1000_0000, [list(0x0000_0000_0000_0001.to_bytes(8, 'big'))], timeout=timeout)
-    await ClockCycles(dut.clk_i, 1000)
+    await ClockCycles(dut.clk_i, 2500)
     got = await bfm.read(0x400, 8)
     expected_matmul = tiled_matmul_saturating_ref([act], [weight])
     expected_output = []
