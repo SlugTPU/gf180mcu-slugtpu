@@ -78,7 +78,7 @@ module pe #(
     assign active_weight = weight_buf[act_sel][DATA_WIDTH-1:0];
     assign s_product     = $signed(act_i[DATA_WIDTH-1:0]) * active_weight;  // 8b signed × 8b signed, 16 bit result
 
-    logic signed [ACC_WIDTH-1:0]    s_product_reg;
+    logic signed [(DATA_WIDTH*2)-1:0]     s_product_reg;
     logic                           act_valid_pipe;
 
     always_ff @(posedge clk_i) begin
