@@ -3,6 +3,10 @@ meta:
   flow: Chip
   substituting_steps:
 
+    # Render the layout after sealring insertion
+    KLayout.Render: null
+    +KLayout.SealRing: KLayout.Render
+
     # Disable KLayout DRC
     #KLayout.DRC: null
     #Checker.KLayoutDRC: null
@@ -87,8 +91,11 @@ GND_NETS:
 # due to the unused Y output for output only pads
 IGNORE_DISCONNECTED_MODULES:
 - gf180mcu_fd_io__bi_24t
-- gf180mcu_ws_ip__id
+- gf180mcu_ws_ip__qrcode_id
+- gf180mcu_ws_ip__shuttle_id
+- gf180mcu_ws_ip__project_id
 - gf180mcu_ws_ip__logo
+- gf180mcu_ws_ip__marker
 
 # Skip every fill / tap / decap cell from the 3.3V SCL and IO libraries
 # during LVS. The 3.3V flow inserts hundreds of thousands of fillcap_16
@@ -123,16 +130,22 @@ GRT_RESIZER_HOLD_SLACK_MARGIN: 0.5
 # Allow for huge fanouts so they are driven by large buffers instead of chains, which helps meeting setup
 MAX_FANOUT_CONSTRAINT: 20
 
-# Increase for more logic
-# on your die
+# Increase density for more 
+# logic on your die
 PL_TARGET_DENSITY_PCT: 35
 GRT_ALLOW_CONGESTION: true
 RUN_POST_GRT_DESIGN_REPAIR: true
+
+# Allow a larger Y displacement
+PL_MAX_DISPLACEMENT_Y: 200
 
 # Fix antenna violations after DRT
 DRT_ANTENNA_REPAIR_ITERS: 10
 DRT_ANTENNA_REPAIR_MARGIN: 10 # %
 
+# PDN
+PDN_CFG: dir::pdn/pdn_cfg.tcl
+PDN_ENABLE_PINS: False
 
 # PDN - Straps
 PDN_VWIDTH: 5
@@ -148,14 +161,9 @@ PDN_CORE_RING: True
 PDN_CORE_RING_VWIDTH: 25
 PDN_CORE_RING_HWIDTH: 25
 PDN_CORE_RING_CONNECT_TO_PADS: True
-PDN_ENABLE_PINS: False
-PDN_CORE_VERTICAL_LAYER: Metal2
+PDN_CORE_VERTICAL_LAYER: Metal4
 PDN_CORE_HORIZONTAL_LAYER: Metal3
-
-# Due to OpenROAD bug
-# https://github.com/The-OpenROAD-Project/OpenROAD/issues/8229
-#PL_TIME_DRIVEN: False
-#PL_ROUTABILITY_DRIVEN: False
+PDN_CORE_RING_CONNECT_TO_PAD_LAYERS: [Metal2]
 
 # Do not error on magic DRC violations
 # Note: Passing magic DRC is not required for the submission.
@@ -166,7 +174,7 @@ ERROR_ON_MAGIC_DRC: False
 MAGIC_GDS_FLATGLOB:
 # For contacts
 - "*_CDNS_*"
-# 3.3V SRAMs (based on foundry SRAM layout)
+# 3.3V (based on foundry SRAM layout) + 5V foundry
 - "*$$*"
 - "M1_N*"
 - "M1_P*"
@@ -181,7 +189,8 @@ MAGIC_GDS_FLATGLOB:
 - "via1_*"
 - "ypass_gate*"
 - "G_ring_*"
-# SRAM internal cells that may contain DUALGATE layers
+# These additional cells must be flattened to get rid of 3.3V devices
+# (DUALGATE drawn into high-level cells)
 - "dcap_103*"
 - "din_*"
 - "mux821_*"
@@ -206,129 +215,36 @@ KLAYOUT_FILLER_OPTIONS:
 # Because we have multiple power pads for one power domain
 MAGIC_EXT_UNIQUE: notopports
 
-MACROS:
-  gf180mcu_ws_ip__id:
-    gds:
-      - dir::../ip/gf180mcu_ws_ip__id/gds/gf180mcu_ws_ip__id.gds
-    lef:
-      - dir::../ip/gf180mcu_ws_ip__id/lef/gf180mcu_ws_ip__id.lef
-    vh:
-      - dir::../ip/gf180mcu_ws_ip__id/vh/gf180mcu_ws_ip__id.v
-    lib:
-      "*":
-        - dir::../ip/gf180mcu_ws_ip__id/lib/gf180mcu_ws_ip__id.lib
-    instances:
-      chip_id:
-        location: [26, 26]
-        orientation: N
-
-  gf180mcu_ws_ip__logo:
-    gds:
-      - dir::../ip/gf180mcu_ws_ip__logo/gds/gf180mcu_ws_ip__logo.gds
-    lef:
-      - dir::../ip/gf180mcu_ws_ip__logo/lef/gf180mcu_ws_ip__logo.lef
-    vh:
-      - dir::../ip/gf180mcu_ws_ip__logo/vh/gf180mcu_ws_ip__logo.v
-    lib:
-      "*":
-        - dir::../ip/gf180mcu_ws_ip__logo/lib/gf180mcu_ws_ip__logo.lib
-    instances:
-      wafer_space_logo:
-        location: ["expr::$DIE_AREA[2] + -169.25", "expr::$DIE_AREA[3] + -169.25"]
-        orientation: N
-
-   # Tim's 3v3 SRAM
-   # https://github.com/RTimothyEdwards/gf180mcu_ocd_ip_sram
-  gf180mcu_ocd_ip_sram__sram256x8m8wm1:
-    gds:
-      - dir::../ip/gf180mcu_ocd_ip_sram/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1.gds
-    lef:
-      - dir::../ip/gf180mcu_ocd_ip_sram/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1.lef
-    vh:
-      - dir::../ip/gf180mcu_ocd_ip_sram/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1.blackbox.v
-    lib:
-      "*_tt_025C_3v30":
-        - dir::../ip/gf180mcu_ocd_ip_sram/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1__tt_025C_3v30.lib
-      "*_ff_n40C_3v60":
-        - dir::../ip/gf180mcu_ocd_ip_sram/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1__ff_n40C_3v60.lib
-    instances:
-      # Make sure to specify the SRAMs in pdn_cfg.tcl
-      # NOTE: genblk1[N] paths come from the unnamed generate-for loop in
-      # sram_8x256.sv. Verify exact names after first synthesis run.
-
-      # Control instruction SRAM (1x sram_1x256)
-      i_chip_core.i_tpu_soc.control.control_sram_inst.control_sram_block.sram_inst:
-        location: [1000, 2100]
-        orientation: N
-
-      # Weight SRAMs (8x from sram_8x256 inside weight_sram_inst)
-      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[0].sram_mod_i':
-        location: [1500, 1675]
-        orientation: N
-      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[1].sram_mod_i':
-        location: [1801, 1675]
-        orientation: N
-      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[2].sram_mod_i':
-        location: [2102, 1675]
-        orientation: N
-      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[3].sram_mod_i':
-        location: [2403, 1675]
-        orientation: N
-      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[4].sram_mod_i':
-        location: [1500, 1901]
-        orientation: S
-      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[5].sram_mod_i':
-        location: [1801, 1901]
-        orientation: S
-      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[6].sram_mod_i':
-        location: [2102, 1901]
-        orientation: S
-      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[7].sram_mod_i':
-        location: [2403, 1901]
-        orientation: S
-
-      # Activation SRAMs (8x from sram_8x256 inside scalar_stage_sram_inst)
-      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[0].sram_mod_i':
-        location: [1500, 2300]
-        orientation: N
-      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[1].sram_mod_i':
-        location: [1801, 2300]
-        orientation: N
-      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[2].sram_mod_i':
-        location: [2102, 2300]
-        orientation: N
-      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[3].sram_mod_i':
-        location: [2403, 2300]
-        orientation: N
-      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[4].sram_mod_i':
-        location: [1500, 2526]
-        orientation: S
-      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[5].sram_mod_i':
-        location: [1801, 2526]
-        orientation: S
-      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[6].sram_mod_i':
-        location: [2102, 2526]
-        orientation: S
-      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[7].sram_mod_i':
-        location: [2403, 2526]
-        orientation: S
-
-# Halo size around macros while cutting rows.
-# Workaround for: https://github.com/The-OpenROAD-Project/OpenROAD/issues/8868
-FP_MACRO_HORIZONTAL_HALO: 10
-FP_MACRO_VERTICAL_HALO: 10
-PDN_HORIZONTAL_HALO: 5
-PDN_VERTICAL_HALO: 5
-
-PDN_CFG: dir::pdn_cfg.tcl
-
-# gf180mcu_ws_ip__id/logo has no ports and components
-# therefore make it an abstract cell in the layout
-MAGIC_EXT_ABSTRACT_CELLS:
-- gf180mcu_ws_ip__id
-- gf180mcu_ws_ip__logo
-
 # these warnings are always benign
 LINTER_DISABLE_WARNINGS:
 - TIMESCALEMOD
 - DECLFILENAME
+
+# Image render settings
+KLAYOUT_RENDER_RESOLUTION: 2048
+KLAYOUT_RENDER_OVERSAMPLING: 3
+KLAYOUT_PROPERTIES: dir::gf180mcu_render.lyp
+
+# DRC settings
+# A high number of workers increases RAM usage,
+# but can significantly improve the performance.
+# workers * threads should equal the available
+# hardware threads for a best possible utilization.
+
+KLAYOUT_DRC_THREADS: 1
+
+# "max" equals max hardware threads
+KLAYOUT_DRC_OPTIONS:
+  decks: "all,-antenna,-density,-cup" # disable CUP for now
+  variant: ref::$PDK
+  workers: max
+
+KLAYOUT_DENSITY_OPTIONS:
+  decks: "density"
+  variant: ref::$PDK
+  workers: max
+
+KLAYOUT_ANTENNA_OPTIONS:
+  decks: "antenna"
+  variant: ref::$PDK
+  workers: max
