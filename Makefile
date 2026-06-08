@@ -86,8 +86,12 @@ lint-tpu-soc:
 .PHONY: lint-tpu-soc
 
 sim: ## Run chip-level RTL simulation of with cocotb
-	cd cocotb; PDK_ROOT=${PDK_ROOT} PDK=${PDK} SLOT=${SLOT} python3 chip_top_tb.py
+	PDK_ROOT=${PDK_ROOT} PDK=${PDK} SLOT=${SLOT} python3 -m pytest cocotb/test_chip_top.py
 .PHONY: sim
+
+sim-gl: ## Run gate-level simulation with cocotb (after copy-final)
+	GL=1 PDK_ROOT=${PDK_ROOT} PDK=${PDK} SCL=${SCL} SLOT=${SLOT} python3 -m pytest cocotb/test_chip_top.py
+.PHONY: sim-gl
 
 sim-fifo:
 	python3 -m pytest cocotb/test_fifo.py -s
@@ -202,10 +206,6 @@ sim-general-8x16:
 	--tpu-pc         0x1                  \
 	--tpu-post-cycles 2000                \
 	--tpu-timeout-mult 1.5                       
-
-sim-gl: ## Run gate-level simulation with cocotb (after copy-final)
-	cd cocotb; GL=1 PDK_ROOT=${PDK_ROOT} PDK=${PDK} SLOT=${SLOT} python3 chip_top_tb.py
-.PHONY: sim-gl
 
 sim-view: ## View simulation waveforms in GTKWave
 	gtkwave cocotb/sim_build/chip_top.fst
