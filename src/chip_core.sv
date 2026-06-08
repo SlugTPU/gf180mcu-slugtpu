@@ -12,10 +12,10 @@ module chip_core #(
     inout  wire VDD,
     inout  wire VSS,
     `endif
-
+    
     input  wire clk,       // clock
     input  wire rst_n,     // reset (active low)
-
+    
     input  wire [NUM_INPUT_PADS-1:0] input_in,   // Input value
     output wire [NUM_INPUT_PADS-1:0] input_pu,   // Pull-up
     output wire [NUM_INPUT_PADS-1:0] input_pd,   // Pull-down
@@ -29,10 +29,14 @@ module chip_core #(
     output wire [NUM_BIDIR_PADS-1:0] bidir_pu,   // Pull-up
     output wire [NUM_BIDIR_PADS-1:0] bidir_pd,   // Pull-down
 
-    input  wire [NUM_ANALOG_PADS-1:0] analog  // Analog
+    inout  wire [NUM_ANALOG_PADS-1:0] analog  // Analog
 );
 
+    // See here for usage: https://gf180mcu-pdk.readthedocs.io/en/latest/IPs/IO/gf180mcu_fd_io/digital.html
+
     // input_in[0] = spi_clk, [1] = spi_cs_n, [2] = spi_mosi; [11:3] unused
+
+    // Disable internal pull-up and pull-down for input
     assign input_pu = '0;
     assign input_pd = '0;
 

@@ -11,3 +11,5 @@ img/
 *.bak
 
 kicad_slugtpu-backups/*
+
+generated_defines.svh
