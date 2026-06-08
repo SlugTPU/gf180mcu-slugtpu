@@ -358,6 +358,10 @@ def get_sources():
         ip_path / "gf180mcu_ocd_ip_sram" / "cells" / "gf180mcu_ocd_ip_sram__sram256x8m8wm1" / "gf180mcu_ocd_ip_sram__sram256x8m8wm1.v",
         ip_path / "gf180mcu_ws_ip__id" / "vh" / "gf180mcu_ws_ip__id.v",
         ip_path / "gf180mcu_ws_ip__logo" / "vh" / "gf180mcu_ws_ip__logo.v",
+        ip_path / "gf180mcu_ws_ip__qrcode_id" / "vh" / "gf180mcu_ws_ip__qrcode_id.v",
+        ip_path / "gf180mcu_ws_ip__shuttle_id" / "vh" / "gf180mcu_ws_ip__shuttle_id.v",
+        ip_path / "gf180mcu_ws_ip__project_id" / "vh" / "gf180mcu_ws_ip__project_id.v",
+        ip_path / "gf180mcu_ws_ip__marker" / "vh" / "gf180mcu_ws_ip__marker.v",
         src_path / "dram" / "sdram_model_mt48lc16m16a2.v",
         src_path / "chip_top_sdram_tb.sv",
     ]
