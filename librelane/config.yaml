@@ -114,20 +114,25 @@ LVS_IGNORE_CELLS:
 # Clock
 CLOCK_PORT: clk_PAD
 CLOCK_NET: clk_pad/Y
-CLOCK_PERIOD: 10 # 100
+CLOCK_PERIOD: 14
 
 # Fix hold violations
-PL_RESIZER_HOLD_SLACK_MARGIN: 0.35
-GRT_RESIZER_HOLD_SLACK_MARGIN: 0.3
+PL_RESIZER_HOLD_SLACK_MARGIN: 0.5
+GRT_RESIZER_HOLD_SLACK_MARGIN: 0.5
+
+# Allow for huge fanouts so they are driven by large buffers instead of chains, which helps meeting setup
+MAX_FANOUT_CONSTRAINT: 20
 
 # Increase for more logic
 # on your die
 PL_TARGET_DENSITY_PCT: 35
 GRT_ALLOW_CONGESTION: true
+RUN_POST_GRT_DESIGN_REPAIR: true
 
 # Fix antenna violations after DRT
 DRT_ANTENNA_REPAIR_ITERS: 10
 DRT_ANTENNA_REPAIR_MARGIN: 10 # %
+
 
 # PDN - Straps
 PDN_VWIDTH: 5
@@ -253,60 +258,60 @@ MACROS:
 
       # Control instruction SRAM (1x sram_1x256)
       i_chip_core.i_tpu_soc.control.control_sram_inst.control_sram_block.sram_inst:
-        location: [1000, 2000]
+        location: [1000, 2100]
         orientation: N
 
       # Weight SRAMs (8x from sram_8x256 inside weight_sram_inst)
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[0].sram_mod_i':
-        location: [1500, 1550]
+        location: [1500, 1675]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[1].sram_mod_i':
-        location: [1850, 1550]
+        location: [1801, 1675]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[2].sram_mod_i':
-        location: [2200, 1550]
+        location: [2102, 1675]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[3].sram_mod_i':
-        location: [2550, 1550]
+        location: [2403, 1675]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[4].sram_mod_i':
-        location: [1500, 1900]
-        orientation: N
+        location: [1500, 1901]
+        orientation: S
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[5].sram_mod_i':
-        location: [1850, 1900]
-        orientation: N
+        location: [1801, 1901]
+        orientation: S
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[6].sram_mod_i':
-        location: [2200, 1900]
-        orientation: N
+        location: [2102, 1901]
+        orientation: S
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[7].sram_mod_i':
-        location: [2550, 1900]
-        orientation: N
+        location: [2403, 1901]
+        orientation: S
 
       # Activation SRAMs (8x from sram_8x256 inside scalar_stage_sram_inst)
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[0].sram_mod_i':
         location: [1500, 2300]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[1].sram_mod_i':
-        location: [1850, 2300]
+        location: [1801, 2300]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[2].sram_mod_i':
-        location: [2200, 2300]
+        location: [2102, 2300]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[3].sram_mod_i':
-        location: [2550, 2300]
+        location: [2403, 2300]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[4].sram_mod_i':
-        location: [1500, 2650]
-        orientation: N
+        location: [1500, 2526]
+        orientation: S
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[5].sram_mod_i':
-        location: [1850, 2650]
-        orientation: N
+        location: [1801, 2526]
+        orientation: S
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[6].sram_mod_i':
-        location: [2200, 2650]
-        orientation: N
+        location: [2102, 2526]
+        orientation: S
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[7].sram_mod_i':
-        location: [2550, 2550]
-        orientation: N
+        location: [2403, 2526]
+        orientation: S
 
 # Halo size around macros while cutting rows.
 # Workaround for: https://github.com/The-OpenROAD-Project/OpenROAD/issues/8868
