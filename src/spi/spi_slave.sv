@@ -24,7 +24,6 @@ module spi_slave (
    logic       byte_valid;
    logic       byte_valid_prev_q, byte_valid_prev_d;
 
-   logic       sclk_prev_q, sclk_prev_d;
    logic       mosi_data;
    // logic       cs_prev_q, cs_prev_d;
 
@@ -37,9 +36,8 @@ module spi_slave (
    assign cs_sync_d = { cs_sync_q[1:0], spi_cs_async_ni };
    assign mosi_sync_d = { mosi_sync_q[0], spi_mosi_async_i };
 
-   assign sclk_prev_d = sclk_sync_q[1];
-   assign sclk_rising_edge  = ({sclk_prev_q, sclk_sync_q[1]} == 2'b01) ? 1'b1 : 1'b0;
-   assign sclk_falling_edge = ({sclk_prev_q, sclk_sync_q[1]} == 2'b10) ? 1'b1 : 1'b0;
+   assign sclk_rising_edge  = ({sclk_sync_q[1], sclk_sync_q[0]} == 2'b01) ? 1'b1 : 1'b0;
+   assign sclk_falling_edge = ({sclk_sync_q[1], sclk_sync_q[0]} == 2'b10) ? 1'b1 : 1'b0;
 
    assign byte_valid = (ctr_bits_q == 4'd8);
    assign byte_valid_prev_d = byte_valid;
@@ -83,7 +81,6 @@ module spi_slave (
          cs_sync_q <= '0;
          mosi_sync_q <= '0;
 
-         sclk_prev_q <= '0;
          byte_valid_prev_q <= '0;
          // cs_prev_q <= '0;
 
@@ -94,7 +91,6 @@ module spi_slave (
          cs_sync_q <= cs_sync_d;
          mosi_sync_q <= mosi_sync_d;
 
-         sclk_prev_q <= sclk_prev_d;
          byte_valid_prev_q <= byte_valid_prev_d;
          // cs_prev_q <= cs_prev_d;
 
