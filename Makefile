@@ -7,6 +7,11 @@ PDK_ROOT ?= $(MAKEFILE_DIR)/gf180mcu
 PDK ?= gf180mcuD
 PDK_COMMIT ?= 9233c19260cd813c3fa67dd4594fe4cc67016832
 
+# SlugTPU configuration
+SCL  ?= gf180mcu_as_sc_mcu7t3v3
+PAD  ?= gf180mcu_fd_io
+SRAM ?= gf180mcu_ocd_ip_sram
+
 # Available SCL libraries:
 # gf180mcu_as_sc_mcu7t3v3
 # gf180mcu_fd_sc_mcu7t5v0
