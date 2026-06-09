@@ -171,23 +171,8 @@ sim-scale-n:
 sim-sram:
 	python3 -m pytest cocotb/test_sram.py -s
 
-sim-house:
-	python3 -m pytest cocotb/test_house.py -s
-
-sim-spisys:
-	python3 -m pytest cocotb/test_spi_system.py -s
-
 sim-tri:
 	python3 -m pytest cocotb/test_tri.py -s
-
-sim-write-transaction:
-	python3 -m pytest cocotb/test_write_transaction.py -s
-
-sim-read-transaction:
-	python3 -m pytest cocotb/test_read_transaction.py -s
-
-sim-sysray-2x2:
-	python3 -m pytest cocotb/test_sysray_2x2.py -s
 
 sim-sysray-nxn:
 	python3 -m pytest cocotb/test_sysray_nxn.py -s
