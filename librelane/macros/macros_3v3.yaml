@@ -95,12 +95,65 @@ MACROS:
         - pdk_dir::libs.ref/gf180mcu_ocd_ip_sram/lib/gf180mcu_ocd_ip_sram__sram512x8m8wm1__ss_125C_3v00.lib
     instances:
       # Make sure to specify the SRAMs in pdn_cfg.tcl
-      i_chip_core.sram_0:
-        location: [490, 500]
+      # NOTE: genblk1[N] paths come from the unnamed generate-for loop in
+      # sram_8x256.sv. Verify exact names after first synthesis run.
+
+      # Control instruction SRAM (1x sram_1x256)
+      i_chip_core.i_tpu_soc.control.control_sram_inst.control_sram_block.sram_inst:
+        location: [1000, 2100]
         orientation: N
-      i_chip_core.sram_1:
-        location: [970, 500]
-        orientation: E
+
+      # Weight SRAMs (8x from sram_8x256 inside weight_sram_inst)
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[0].sram_mod_i':
+        location: [1500, 1675]
+        orientation: N
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[1].sram_mod_i':
+        location: [1801, 1675]
+        orientation: N
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[2].sram_mod_i':
+        location: [2102, 1675]
+        orientation: N
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[3].sram_mod_i':
+        location: [2403, 1675]
+        orientation: N
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[4].sram_mod_i':
+        location: [1500, 1901]
+        orientation: S
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[5].sram_mod_i':
+        location: [1801, 1901]
+        orientation: S
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[6].sram_mod_i':
+        location: [2102, 1901]
+        orientation: S
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256[7].sram_mod_i':
+        location: [2403, 1901]
+        orientation: S
+
+      # Activation SRAMs (8x from sram_8x256 inside scalar_stage_sram_inst)
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[0].sram_mod_i':
+        location: [1500, 2300]
+        orientation: N
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[1].sram_mod_i':
+        location: [1801, 2300]
+        orientation: N
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[2].sram_mod_i':
+        location: [2102, 2300]
+        orientation: N
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[3].sram_mod_i':
+        location: [2403, 2300]
+        orientation: N
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[4].sram_mod_i':
+        location: [1500, 2526]
+        orientation: S
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[5].sram_mod_i':
+        location: [1801, 2526]
+        orientation: S
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[6].sram_mod_i':
+        location: [2102, 2526]
+        orientation: S
+      'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256[7].sram_mod_i':
+        location: [2403, 2526]
+        orientation: S
 
 # This is an alternative method compared to
 # specifying the power connections in the RTL
