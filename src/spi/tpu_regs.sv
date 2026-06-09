@@ -31,7 +31,7 @@ module tpu_regs #(
     output logic        tpu_pc_stb_o,   // pulses high one cycle on PC write
 
     // Bus mux control
-    output logic        test_mode_o,    // CTRL[1]: route DMA to on chip test RAM
+    output logic        test_mode_o,    // CTRL[0]: route DMA to on chip test RAM
 
     // TPU state + done detection
     input  logic [1:0]  tpu_state_i,
