@@ -116,7 +116,7 @@ module tpu_soc #(
    wire [dma_data_w_lp/8 - 1:0] tram_s_sel;
    wire                          tram_s_ack;
 
-   // CTRL[1] from tpu_regs
+   // CTRL[0] from tpu_regs
    wire test_mode;
    assign test_mode_o = test_mode;
 
@@ -295,7 +295,7 @@ module tpu_soc #(
    );
 
    // -----------------------------------------------------------------------
-   // wb_demux_1to2: route mux output to either the SDRAM controller (s0) or the on-chip test RAM (s1), selected by tpu_regs.CTRL[1] = test_mode.
+   // wb_demux_1to2: route mux output to either the SDRAM controller (s0) or the on-chip test RAM (s1), selected by tpu_regs.CTRL[0] = test_mode.
    // -----------------------------------------------------------------------
    wb_demux_1to2 #(
        .AdrW  (dma_addr_w_lp),
