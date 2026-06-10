@@ -66,10 +66,28 @@
             ];
 
             extra-python-packages =
-              ps: with ps; [
+              ps:
+              let
+                cocotbext-spi = ps.buildPythonPackage {
+                  pname = "cocotbext-spi";
+                  version = "0-unstable-20251215";
+                  src = pkgs.fetchFromGitHub {
+                    owner = "schang412";
+                    repo = "cocotbext-spi";
+                    rev = "be5761be54796a64607c4b115e2e7cfe8ac6bc83";
+                    hash = "sha256-IOmeta+Gc4t+KV237xlTEV+f0z364mq8k3Z3ViiLeJM=";
+                  };
+                  pyproject = true;
+                  build-system = with ps; [ setuptools setuptools-scm wheel ];
+                  dependencies = with ps; [ cocotb ];
+                  env.SETUPTOOLS_SCM_PRETEND_VERSION = "0.1";
+                };
+              in
+              with ps; [
                 # Verification
                 cocotb
                 pytest
+                cocotbext-spi
 
                 # For KLayout Python DRC runner
                 docopt
