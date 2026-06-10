@@ -225,8 +225,8 @@ sim-tpu-soc-with-dram:
 sim-tpu-instructions:
 	python3 -m pytest cocotb/test_tpu_instructions.py -s
 
-sim-general-test-example:
-	python3 -m pytest cocotb/general_test/test_tpu_workload.py -s -v \
+sim-general-test-example: clone-pdk defines
+	PDK_ROOT=${PDK_ROOT} PDK=${PDK} SLOT=${SLOT} PAD=${PAD} SCL=${SCL} SRAM=${SRAM} python3 -m pytest cocotb/general_test/test_tpu_workload.py -s -v \
 	--tpu-bin     	 cocotb/general_test/single_layer_8x8_test/test.bin \
 	--tpu-dram-init  cocotb/general_test/single_layer_8x8_test/input_data.toml  \
 	--tpu-expected   cocotb/general_test/single_layer_8x8_test/expected.toml   \
@@ -234,14 +234,23 @@ sim-general-test-example:
 	--tpu-post-cycles 2000                \
 	--tpu-timeout-mult 1.5 
 
-sim-general-8x16:
-	python3 -m pytest cocotb/general_test/test_tpu_workload.py -s -v \
+sim-general-8x16: clone-pdk defines
+	PDK_ROOT=${PDK_ROOT} PDK=${PDK} SLOT=${SLOT} PAD=${PAD} SCL=${SCL} SRAM=${SRAM} python3 -m pytest cocotb/general_test/test_tpu_workload.py -s -v \
 	--tpu-bin     	 cocotb/general_test/single_layer_8x16/inst.bin \
 	--tpu-dram-init  cocotb/general_test/single_layer_8x16/input_data.toml  \
 	--tpu-expected   cocotb/general_test/single_layer_8x16/expected.toml   \
 	--tpu-pc         0x1                  \
 	--tpu-post-cycles 2000                \
-	--tpu-timeout-mult 1.5                       
+	--tpu-timeout-mult 1.5    
+
+sim-general-8x24: clone-pdk defines
+	PDK_ROOT=${PDK_ROOT} PDK=${PDK} SLOT=${SLOT} PAD=${PAD} SCL=${SCL} SRAM=${SRAM} python3 -m pytest cocotb/general_test/test_tpu_workload.py -s -v \
+	--tpu-bin     	 cocotb/general_test/single_layer_8x16/inst.bin \
+	--tpu-dram-init  cocotb/general_test/single_layer_8x16/input_data.toml  \
+	--tpu-expected   cocotb/general_test/single_layer_8x16/expected.toml   \
+	--tpu-pc         0x1                  \
+	--tpu-post-cycles 2000                \
+	--tpu-timeout-mult 1.5                          
 
 #sim-view: ## View simulation waveforms in GTKWave
 #	gtkwave cocotb/sim_build/chip_top.fst

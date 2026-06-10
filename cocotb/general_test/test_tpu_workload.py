@@ -38,9 +38,24 @@ from pathlib import Path
 # (shared.py, runner.py, spibone_bfm.py) remain in the parent directory.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from shared import reset_sequence, clock_start
-from runner import run_test
+from cocotb_tools.runner import get_runner
+from shared import reset_sequence, clock_start, stringify_dict
 from spibone_bfm import SpiboneBFM
+
+
+# ---------------------------------------------------------------------------
+# Simulator / PDK configuration  (mirrors test_chip_top.py)
+# ---------------------------------------------------------------------------
+sim      = os.getenv("SIM", "icarus")
+pdk_root = Path(os.getenv("PDK_ROOT", Path("~/.ciel").expanduser()))
+pdk      = os.getenv("PDK", "gf180mcuD")
+scl      = os.getenv("SCL", "gf180mcu_as_sc_mcu7t3v3")
+gl       = os.getenv("GL", False)
+slot     = os.getenv("SLOT", "1x1")
+
+hdl_toplevel = "chip_top_sdram_tb"
+module_name  = "test_tpu_workload"
+parameters   = {"sys_clk_mhz_p": 100}
 
 
 # ---------------------------------------------------------------------------
@@ -290,50 +305,79 @@ async def test_tpu_workload(dut):
 # Source list
 # ---------------------------------------------------------------------------
 
-_proj_path = Path("./src").resolve()
-_sources = [
-    _proj_path / "tpu_soc.sv",
-    _proj_path / "spi" / "spibone_wb.sv",
-    _proj_path / "spi" / "spi_slave.sv",
-    _proj_path / "spi" / "wb_decoder.sv",
-    _proj_path / "spi" / "tpu_regs.sv",
-    _proj_path / "spi" / "wb_demux_1to2.sv",
-    _proj_path / "spi" / "wb_test_ram.sv",
-    _proj_path / "dram" / "tpu_soc_with_dram.sv",
-    _proj_path / "dram" / "wb_dma_master.sv",
-    _proj_path / "dram" / "wb_mux_2to1.sv",
-    _proj_path / "dram" / "wb_sdr_mt48lc16m16a2_7e.sv",
-    _proj_path / "dram" / "sdram_model_mt48lc16m16a2.v",
-    _proj_path / "common" / "shift.sv",
-    _proj_path / "common" / "counter.sv",
-    _proj_path / "common" / "elastic.sv",
-    _proj_path / "control" / "control_top.sv",
-    _proj_path / "control" / "control_decoder.sv",
-    _proj_path / "control" / "control_buffer.sv",
-    _proj_path / "control" / "control_sram.sv",
-    _proj_path / "compute_core.sv",
-    _proj_path / "sram" / "sram_1x256.sv",
-    _proj_path / "sram" / "sram_8x256.sv",
-    _proj_path / "sram" / "sram_8x256_full.sv",
-    _proj_path / "sram" / "memory_transaction.sv",
-    _proj_path / "sysray" / "mxu.sv",
-    _proj_path / "sysray" / "sysray_nxn.sv",
-    _proj_path / "sysray" / "pe.sv",
-    _proj_path / "scalar_units" / "add_n.sv",
-    _proj_path / "scalar_units" / "relu_n.sv",
-    _proj_path / "scalar_units" / "scale_n.sv",
-    _proj_path / "scalar_units" / "load_data.sv",
-    _proj_path / "scalar_units" / "scalar_pipe.sv",
-    _proj_path / "scalar_units" / "scalar_stage.sv",
-    _proj_path / "scalar_units" / "quantizer_mul.sv",
-    _proj_path / "scalar_units" / "scalar_stage_sram.sv",
-    _proj_path / "debug_mux.sv",
-    _proj_path / "tri_shift.sv",
-    (
-        "ip/gf180mcu_ocd_ip_sram/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/"
-        "gf180mcu_ocd_ip_sram__sram256x8m8wm1.v"
-    ),
-]
+def get_sources():
+    proj_path = Path(__file__).resolve().parent.parent.parent
+    src_path  = proj_path / "src"
+    ip_path   = proj_path / "ip"
+
+    defines = {"functional": True}
+    slot_define = f"SLOT_{slot.upper()}"
+    defines = {slot_define: True}
+
+    if gl:
+        sources = [
+            pdk_root / pdk / "libs.ref" / scl / "verilog" / f"{scl}.v",
+            pdk_root / pdk / "libs.ref" / scl / "verilog" / "primitives.v",
+            proj_path / "final" / "pnl" / "tpu_soc.pnl.v",
+        ]
+        defines["USE_POWER_PINS"] = True
+    else:
+        sources = [
+            src_path / "chip_top.sv",
+            src_path / "chip_core.sv",
+            src_path / "tpu_soc.sv",
+            src_path / "spi" / "spibone_wb.sv",
+            src_path / "spi" / "spi_slave.sv",
+            src_path / "spi" / "wb_decoder.sv",
+            src_path / "spi" / "tpu_regs.sv",
+            src_path / "spi" / "wb_demux_1to2.sv",
+            src_path / "spi" / "wb_test_ram.sv",
+            src_path / "dram" / "tpu_soc_with_dram.sv",
+            src_path / "dram" / "wb_dma_master.sv",
+            src_path / "dram" / "wb_mux_2to1.sv",
+            src_path / "dram" / "wb_sdr_mt48lc16m16a2_7e.sv",
+            src_path / "common" / "shift.sv",
+            src_path / "common" / "counter.sv",
+            src_path / "common" / "elastic.sv",
+            src_path / "control" / "control_top.sv",
+            src_path / "control" / "control_decoder.sv",
+            src_path / "control" / "control_buffer.sv",
+            src_path / "control" / "control_sram.sv",
+            src_path / "compute_core.sv",
+            src_path / "sram" / "sram_1x256.sv",
+            src_path / "sram" / "sram_8x256.sv",
+            src_path / "sram" / "sram_8x256_full.sv",
+            src_path / "sram" / "memory_transaction.sv",
+            src_path / "sysray" / "mxu.sv",
+            src_path / "sysray" / "sysray_nxn.sv",
+            src_path / "sysray" / "pe.sv",
+            src_path / "scalar_units" / "add_n.sv",
+            src_path / "scalar_units" / "relu_n.sv",
+            src_path / "scalar_units" / "scale_n.sv",
+            src_path / "scalar_units" / "load_data.sv",
+            src_path / "scalar_units" / "scalar_pipe.sv",
+            src_path / "scalar_units" / "scalar_stage.sv",
+            src_path / "scalar_units" / "quantizer_mul.sv",
+            src_path / "scalar_units" / "scalar_stage_sram.sv",
+            src_path / "debug_mux.sv",
+            src_path / "tri_shift.sv",
+        ]
+        defines["SIM_TOP"] = 2
+
+    sources += [
+        pdk_root / pdk / "libs.ref" / "gf180mcu_fd_io" / "verilog" / "gf180mcu_fd_io.v",
+        ip_path / "gf180mcu_ocd_ip_sram" / "cells" / "gf180mcu_ocd_ip_sram__sram256x8m8wm1" / "gf180mcu_ocd_ip_sram__sram256x8m8wm1.v",
+        ip_path / "gf180mcu_ws_ip__id" / "vh" / "gf180mcu_ws_ip__id.v",
+        ip_path / "gf180mcu_ws_ip__logo" / "vh" / "gf180mcu_ws_ip__logo.v",
+        ip_path / "gf180mcu_ws_ip__qrcode_id" / "vh" / "gf180mcu_ws_ip__qrcode_id.v",
+        ip_path / "gf180mcu_ws_ip__shuttle_id" / "vh" / "gf180mcu_ws_ip__shuttle_id.v",
+        ip_path / "gf180mcu_ws_ip__project_id" / "vh" / "gf180mcu_ws_ip__project_id.v",
+        ip_path / "gf180mcu_ws_ip__marker" / "vh" / "gf180mcu_ws_ip__marker.v",
+        src_path / "dram" / "sdram_model_mt48lc16m16a2.v",
+        src_path / "chip_top_sdram_tb.sv",
+    ]
+
+    return sources, defines
 
 
 # ---------------------------------------------------------------------------
@@ -345,13 +389,17 @@ def test_tpu_workload_run(request: pytest.FixtureRequest) -> None:
     Reads --tpu-* CLI options, resolves all paths to absolute (so they are
     CWD-independent in the simulator subprocess), writes them to env vars,
     then launches the simulation.
+
+    Set GL=1 in the environment to run against the gate-level netlist instead
+    of RTL sources.  PDK_ROOT, PDK, SCL are read from the environment with
+    the same defaults as test_chip_top.py.
     """
-    bin_path_str   = request.config.getoption("--tpu-bin")
-    dram_init_str  = request.config.getoption("--tpu-dram-init")
-    expected_str   = request.config.getoption("--tpu-expected")
-    pc_str         = request.config.getoption("--tpu-pc")
-    post_cycles    = request.config.getoption("--tpu-post-cycles")
-    timeout_mult   = request.config.getoption("--tpu-timeout-mult")
+    bin_path_str  = request.config.getoption("--tpu-bin")
+    dram_init_str = request.config.getoption("--tpu-dram-init")
+    expected_str  = request.config.getoption("--tpu-expected")
+    pc_str        = request.config.getoption("--tpu-pc")
+    post_cycles   = request.config.getoption("--tpu-post-cycles")
+    timeout_mult  = request.config.getoption("--tpu-timeout-mult")
 
     # Validate and resolve to absolute paths
     bin_path = Path(bin_path_str).resolve()
@@ -372,7 +420,7 @@ def test_tpu_workload_run(request: pytest.FixtureRequest) -> None:
     else:
         expected_path = None
 
-    sys_clk_mhz = 100
+    sys_clk_mhz = parameters["sys_clk_mhz_p"]
     timeout      = int(100 * sys_clk_mhz * timeout_mult) + 50
 
     # Write resolved values to env vars so the cocotb subprocess can read them
@@ -389,12 +437,29 @@ def test_tpu_workload_run(request: pytest.FixtureRequest) -> None:
     elif _E_EXPECTED in os.environ:
         del os.environ[_E_EXPECTED]
 
-    run_test(
-        parameters={"sys_clk_mhz_p": sys_clk_mhz},
-        sources=_sources,
-        module_name="test_tpu_workload",
-        hdl_toplevel="tpu_soc_sdram_tb",
+    sources, defines = get_sources()
+    proj_path = Path(__file__).resolve().parent.parent.parent
+    includes  = [proj_path / "src"]
+
+    build_dir = (
+        Path("./sim_build") / sim / module_name / "workload"
+        / stringify_dict(parameters)
+    )
+
+    runner = get_runner(sim)
+    runner.build(
+        sources=sources,
+        hdl_toplevel=hdl_toplevel,
+        defines=defines,
+        always=True,
+        includes=includes,
+        build_dir=build_dir,
+        parameters=parameters,
+        waves=True,
+    )
+    runner.test(
+        hdl_toplevel=hdl_toplevel,
+        test_module=module_name,
         testcase="test_tpu_workload",
-        sims=["icarus"],
-        sim_flag=2,
+        waves=True,
     )
