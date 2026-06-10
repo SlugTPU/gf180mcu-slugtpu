@@ -9,6 +9,7 @@ from pathlib import Path
 from shared import reset_sequence, clock_start, stringify_dict
 from spibone_bfm import SpiboneBFM
 from cocotb_tools.runner import get_runner
+from runner import run_test
 
 sim      = os.getenv("SIM", "icarus")
 pdk_root = Path(os.getenv("PDK_ROOT", Path("~/.ciel").expanduser()))
@@ -16,10 +17,6 @@ pdk      = os.getenv("PDK", "gf180mcuD")
 scl      = os.getenv("SCL", "gf180mcu_as_sc_mcu7t3v3")
 gl       = os.getenv("GL", False)
 slot     = os.getenv("SLOT", "1x1")
-
-hdl_toplevel = "chip_top_sdram_tb"
-module_name  = "test_chip_top"
-parameters   = {"sys_clk_mhz_p": 100}
 
 
 def make_spi_config(clock_freq_mhz):
@@ -368,39 +365,34 @@ def get_sources():
     return sources, defines
 
 
-def run_test(testcase=None):
-    sources, defines = get_sources()
-    proj_path = Path(__file__).resolve().parent.parent
-    includes  = [proj_path / "src"]
-
-    case_name = testcase if testcase else "all"
-    build_dir = Path("./sim_build") / sim / module_name / case_name / stringify_dict(parameters)
-
-    runner = get_runner(sim)
-    runner.build(
-        sources=sources,
-        hdl_toplevel=hdl_toplevel,
-        defines=defines,
-        always=True,
-        includes=includes,
-        build_dir=build_dir,
-        parameters=parameters,
-        waves=True,
-    )
-    runner.test(
-        hdl_toplevel=hdl_toplevel,
-        test_module=module_name,
-        testcase=testcase,
-        waves=True,
-    )
-
+sources, defines = get_sources()
+proj_path = Path(__file__).resolve().parent.parent
+src_path  = proj_path / "src"
+hdl_toplevel = "chip_top_sdram_tb"
+module_name  = "test_chip_top"
+parameters   = {"sys_clk_mhz_p": 100}
 
 @pytest.mark.parametrize("testcase", tests)
 def test_chip_top_each(testcase):
     """Runs each test independently."""
-    run_test(testcase=testcase)
+    run_test(
+        sources=sources,
+        module_name="test_chip_top",
+        hdl_toplevel=hdl_toplevel,
+        parameters=parameters,
+        testcase=testcase,
+        sims=['icarus'],
+        includes=[src_path]
+    )
 
 
 def test_chip_top_all():
     """Runs all tests sequentially in one simulation."""
-    run_test()
+    run_test(
+        sources=sources,
+        module_name="test_chip_top",
+        hdl_toplevel=hdl_toplevel,
+        parameters=parameters,
+        sims=['icarus'],
+        includes=[src_path]
+    )
