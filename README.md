@@ -101,6 +101,10 @@ For the verification of the chip we use [cocotb](https://www.cocotb.org/). Cocot
 
 The testbench is located in `cocotb/chip_top_tb.py`. To run the RTL simulation, run the following command:
 
+Note: The top-level testbench tests with the official Micron MT48LC16M16A2 SDRAM Verilog module. Due to copyright concerns, this file is not included inside the repository. You must source the model somewhere yourself. 
+
+If you (legally) obtained this model, you should place this model inside `src/dram/sdram_model_mt48lc16m16a2.v`.
+
 ```
 make sim
 ```
