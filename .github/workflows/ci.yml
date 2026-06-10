@@ -83,11 +83,12 @@ jobs:
         run: |
           nix develop --command make clone-pdk
       - name: Restore SDRAM model
-        if: ${{ secrets.SDRAM_MODEL_B64 != '' }}
         env:
           SDRAM_MODEL_B64: ${{ secrets.SDRAM_MODEL_B64 }}
         run: |
-          echo "$SDRAM_MODEL_B64" | base64 -d | gunzip > src/dram/sdram_model_mt48lc16m16a2.v
+          if [ -n "$SDRAM_MODEL_B64" ]; then
+            echo "$SDRAM_MODEL_B64" | base64 -d | gunzip > src/dram/sdram_model_mt48lc16m16a2.v
+          fi
       - name: Run RTL simulation
         run: |
           nix develop --command make sim
