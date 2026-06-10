@@ -354,7 +354,6 @@ def get_sources():
 
     sources += [
         pdk_root / pdk / "libs.ref" / "gf180mcu_fd_io" / "verilog" / "gf180mcu_fd_io.v",
-        pdk_root / pdk / "libs.ref" / "gf180mcu_fd_io" / "verilog" / "gf180mcu_ws_io.v",
         ip_path / "gf180mcu_ocd_ip_sram" / "cells" / "gf180mcu_ocd_ip_sram__sram256x8m8wm1" / "gf180mcu_ocd_ip_sram__sram256x8m8wm1.v",
         ip_path / "gf180mcu_ws_ip__id" / "vh" / "gf180mcu_ws_ip__id.v",
         ip_path / "gf180mcu_ws_ip__logo" / "vh" / "gf180mcu_ws_ip__logo.v",
