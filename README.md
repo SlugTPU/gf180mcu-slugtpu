@@ -10,6 +10,9 @@ This ASIC currently targets the GF180MCU process node.
 
 > Part of the 2026 UC Santa Cruz CSE 127A/B Capstone Course
 
+<img width="2568" height="1966" alt="image" src="https://github.com/user-attachments/assets/2e951d8f-97ee-4541-8570-14210098a10a" />
+
+
 ## Physical Specifications
 
 TODO: die size, ios, clock speeds, etc
