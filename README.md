@@ -2,83 +2,67 @@
 
 Project template for wafer.space MPW runs using the gf180mcu PDK.
 
-SlugTPU is an open source tensor processing unit that is designed to accelerate quantized neural network inference. We feature a parameterizable N x N systolic array with a full scalar post processing pipleline, on-chip SRAM, SPI host communication, and off-chip DRAM support via LiteDRAM. The design runs INT8 matrix multiplications with 32 bit accumulation, with hardware quantization to convert outputs back into INT8 for layer chaining.
+SlugTPU is an open source tensor processing unit (TPU) that is designed to accelerate quantized neural network inference. Specifically, our ASIC implements w8a8 quantization (8 bit weights, 8 bit activations), and optimizes the operation: $q*[ReLu(A @ W + b)-z_p]$. 
+
+SlugTPU features a 8x8 Matrix Multiply Unit (MXU) with inbuilt tiling support, followed by a full scalar post processing pipleline, that add the bias term and performs requantization. Our chip has a 2KiB on-chip SRAM data cache and 256 byte instruction cache, which access an off chip DRAM via a custom DRAM controller. To communicate with a host microcontroller, SlugTPU exposes a Memory Mapped SPI interface.
 
 This ASIC currently targets the GF180MCU process node.
 
-> Part of the UC Santa Cruz CSE 127A/B Capstone Course
+> Part of the 2026 UC Santa Cruz CSE 127A/B Capstone Course
+
+## Physical Specifications
+
+TODO: die size, ios, clock speeds, etc
 
 ## Architecture
 
-Our datapath can be organized into three major sections: the **compute core**, the **memory hierarchy**, and the **host interface**.
+Our ASIC can be organized into two major sections: the **compute core** and the **memory hierarchy**
 
 ### Compute Core
 
-The compute core performs tiled matrix multiplication that are followed by per element post-processing.
+The compute core performs tiled matrix multiplication that are followed by per channel post-processing.
 
-**Systolic Array**: A parameterizable N x N grid of processing elements (our current default is 8 x 8, which provides 64 MACs per cycle). Activations flow from left to right and partial sums accumulate from top to bottom. Weights are loaded top-down through a chain of shift registers Each PE performs a signed 8-bit multiply-accumulate into a 32 bit accumulator. 
+**Matrix Multiply Unit**: A parameterizable N x N systolic array of processing elements (our current default is 8 x 8, which provides 64 MACs per cycle). Activations flow from left to right and partial sums accumulate from top to bottom. Weights are loaded top-down through a chain of shift registers. Each PE performs a signed 8-bit multiply-accumulate into a 32 bit accumulator. 
 
 The weight registers are designed to be double buffered, which allows the next layer's weights to be loaded while the current inference is still running, eliminating dead time between layers.
 
 **Scalar Post Processing Pipeline**: A elastic pipeline that processes the systolic array's 32 bit output column by column in 4 stages:
 
 1. **Bias Add**: Adds a 32 bit bias term per output channel
-2. **ReLU**: Clamps negative values to zero
+2. **ReLU**: Clamps negative values to zero. Can be toggled.
 3. **Subtract Zero-Point**: Adjusts for quantization offset
 4. **Fixed Point Scale + Quantize**: Multiplies by a 32 bit fixed point scale factor, rounds, and saturates to INT8
-
-All stages use valid/ready elastic handshaking for backpressure safe pipelining.
 
 ### Memory Hierarchy
 
 **On-Chip SRAM**: 2 Banks of eight SRAM blocks each. One stores activations, scalar data, and intermediate results, and the other stores weights. We interface with these banks via an atomic memory interface unit. 
 
-**Off-Chip DRAM**: Full model weights and potentially activation tensors will live in external DRAM. The design will interface with DRAM through a LiteDRAM controller exposing a Wishbone B4 port.
+**Off-Chip DRAM**: Model weights and activation tensors will live in external SDR DRAM. The compute core interfaces with a SDRAM controler via a 64 bit Wishbone bus.
 
-
-### Host Interface
-
-Our host interfaces with the TPU via SPI. The host loads model data and instructions into DRAM using SPIBone as a bridge, and then sends a issues a flag to `wb_mux_2to1.sv` to give access to the TPU to begin execution.
+**SPI Interface**: Our host interfaces with the TPU via SPI. The host uses SPI to load model data and instructions into DRAM, and then writes a program counter to a specified address to tell the TPU to begin execution at that memory location. Additionally, debug options can be enabled via memory mapped SPI commands.
 
 
 ---
 
 ## ISA
 
-SlugTPU uses a CISC-style instruction set where each instruction maps to a high-level data movement or compute operation. Instructions are fetched from DRAM and decoded by the control unit.
+SlugTPU uses a CISC-style instruction set where each instruction maps to a high-level data movement or compute operation. Instructions are fetched from DRAM and decoded by the control unit. Additionally, we implement a full instruction level parallelism between a limited amount of instructions.
 
-| Instruction | Description |
-|---|---|
-| `Gmem2Smem` | DRAM to SRAM transfer |
-| `Smem2Gmem` | SRAM to DRAM transfer |
-| `Load_bias/zp/scale` | Load scalar parameters |
-| `Load_weights` | Shift weights into systolic array |
-| `Matmul` | Read activations, performs tiled matmul |
-| `do_relu` | Activation function |
-| `to_host_spi` | Send results to host |
-| `exit` | Stop execution, return to IDLE |
-
----
-
-## Verification
-
-All RTL modules are verified with cocotb testbenches driven by pytest. The verification framework follows a producer–consumer model with Python reference models.
-
-**The test framework currently covers:**
-- Processing element (PE): MAC correctness, double buffer bank switching
-- Systolic array (2 x 2 and N x N): full matrix multiply against NumPy reference
-- Scalar pipeline: bias, ReLU, zero-point subtraction, fixed point quantization
-- SRAM controller: read/write transactions, bank addressing
-- SPI slave: host communication protocol
-- FIFO: fill/drain, backpressure, boundary conditions
-- Data loader: streaming activation/weight data into compute units
-- Triangle shifter: input staggering for systolic array feeding
+| Instruction | Description | Length (bits) |
+|---|---|---|
+| `Dram2Sram` | DRAM to SRAM transfer | 32 |
+| `Sram2Dram` | SRAM to DRAM transfer | 32 |
+| `Load_bias/zp/scale` | Load scalar parameters | 16 |
+| `Load_weights` | Shift weights into systolic array from SRAM | 16 | 
+| `Matmul` | Read activations, performs tiled matmul | 24 |
+| `Pipeline_setup` | Toggles Relu on/off, sets K dimension size for tiling | 16 |
+| `exit` | Stop execution, return to IDLE | 8 |
 
 ---
 
 ## Dependencies
 
-Too manage all dependencies, the project template includes a Nix shell with all the required tools.
+To manage all dependencies, the project template includes a Nix shell with all the required tools.
 Install Nix and LibreLane by following the Nix-based installation instructions: https://librelane.readthedocs.io/en/latest/installation/nix_installation/index.html
 To activate the shell, simply run `nix-shell` in the root directory of this repository. The subsequent steps assume that you are in the Nix shell of the project template.
 
