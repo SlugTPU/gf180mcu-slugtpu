@@ -368,7 +368,7 @@ def get_sources():
     return sources, defines
 
 
-def run_gl_test(testcase=None):
+def run_test(testcase=None):
     sources, defines = get_sources()
     proj_path = Path(__file__).resolve().parent.parent
     includes  = [proj_path / "src"]
@@ -398,9 +398,9 @@ def run_gl_test(testcase=None):
 @pytest.mark.parametrize("testcase", tests)
 def test_chip_top_each(testcase):
     """Runs each test independently."""
-    run_gl_test(testcase=testcase)
+    run_test(testcase=testcase)
 
 
 def test_chip_top_all():
     """Runs all tests sequentially in one simulation."""
-    run_gl_test()
+    run_test()
