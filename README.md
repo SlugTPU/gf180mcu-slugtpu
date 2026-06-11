@@ -15,7 +15,16 @@ This ASIC currently targets the GF180MCU process node.
 
 ## Physical Specifications
 
-TODO: die size, ios, clock speeds, etc
+| | |
+|---|---|
+| Process | GF180MCU, wafer.space 1x1 slot |
+| Pads | 12 input, 40 bidirectional, 2 analog (+ power) |
+| Host interface | SPI mode 0 |
+| Status pin | `TPU_ACTIVE` on bidirectional pad 38 |
+| Compute | 8x8 INT8 systolic array (64 MACs/cycle), 32-bit accumulation |
+| On-chip memory | 2 KiB activation SRAM + 2 KiB weight SRAM + 256 B instruction FIFO (`gf180mcu_ocd_ip_sram` 256x8 macros) |
+| Off-chip memory | 32 MiB SDR SDRAM (Micron MT48LC16M16A2) |
+| Standard cells | `gf180mcu_as_sc_mcu7t3v3` |
 
 ## Architecture
 
@@ -27,7 +36,7 @@ The compute core performs tiled matrix multiplication that are followed by per c
 
 **Matrix Multiply Unit**: A parameterizable N x N systolic array of processing elements (our current default is 8 x 8, which provides 64 MACs per cycle). Activations flow from left to right and partial sums accumulate from top to bottom. Weights are loaded top-down through a chain of shift registers. Each PE performs a signed 8-bit multiply-accumulate into a 32 bit accumulator. 
 
-The weight registers are designed to be double buffered, which allows the next layer's weights to be loaded while the current inference is still running, eliminating dead time between layers.
+The weight registers are designed to be double buffered, which allows the next layer's weights to be loaded while the current inference is still running, eliminating dead time between layers. For inner dimensions larger than 8, partial sums recirculate from the bottom of the array back into the top, summing successive 8-deep K-tiles without wider accumulators.
 
 **Scalar Post Processing Pipeline**: A elastic pipeline that processes the systolic array's 32 bit output column by column in 4 stages:
 
@@ -40,7 +49,7 @@ The weight registers are designed to be double buffered, which allows the next l
 
 **On-Chip SRAM**: 2 Banks of eight SRAM blocks each. One stores activations, scalar data, and intermediate results, and the other stores weights. We interface with these banks via an atomic memory interface unit. 
 
-**Off-Chip DRAM**: Model weights and activation tensors will live in external SDR DRAM. The compute core interfaces with a SDRAM controler via a 64 bit Wishbone bus.
+**Off-Chip DRAM**: Model weights and activation tensors live in a 32 MiB external SDR SDRAM (Micron MT48LC16M16A2). The compute core interfaces with a SDRAM controler via a 64 bit Wishbone bus.
 
 **SPI Interface**: Our host interfaces with the TPU via SPI. The host uses SPI to load model data and instructions into DRAM, and then writes a program counter to a specified address to tell the TPU to begin execution at that memory location. Additionally, debug options can be enabled via memory mapped SPI commands.
 
@@ -150,7 +159,14 @@ All RTL modules are verified with cocotb testbenches driven by pytest. The verif
 | `sim-sram` | SRAM controller |
 | `sim-activation-sram` | Activation SRAM |
 | `sim-tri` | Triangle shifter |
-| `sim-load` | Data loader |
+| `sim-scalar-load` | Data loader |
+| `sim-compute-core` | Full compute core (MXU + SRAM + scalar pipeline) |
+| `sim-control-decoder` | Instruction decoder (includes a full single layer) |
+| `sim-control-top` | Control unit FSM |
+| `sim-wb-sdr-mt48lc16m16a2` | SDRAM controller (requires Micron model) |
+| `sim-tpu-soc-with-dram` | SoC + SDRAM model (requires Micron model) |
+| `sim-tpu-instructions` | SoC running assembled programs (requires Micron model) |
+| `sim-general-test-example` / `sim-general-8x16` / `sim-general-8x24` | e2e workloads at chip level (requires Micron model) |
 ---
 
 
