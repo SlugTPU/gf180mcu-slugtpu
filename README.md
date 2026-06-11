@@ -33,7 +33,11 @@ Our ASIC can be organized into two major sections: the **compute core** and the 
 ### Compute Core
 
 The compute core performs tiled matrix multiplication that are followed by per channel post-processing.
-
+<br>
+<p align="center">
+  <img width="1205" alt="ComputECore" src="https://github.com/user-attachments/assets/db1ad5d9-96c4-40ec-a1d7-f299cb030d30" />
+</p>
+<br>
 **Matrix Multiply Unit**: A parameterizable N x N systolic array of processing elements (our current default is 8 x 8, which provides 64 MACs per cycle). Activations flow from left to right and partial sums accumulate from top to bottom. Weights are loaded top-down through a chain of shift registers. Each PE performs a signed 8-bit multiply-accumulate into a 32 bit accumulator. 
 
 The weight registers are designed to be double buffered, which allows the next layer's weights to be loaded while the current inference is still running, eliminating dead time between layers. For inner dimensions larger than 8, partial sums recirculate from the bottom of the array back into the top, summing successive 8-deep K-tiles without wider accumulators.
@@ -46,7 +50,11 @@ The weight registers are designed to be double buffered, which allows the next l
 4. **Fixed Point Scale + Quantize**: Multiplies by a 32 bit fixed point scale factor, rounds, and saturates to INT8
 
 ### Memory Hierarchy
-
+<br>
+<p align="center">
+  <img width="473" alt="Memory" src="https://github.com/user-attachments/assets/fa02d3e5-36a3-4c32-a581-7fe9f9df3434" />
+</p>
+<br>
 **On-Chip SRAM**: 2 Banks of eight SRAM blocks each. One stores activations, scalar data, and intermediate results, and the other stores weights. We interface with these banks via an atomic memory interface unit. 
 
 **Off-Chip DRAM**: Model weights and activation tensors live in a 32 MiB external SDR SDRAM (Micron MT48LC16M16A2). The compute core interfaces with a SDRAM controler via a 64 bit Wishbone bus.
