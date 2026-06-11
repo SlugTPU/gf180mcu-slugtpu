@@ -10,7 +10,8 @@ module chip_top_sdram_tb #(
     input  wire  spi_clk_i,
     input  wire  spi_cs_ni,
     input  wire  spi_mosi_i,
-    output wire  spi_miso_o
+    output wire  spi_miso_o,
+    output wire  tpu_active_o
 );
 
     initial begin
@@ -33,6 +34,7 @@ module chip_top_sdram_tb #(
     assign input_PAD[`NUM_INPUT_PADS-1:3] = '0;
 
     assign spi_miso_o = bidir_PAD[39];
+    assign tpu_active_o = bidir_PAD[38];
 
     chip_top #(
         .NUM_INPUT_PADS  (`NUM_INPUT_PADS),

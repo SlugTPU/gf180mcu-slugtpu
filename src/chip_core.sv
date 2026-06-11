@@ -76,6 +76,8 @@ module chip_core #(
     logic [1:0]  sdr_dqm_d,    sdr_dqm_q;
     logic [15:0] sdr_dq_i_d,   sdr_dq_i_q;
 
+    logic tpu_active;
+
     assign sdr_dq_o_d  = sdr_dq_o;
     assign sdr_dq_oe_d = sdr_dq_oe & ~test_mode;
     assign sdr_addr_d  = sdr_addr;
@@ -133,7 +135,7 @@ module chip_core #(
     assign bidir_out[36]    = sdr_ba_q[0];
     assign bidir_out[37]    = sdr_ba_q[1];
     // assign bidir_out[38]    = clk;
-    assign bidir_out[38]    = 1'b0;
+    assign bidir_out[38]    = tpu_active;
     assign bidir_out[39]    = spi_miso;
 
     assign bidir_oe[15:0]  = {16{sdr_dq_oe_q}};
@@ -217,7 +219,8 @@ module chip_core #(
         .sdr_cas_no (sdr_cas_n),
         .sdr_we_no  (sdr_we_n),
         .sdr_dqm_o  (sdr_dqm),
-        .test_mode_o(test_mode)
+        .test_mode_o(test_mode),
+        .tpu_active_o(tpu_active)
     );
 
 endmodule

@@ -36,6 +36,7 @@ module tpu_soc #(
    ,output logic sdr_we_no
    ,output logic [1:0] sdr_dqm_o
    ,output logic test_mode_o
+   ,output logic tpu_active_o
 );
    localparam _rows_lp = 8192;
    localparam _cols_lp = 512;
@@ -75,6 +76,12 @@ module tpu_soc #(
    wire tpu_active;
    // TPU active is determined by state of compute controller
    assign tpu_active = tpureg_status[1];
+   always_ff @( posedge clk_i ) begin : tpu_active_ff
+        if (rst_i | ~tpu_active)
+            tpu_active_o <= '0;
+        else if (tpu_active)
+            tpu_active_o <= '1;
+   end
 
    // DMA master → wb_mux m1
    wire [dma_addr_w_lp - 1:0]   dma_wb_adr;
