@@ -22,7 +22,7 @@ module wb_decoder #(
     output logic              wbs_ack_o,
 
     // Wishbone master port 0: DRAM
-    output logic [31:0]       wbm0_adr_o,
+    output logic [21:0]       wbm0_adr_o,
     output logic [DataW-1:0]  wbm0_dat_o,
     input  logic [DataW-1:0]  wbm0_dat_i,
     output logic              wbm0_we_o,

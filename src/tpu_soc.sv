@@ -239,7 +239,7 @@ module tpu_soc #(
        .rst_i        (rst_i),
        // control
        .start_addr_i (dma_start_addr),
-       .word_count_i (dma_word_count),
+       .word_count_i ({8'b0, dma_word_count}),
        .we_i         (dma_we),
        .start_i      (dma_start),
        .busy_o       (dma_busy),
