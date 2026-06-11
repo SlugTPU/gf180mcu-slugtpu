@@ -36,14 +36,19 @@ module chip_top_sdram_tb #(
     assign spi_miso_o = bidir_PAD[39];
     assign tpu_active_o = bidir_PAD[38];
 
+// USE_POWER_PINS is only defined in GL simulation; GL netlists have no parameters (widths baked in).
+`ifdef USE_POWER_PINS
+    wire VDD = 1'b1;
+    wire VSS = 1'b0;
+    chip_top i_chip_top (
+        .VDD       (VDD),
+        .VSS       (VSS),
+`else
     chip_top #(
         .NUM_INPUT_PADS  (`NUM_INPUT_PADS),
         .NUM_BIDIR_PADS  (`NUM_BIDIR_PADS),
         .NUM_ANALOG_PADS (`NUM_ANALOG_PADS)
     ) i_chip_top (
-`ifdef USE_POWER_PINS
-        .VDD       (1'b1),
-        .VSS       (1'b0),
 `endif
         .clk_PAD   (clk_w),
         .rst_n_PAD (rst_n_w),

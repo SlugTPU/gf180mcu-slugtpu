@@ -53,9 +53,9 @@ async def test_single_write_then_read(dut):
     rst_i    = dut.rst_i
     spi_cs_ni = dut.spi_cs_ni
 
-    sys_clk_mhz      = dut.sys_clk_mhz_p.value.to_unsigned()
-    init_wait_cycles = (100 + 50) * sys_clk_mhz
-    timeout          = init_wait_cycles
+    sys_clk_mhz = dut.sys_clk_mhz_p.value.to_unsigned()
+    init_wait_cycles = 100 * sys_clk_mhz
+    timeout          = init_wait_cycles + 50
 
     spi_bus = SpiBus.from_entity(
         dut,
@@ -70,15 +70,11 @@ async def test_single_write_then_read(dut):
     await clock_start(clk_i, period_ns=1000/sys_clk_mhz)
     await reset_sequence(clk_i, rst_i)
 
-    await FallingEdge(rst_i)
-
-    await ClockCycles(clk_i, init_wait_cycles)
-
     addr         = 0x04
     expected_val = [0x00, 0x00, 0x00, 0x00, 0xDE, 0xAD, 0xBE, 0xEF]
 
     cocotb.log.info("writing!")
-    await bfm.write(starting_address=addr, payloads=[expected_val])
+    await bfm.write(starting_address=addr, payloads=[expected_val], timeout=timeout)
     cocotb.log.info("reading!")
     recv = (await bfm.read(starting_address=addr))[0]
 
@@ -299,7 +295,7 @@ def get_sources():
     if gl:
         sources = [
             pdk_root / pdk / "libs.ref" / scl / "verilog" / f"{scl}.v",
-            pdk_root / pdk / "libs.ref" / scl / "verilog" / "primitives.v",
+            src_path / "gl_cell_stubs.v",
             proj_path / "final" / "pnl" / "chip_top.pnl.v",
         ]
         defines.update({"functional": True, "USE_POWER_PINS": True})
@@ -382,6 +378,7 @@ def test_chip_top_each(testcase):
         parameters=parameters,
         testcase=testcase,
         sims=['icarus'],
+        defines=defines,
         includes=[src_path]
     )
 
@@ -394,5 +391,6 @@ def test_chip_top_all():
         hdl_toplevel=hdl_toplevel,
         parameters=parameters,
         sims=['icarus'],
+        defines=defines,
         includes=[src_path]
     )
