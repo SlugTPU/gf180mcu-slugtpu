@@ -47,7 +47,7 @@ module wb_decoder #(
 
     always_comb begin
         // Default: pass address/data through to both, deassert selects
-        wbm0_adr_o = wbs_adr_i;
+        wbm0_adr_o = wbs_adr_i[21:0];
         wbm0_dat_o = wbs_dat_i;
         wbm0_we_o  = wbs_we_i;
         wbm0_stb_o = '0;
