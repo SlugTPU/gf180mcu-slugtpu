@@ -14,6 +14,7 @@ This ASIC currently targets the GF180MCU process node.
 
 
 ## Physical Specifications
+<br>
 
 | | |
 |---|---|
@@ -55,6 +56,7 @@ The weight registers are designed to be double buffered, which allows the next l
   <img width="473" alt="Memory" src="https://github.com/user-attachments/assets/fa02d3e5-36a3-4c32-a581-7fe9f9df3434" />
 </p>
 <br>
+
 **On-Chip SRAM**: 2 Banks of eight SRAM blocks each. One stores activations, scalar data, and intermediate results, and the other stores weights. We interface with these banks via an atomic memory interface unit. 
 
 **Off-Chip DRAM**: Model weights and activation tensors live in a 32 MiB external SDR SDRAM (Micron MT48LC16M16A2). The compute core interfaces with a SDRAM controler via a 64 bit Wishbone bus.
