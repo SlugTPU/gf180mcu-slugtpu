@@ -39,6 +39,7 @@ The compute core performs tiled matrix multiplication that are followed by per c
   <img width="1205" alt="ComputECore" src="https://github.com/user-attachments/assets/db1ad5d9-96c4-40ec-a1d7-f299cb030d30" />
 </p>
 <br>
+
 **Matrix Multiply Unit**: A parameterizable N x N systolic array of processing elements (our current default is 8 x 8, which provides 64 MACs per cycle). Activations flow from left to right and partial sums accumulate from top to bottom. Weights are loaded top-down through a chain of shift registers. Each PE performs a signed 8-bit multiply-accumulate into a 32 bit accumulator. 
 
 The weight registers are designed to be double buffered, which allows the next layer's weights to be loaded while the current inference is still running, eliminating dead time between layers. For inner dimensions larger than 8, partial sums recirculate from the bottom of the array back into the top, summing successive 8-deep K-tiles without wider accumulators.
