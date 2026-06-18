@@ -1,0 +1,95 @@
+# CocoTB Makefile intended for performing SDF annotated gate-level simulation
+
+MAKEFILE_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+
+# PDK / library configuration (mirrors main Makefile defaults)
+PDK_ROOT ?= $(MAKEFILE_DIR)/gf180mcu
+PDK      ?= gf180mcuD
+SCL      ?= gf180mcu_as_sc_mcu7t3v3
+PAD      ?= gf180mcu_fd_io
+SRAM     ?= gf180mcu_ocd_ip_sram
+SLOT     ?= 1x1
+
+SLOT_DEFINE := SLOT_$(shell echo $(SLOT) | tr '[:lower:]' '[:upper:]')
+SRAM_DEFINE := SRAM_$(SRAM)
+
+# SDF corner — pick from final/sdf/
+# Available: max_tt_025C_3v30  max_ss_125C_3v00  max_ff_n40C_3v60
+#            nom_tt_025C_3v30  nom_ss_125C_3v00  nom_ff_n40C_3v60
+#            min_tt_025C_3v30  min_ss_125C_3v00  min_ff_n40C_3v60
+SDF_CORNER ?= max_tt_025C_3v30
+SDF_FILE   := $(MAKEFILE_DIR)/final/sdf/$(SDF_CORNER)/chip_top__$(SDF_CORNER).sdf
+
+# ---------------------------------------------------------------------------
+# Simulator
+# ---------------------------------------------------------------------------
+SIM           = cvc
+TOPLEVEL_LANG = verilog
+TOPLEVEL      = chip_top_sdram_tb
+MODULE        = test_chip_top
+
+# CVC defaults to +interp (interpreted) mode; compile + simulate happen in one
+# step so SIM_ARGS is unused — timing flags go in CVC_ARGS instead.
+CVC_ARGS += +sdf_max
+
+# Timescale must match the SDF file (LibreLane outputs delays in ps).
+COCOTB_HDL_TIMEUNIT      = 1ps
+COCOTB_HDL_TIMEPRECISION = 1ps
+
+SIM_BUILD ?= $(MAKEFILE_DIR)/cocotb/sim_build/cvc/chip_top_sdram_tb/$(SDF_CORNER)
+
+# test_chip_top.py imports from runner.py, shared.py, spibone_bfm.py
+export PYTHONPATH := $(MAKEFILE_DIR)/cocotb:$(PYTHONPATH)
+# Let test_chip_top.py know we are in GL mode (used at module level by get_sources())
+export GL = 1
+
+# ---------------------------------------------------------------------------
+# Sources (GL mode — mirrors test_chip_top.py get_sources() GL branch)
+# ---------------------------------------------------------------------------
+
+# Standard cell library (with specify blocks)
+VERILOG_SOURCES += $(PDK_ROOT)/$(PDK)/libs.ref/$(SCL)/verilog/$(SCL).v
+# Drive-strength stubs missing from the AS 3v3 library verilog models
+VERILOG_SOURCES += $(MAKEFILE_DIR)/src/gl_cell_stubs.v
+# Gate-level netlist with power nets
+VERILOG_SOURCES += $(MAKEFILE_DIR)/final/pnl/chip_top.pnl.v
+
+# IO pad functional stubs (no #delay, no specify — pad timing comes from SDF)
+VERILOG_SOURCES += $(MAKEFILE_DIR)/src/io_pad_stubs.v
+# Functional SRAM model (no specify blocks — SRAM timing excluded per project choice)
+VERILOG_SOURCES += $(MAKEFILE_DIR)/src/sram/gf180mcu_ocd_ip_sram__sram256x8m8wm1_behavioural.v
+# Shuttle workspace IP cells
+VERILOG_SOURCES += $(MAKEFILE_DIR)/ip/gf180mcu_ws_ip__id/vh/gf180mcu_ws_ip__id.v
+VERILOG_SOURCES += $(MAKEFILE_DIR)/ip/gf180mcu_ws_ip__logo/vh/gf180mcu_ws_ip__logo.v
+VERILOG_SOURCES += $(MAKEFILE_DIR)/ip/gf180mcu_ws_ip__qrcode_id/vh/gf180mcu_ws_ip__qrcode_id.v
+VERILOG_SOURCES += $(MAKEFILE_DIR)/ip/gf180mcu_ws_ip__shuttle_id/vh/gf180mcu_ws_ip__shuttle_id.v
+VERILOG_SOURCES += $(MAKEFILE_DIR)/ip/gf180mcu_ws_ip__project_id/vh/gf180mcu_ws_ip__project_id.v
+VERILOG_SOURCES += $(MAKEFILE_DIR)/ip/gf180mcu_ws_ip__marker/vh/gf180mcu_ws_ip__marker.v
+# SDRAM behavioural model and testbench wrapper
+VERILOG_SOURCES += $(MAKEFILE_DIR)/src/dram/sdram_model_mt48lc16m16a2.v
+VERILOG_SOURCES += $(MAKEFILE_DIR)/src/chip_top_sdram_tb.sv
+
+# ---------------------------------------------------------------------------
+# Compile arguments
+# ---------------------------------------------------------------------------
+
+# Include path for slot_defines.svh and generated_defines.svh
+COMPILE_ARGS += -I$(MAKEFILE_DIR)/src
+
+# GL mode defines (match test_chip_top.py GL branch)
+# Note: -Dfunctional is intentionally omitted — the AS 3v3 cell models have no
+# specify blocks or notifier registers, so there is nothing to suppress.
+COMPILE_ARGS += -DUSE_POWER_PINS
+COMPILE_ARGS += -D$(SLOT_DEFINE)
+COMPILE_ARGS += -D$(SRAM_DEFINE)
+
+# SDF annotation — triggers $sdf_annotate in chip_top_sdram_tb.sv
+COMPILE_ARGS += -DSDF_ANNOTATE
+COMPILE_ARGS += -DSDF_FILE=\"$(SDF_FILE)\"
+
+# ---------------------------------------------------------------------------
+# Waveforms
+# ---------------------------------------------------------------------------
+WAVES = 1
+
+include $(shell cocotb-config --makefiles)/Makefile.sim
