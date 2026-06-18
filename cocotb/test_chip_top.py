@@ -377,7 +377,7 @@ def test_chip_top_each(testcase):
         hdl_toplevel=hdl_toplevel,
         parameters=parameters,
         testcase=testcase,
-        sims=['icarus'],
+        sims=sim.split(','),
         defines=defines,
         includes=[src_path]
     )
@@ -390,7 +390,7 @@ def test_chip_top_all():
         module_name="test_chip_top",
         hdl_toplevel=hdl_toplevel,
         parameters=parameters,
-        sims=['icarus'],
+        sims=sim.split(','),
         defines=defines,
         includes=[src_path]
     )
