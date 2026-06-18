@@ -365,9 +365,9 @@ def get_sources():
         ]
         defines["SIM_TOP"] = 2
 
-    sram_model = src_path / "sram" / "gf180mcu_ocd_ip_sram__sram256x8m8wm1_behavioural.v"
+    sram_model = src_path / "functional_stubs" / "gf180mcu_ocd_ip_sram__sram256x8m8wm1_stub.v"
     sources += [
-        pdk_root / pdk / "libs.ref" / "gf180mcu_fd_io" / "verilog" / "gf180mcu_fd_io.v",
+        src_path / "functional_stubs" / "io_pad_stubs.v",
         sram_model,
         ip_path / "gf180mcu_ws_ip__id" / "vh" / "gf180mcu_ws_ip__id.v",
         ip_path / "gf180mcu_ws_ip__logo" / "vh" / "gf180mcu_ws_ip__logo.v",
