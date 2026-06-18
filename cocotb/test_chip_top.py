@@ -295,7 +295,7 @@ def get_sources():
     if gl:
         sources = [
             pdk_root / pdk / "libs.ref" / scl / "verilog" / f"{scl}.v",
-            src_path / "gl_cell_stubs.v",
+            src_path / "functional_stubs" / "gl_cell_stubs.v",
             proj_path / "final" / "pnl" / "chip_top.pnl.v",
         ]
         defines.update({"functional": True, "USE_POWER_PINS": True})
@@ -346,8 +346,8 @@ def get_sources():
         defines["SIM_TOP"] = 1
 
     sources += [
-        pdk_root / pdk / "libs.ref" / "gf180mcu_fd_io" / "verilog" / "gf180mcu_fd_io.v",
-        src_path / "sram" / "gf180mcu_ocd_ip_sram__sram256x8m8wm1_behavioural.v",
+        src_path / "functional_stubs" / "gf180mcu_ocd_ip_sram__sram256x8m8wm1_stub.v",
+        src_path / "functional_stubs" / "io_pad_stubs.v",
         ip_path / "gf180mcu_ws_ip__id" / "vh" / "gf180mcu_ws_ip__id.v",
         ip_path / "gf180mcu_ws_ip__logo" / "vh" / "gf180mcu_ws_ip__logo.v",
         ip_path / "gf180mcu_ws_ip__qrcode_id" / "vh" / "gf180mcu_ws_ip__qrcode_id.v",
