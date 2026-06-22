@@ -365,7 +365,7 @@ def get_sources():
         ]
         defines["SIM_TOP"] = 2
 
-    sram_model = src_path / "functional_stubs" / "gf180mcu_ocd_ip_sram__sram256x8m8wm1_stub.v"
+    sram_model = src_path / "functional_stubs" / "gf180mcu_ocd_ip_sram__sram1024x8m8wm1_stub.v"
     sources += [
         src_path / "functional_stubs" / "io_pad_stubs.v",
         sram_model,
