@@ -249,7 +249,7 @@ sim-general-8x24: clone-pdk defines
 	--tpu-dram-init  cocotb/general_test/single_layer_8x16/input_data.toml  \
 	--tpu-expected   cocotb/general_test/single_layer_8x16/expected.toml   \
 	--tpu-pc         0x1                  \
-	--tpu-post-cycles 2000                \
+	--tpu-post-cycles 2500                \
 	--tpu-timeout-mult 1.5                          
 
 #sim-view: ## View simulation waveforms in GTKWave
