@@ -15,7 +15,7 @@ module sram_8x1024
 
     genvar i;
     generate
-        for (i = 0; i < 8 ; i++ ) begin : sram_gen_blk_8x256
+        for (i = 0; i < 8 ; i++ ) begin : sram_gen_blk_8x1024
             gf180mcu_ocd_ip_sram__sram1024x8m8wm1
             sram_mod_i(
 `ifdef USE_POWER_PINS
