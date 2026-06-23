@@ -4,8 +4,8 @@ define_pdn_grid \
     -macro \
     -instances {
         i_chip_core.i_tpu_soc.control.control_sram_inst.control_sram_block.sram_inst
-        i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x256
-        i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x256
+        i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x1024
+        i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x1024
     } \
     -name sram_macros_NS \
     -starts_with POWER \
