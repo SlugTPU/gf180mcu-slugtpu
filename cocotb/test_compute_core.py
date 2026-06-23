@@ -440,7 +440,7 @@ sources = [
     proj_path / "sysray/mxu.sv",
     proj_path / "common/counter.sv",
     proj_path / "tri_shift.sv",
-    "./ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram1024x8m8wm1/gf180mcu_ocd_ip_sram__sram1024x8m8wm1.v",
+    proj_path / "functional_stubs" / "gf180mcu_ocd_ip_sram__sram1024x8m8wm1_stub.v"
 ]
 
 
