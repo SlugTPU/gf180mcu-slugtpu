@@ -48,9 +48,9 @@ VERILOG_FILES:
 - dir::../src/control/control_sram.sv
 - dir::../src/control/control_decoder.sv
 - dir::../src/compute_core.sv
-- dir::../src/sram/sram_1x256.sv
-- dir::../src/sram/sram_8x256.sv
-- dir::../src/sram/sram_8x256_full.sv
+- dir::../src/sram/sram_1x1024.sv
+- dir::../src/sram/sram_8x1024.sv
+- dir::../src/sram/sram_8x1024_full.sv
 - dir::../src/sram/memory_transaction.sv
 - dir::../src/scalar_units/scalar_stage_sram.sv
 - dir::../src/scalar_units/scalar_stage.sv
