@@ -3,8 +3,8 @@ module compute_core #(
     parameter int ACC_WIDTH = 32,
     parameter int N = 8,
     parameter int BUS_WIDTH = 64,
-    parameter int address_width = 8,
-    parameter int counter_width = 8
+    parameter int address_width = 10,
+    parameter int counter_width = 10
 ) (
 `ifdef USE_POWER_PINS
     inout  wire VDD,
@@ -66,7 +66,7 @@ module compute_core #(
             any_psum_valid |= psum_valid[i];
     end
 
-    sram_8x256_full #()
+    sram_8x1024_full #()
     weight_sram_inst(
 `ifdef USE_POWER_PINS
         .VDD(VDD),

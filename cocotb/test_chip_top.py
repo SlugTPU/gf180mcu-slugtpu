@@ -295,7 +295,6 @@ def get_sources():
     if gl:
         sources = [
             pdk_root / pdk / "libs.ref" / scl / "verilog" / f"{scl}.v",
-            src_path / "functional_stubs" / "gl_cell_stubs.v",
             proj_path / "final" / "pnl" / "chip_top.pnl.v",
         ]
         defines.update({"functional": True, "USE_POWER_PINS": True})
@@ -328,6 +327,9 @@ def get_sources():
             src_path / "sram" / "sram_1x256.sv",
             src_path / "sram" / "sram_8x256.sv",
             src_path / "sram" / "sram_8x256_full.sv",
+            src_path / "sram" / "sram_1x1024.sv",
+            src_path / "sram" / "sram_8x1024.sv",
+            src_path / "sram" / "sram_8x1024_full.sv",
             src_path / "sram" / "memory_transaction.sv",
             src_path / "sysray" / "mxu.sv",
             src_path / "sysray" / "sysray_nxn.sv",
@@ -347,6 +349,7 @@ def get_sources():
 
     sources += [
         src_path / "functional_stubs" / "gf180mcu_ocd_ip_sram__sram256x8m8wm1_stub.v",
+        src_path / "functional_stubs" / "gf180mcu_ocd_ip_sram__sram1024x8m8wm1_stub.v",
         src_path / "functional_stubs" / "io_pad_stubs.v",
         ip_path / "gf180mcu_ws_ip__id" / "vh" / "gf180mcu_ws_ip__id.v",
         ip_path / "gf180mcu_ws_ip__logo" / "vh" / "gf180mcu_ws_ip__logo.v",

@@ -4,8 +4,8 @@ module scalar_stage_sram #(
     parameter int DATA_W = 32,
     parameter int FIXED_SHIFT = 31,
     parameter int DATA_Q = 8,
-    parameter int counter_width = 8,
-    parameter int address_width = 8
+    parameter int counter_width = 10,
+    parameter int address_width = 10
 ) (
 `ifdef USE_POWER_PINS
     inout  wire VDD,
@@ -45,12 +45,11 @@ module scalar_stage_sram #(
     logic [DATA_Q:0] quantized_data_flipped_out [N-1:0];
 
     logic quantized_ready, quantized_valid, quantized_valid_int;
-    logic[4:0] count_q;
 
     //SRAM Control Signals
     //ASSUME NO DATA RACES
     logic sram_downstream_ready_in;
-    assign sram_downstream_ready_in = rd_ready_i | wr_valid_i | (quantized_valid & count_q <= 4'b0111) | load_bias_en_i | load_zp_en_i | load_scale_en_i;
+    assign sram_downstream_ready_in = rd_ready_i | wr_valid_i | quantized_valid | load_bias_en_i | load_zp_en_i | load_scale_en_i;
     logic sram_downstream_ready_out;
     assign downstream_ready_o = sram_downstream_ready_out;
 
@@ -59,7 +58,6 @@ module scalar_stage_sram #(
     generate
         for (i = 0; i < N ; i++) begin
             assign quantized_flattened[i*DATA_Q + (DATA_Q-1):i*DATA_Q] = (quantized_valid) ? quantized_data[i] : '0;
-            //always @(quantized_data[i]) quantized_flattened[i*DATA_Q + (DATA_Q-1):i*DATA_Q] = #200 quantized_data[i];
         end
     endgenerate
 
@@ -71,7 +69,7 @@ module scalar_stage_sram #(
             sram_wr_data = wr_data_i;
     end
 
-    sram_8x256_full
+    sram_8x1024_full
         #()
     activation_sram_inst (
 `ifdef USE_POWER_PINS
@@ -112,36 +110,9 @@ module scalar_stage_sram #(
         .data_valid_i(data_valid_i),
         .data_ready_o(data_ready_o),
 
-        .data_o(quantized_data_int),
-        .data_valid_o(quantized_valid_int),
+        .data_o(quantized_data),
+        .data_valid_o(quantized_valid),
         .data_ready_i(sram_downstream_ready_out)
-    );
-
-    generate
-        for (i = 0; i < N; i = i + 1) begin
-            assign quantized_data_flipped[i] = {quantized_valid_int, quantized_data_int[N-1-i]};
-            assign quantized_data[i] = quantized_data_flipped_out[N-1-i][DATA_Q-1:0];
-        end
-    endgenerate
-
-    always_ff @( posedge clk_i ) begin
-        if(rst_i | ~quantized_valid)
-            count_q <= '0;
-        else if(quantized_valid)
-            count_q <= count_q + 1'b1;
-    end
-    
-    assign quantized_valid = quantized_data_flipped_out[7][DATA_Q];
-
-    tri_shift #(
-        .N(N),
-        .DATA_W(DATA_Q+1)
-    ) outputs (
-        .clk(clk_i),
-        .rst(rst_i),
-        .data_i(quantized_data_flipped),
-        .enable_i('1),
-        .data_o(quantized_data_flipped_out)        
     );
 
 endmodule

@@ -7,7 +7,7 @@ module mxu #(
     parameter int DATA_WIDTH = 8,
     parameter int ACC_WIDTH = 32,
     parameter int N = 8, // For this module, must be power of 2
-    parameter int BUS_WIDTH = 64
+    parameter int BUS_WIDTH = DATA_WIDTH * N
 ) (
     input clk_i,
     input rst_i,
@@ -29,7 +29,7 @@ module mxu #(
     output logic signed [ACC_WIDTH-1:0] psum_o [N-1:0],
     output logic psum_valid_o [N-1:0],
 
-    output [(ACC_WIDTH)*8-1:0] debug_output,
+    output [(ACC_WIDTH)*N-1:0] debug_output,
     output [(DATA_WIDTH+2)*N-1:0] activation_debug,
     output [N-1:0] debug_valids
 );
@@ -103,30 +103,19 @@ module mxu #(
 
             assign debug_valids[i]      = psum_valid_o[i];
         end
+
+        for (i = 0; i < N; ++i) begin
+            always_ff @( posedge clk_i ) begin
+                if (rst_i) begin
+                    act_shift_out[i] <= '0;
+                    weight_shift_out[i] <= '0;
+                end else begin
+                    act_shift_out[i] <= act_shift_in[i];
+                    weight_shift_out[i] <= weight_shift_in[i];
+                end
+            end
+        end
     endgenerate
-
-    tri_shift #(
-        .N(N),
-        .DATA_W(DATA_WIDTH+2)
-    ) activation_shift (
-        .clk(clk_i),
-        .rst(rst_i),
-        .data_i(act_shift_in),
-        .enable_i('1),
-        .data_o(act_shift_out)
-    );
-
-    tri_shift #(
-        .N(N),
-        .DATA_W(DATA_WIDTH+2)
-    ) weight_shift (
-        .clk(clk_i),
-        .rst(rst_i),
-        .data_i(weight_shift_in),
-        //.enable_i(shift_en),
-        .enable_i('1),
-        .data_o(weight_shift_out)
-    );
 
     logic signed [ACC_WIDTH-1:0]   sys_out [N-1:0];
     logic sys_valid_out[N-1:0];
@@ -164,17 +153,6 @@ module mxu #(
             assign activation_debug[(i+1)*(DATA_WIDTH+2)-1:i*(DATA_WIDTH+2)] = weight_shift_out[i];
         end
     endgenerate
-    
-    // tri_shift #(
-    //     .N(N),
-    //     .DATA_W(ACC_WIDTH+1)
-    // ) outputs (
-    //     .clk(clk_i),
-    //     .rst(rst_i),
-    //     .data_i(output_flipped),
-    //     .enable_i('1),
-    //     .data_o(mxu_out)        
-    // );
     
     
 endmodule

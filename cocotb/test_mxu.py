@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from shared import clock_start, reset_sequence
 from runner import run_test
+from test_sysray_nxn import permute_matrix
 
 def vec_mat_mul_ref(acts, weights):
     """C[j] = sum_i acts[i] * weights[i][j]  (vector @ matrix, column outputs)"""
@@ -42,13 +43,6 @@ def pack_bytes(values: list[int]) -> int:
         result |= (v & 0xFF) << (i * 8)
     return result
 
-# def pack_bytes(values: list[int]) -> int:
-#     """Pack 8 x 8-bit ints into a single 64-bit integer (index 0 = MSB)."""
-#     result = 0
-#     for i, v in enumerate(values):
-#         result |= (v & 0xFF) << ((7 - i) * 8)
-#     return result
-
 async def load_weight_banks(dut, N, weight_banks):
     """
     Load K weight banks back-to-back, one full row at a time (no column stagger).
@@ -56,14 +50,14 @@ async def load_weight_banks(dut, N, weight_banks):
     """
     K = len(weight_banks)
 
-    for cycle in range(K * N):
-        await FallingEdge(dut.clk_i)
-        k      = cycle // N        # bank index
-        bk_idx = cycle % N         # row index within bank (bottom-to-top sweep)
-
-        dut.weight_bus_i.value  = pack_bytes(weight_banks[k][N - 1 - bk_idx])
-        dut.weight_enable_i.value = 1
-        dut.weight_valid_i.value  = 1
+    for bank in range(K):
+        permuted = permute_matrix(weight_banks[bank], N)
+        permuted.reverse()
+        for row in range(N):
+            await FallingEdge(dut.clk_i)
+            dut.weight_bus_i.value  = pack_bytes(permuted[row])
+            dut.weight_enable_i.value = 1
+            dut.weight_valid_i.value  = 1
 
     # De-assert valid on the cycle after the last row
     await FallingEdge(dut.clk_i)
@@ -125,7 +119,7 @@ async def reset_test(dut):
 @cocotb.test()
 async def single_matmul_test(dut):
     """Test a single 8x8 matrix multiply: C = A @ W"""
-    N = 8
+    N = dut.N.value.to_unsigned()
 
     await clock_start(dut.clk_i)
     await reset_sequence(dut.clk_i, dut.rst_i)
@@ -169,7 +163,7 @@ async def single_matmul_test(dut):
 @cocotb.test()
 async def tiled_matmul_test(dut):
     """Test tiled matrix multiply: C = sum_k A_k @ W_k, K=4 tiles"""
-    N = 8
+    N = dut.N.value.to_unsigned()
     K = 4  # number of tiles along inner dimension
 
     await clock_start(dut.clk_i)

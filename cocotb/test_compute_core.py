@@ -8,6 +8,7 @@ from runner import run_test
 import random
 
 from test_scalar_stage import scalar_pipe_ref
+from test_mxu import permute_matrix
 
 # ---------------------------------------------------------------------------
 # Helpers shared with the existing testbenches
@@ -189,9 +190,11 @@ async def load_weight_banks_via_sram(dut, N, weight_banks):
     # Write rows in bottom-to-top order (flipped) so sequential reads
     # come out in the order the MXU expects.
     all_rows_packed = []
-    for k in range(K):
-        for bk_idx in range(N):
-            all_rows_packed.append(pack_bytes(weight_banks[k][N - 1 - bk_idx]))
+    for bank in range(K):
+        permuted = permute_matrix(weight_banks[bank], N)
+        permuted.reverse()
+        for row in range(N):
+            all_rows_packed.append(pack_bytes(permuted[row]))
 
     total_words = K * N
     await w_mem.load_address('w', 0, total_words)
@@ -334,7 +337,7 @@ async def test_single_matmul(dut):
     await load_scalar_values(dut, scalar_params, 0)
 
     cocotb.start_soon(load_weight_banks_via_sram(dut, N, [weight]))
-    for _ in range(25):
+    for _ in range(28):
         await FallingEdge(dut.clk_i)
     await stream_acts_and_capture(dut, N, [act], expected, 12, 100)
     # cocotb.start_soon(stream_acts_and_capture(dut, N, [act], expected, 12, 100))
@@ -430,14 +433,14 @@ sources = [
     proj_path / "common/elastic.sv",
     proj_path / "common/shift.sv",
     proj_path / "sram/memory_transaction.sv",
-    proj_path / "sram/sram_8x256_full.sv",
-    proj_path / "sram/sram_8x256.sv",
+    proj_path / "sram/sram_8x1024_full.sv",
+    proj_path / "sram/sram_8x1024.sv",
     proj_path / "sysray/sysray_nxn.sv",
     proj_path / "sysray/pe.sv",
     proj_path / "sysray/mxu.sv",
     proj_path / "common/counter.sv",
     proj_path / "tri_shift.sv",
-    "./ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1.v",
+    proj_path / "functional_stubs" / "gf180mcu_ocd_ip_sram__sram1024x8m8wm1_stub.v"
 ]
 
 

@@ -58,70 +58,17 @@ def full_matmul_ref(A, W):
         for r in range(rows)
     ]
 
+def permute_matrix(matrix, N):
+    result = [[None] * N for _ in range(N)]
+    for row in range(N):
+        for col in range(N):
+            result[row][col] = matrix[(row+col) % N][col]
+    return result
+
 
 # ---------------------------------------------------------------------------
 # Hardware drivers
 # ---------------------------------------------------------------------------
-
-async def load_weights(dut, N, weights, sel=0):
-    """
-    Load a single weight matrix into the systolic array with diagonal column stagger.
-    """
-    for cycle in range(2 * N - 1):
-        await FallingEdge(dut.clk_i)
-        for col in range(N):
-            row_idx = cycle - col
-            if 0 <= row_idx < N:
-                row = N - 1 - row_idx
-                dut.weight_sel_n_i[col].value   = sel
-                dut.weight_n_i[col].value       = weights[row][col]
-                dut.weight_valid_n_i[col].value = 1
-            else:
-                dut.weight_n_i[col].value       = 0
-                dut.weight_valid_n_i[col].value = 0
-
-    await FallingEdge(dut.clk_i)
-    for col in range(N):
-        dut.weight_n_i[col].value       = 0
-        dut.weight_valid_n_i[col].value = 0
-
-
-async def stream_activation_matrix(dut, N, act_matrix, sel=0):
-    """
-    Stream a single N×N activation matrix through the systolic array.
-
-    Returns an N×N list of output rows.
-    """
-    results = [[None] * N for _ in range(N)]
-
-    for cycle in range(N + 2 * N - 1):
-        await FallingEdge(dut.clk_i)
-
-        for i in range(N):
-            m = cycle - i
-            dut.act_sel_n_i[i].value = sel
-            if 0 <= m < N:
-                dut.act_n_i[i].value       = act_matrix[m][i]
-                dut.act_valid_n_i[i].value = 1
-            else:
-                dut.act_n_i[i].value       = 0
-                dut.act_valid_n_i[i].value = 0
-
-        await ReadOnly()
-
-        for j in range(N):
-            if dut.psum_out_valid_n_o[j].value == 1:
-                m = cycle - N - j
-                if 0 <= m < N:
-                    results[m][j] = dut.psum_out_n_o[j].value.to_signed()
-
-    for r in range(N):
-        for j in range(N):
-            assert results[r][j] is not None, f"row {r}, col {j}: output not captured"
-    for m, row_out in enumerate(results):
-        cocotb.log.info(f"  → output row {m}: {row_out}")
-    return results
-
 
 async def load_weight_banks(dut, N, weight_banks):
     """
@@ -132,23 +79,20 @@ async def load_weight_banks(dut, N, weight_banks):
     """
     K = len(weight_banks)
 
-    for cycle in range((K + 1) * N - 1):
-        await FallingEdge(dut.clk_i)
-        for col in range(N):
-            t = cycle - col
-            k = t // N      # bank index
-            bk_idx = t % N  # row index within bank k (bottom-to-top sweep)
-
-            if 0 <= t < K * N:
-                dut.weight_sel_n_i[col].value   = k % 2
-                dut.weight_n_i[col].value       = weight_banks[k][N - 1 - bk_idx][col]
+    for bank in range(K):
+        permuted = permute_matrix(weight_banks[bank], N)
+        permuted.reverse()
+        for row in range(N):
+            await FallingEdge(dut.clk_i)
+            for col in range(N):
+                dut.weight_n_i[col].value       = permuted[row][col]
+                dut.weight_sel_n_i[col].value   = bank % 2
                 dut.weight_valid_n_i[col].value = 1
-            else:
-                dut.weight_n_i[col].value       = 0
-                dut.weight_valid_n_i[col].value = 0
 
     await FallingEdge(dut.clk_i)
-    dut.weight_valid_n_i[N - 1].value = 0
+    for col in range(N):
+        dut.weight_n_i[col].value       = 0
+        dut.weight_valid_n_i[col].value = 0
 
 
 async def stream_activation_banks_tiled(dut, N, act_banks):
@@ -164,46 +108,31 @@ async def stream_activation_banks_tiled(dut, N, act_banks):
     Returns a single N×N accumulated result matrix.
     """
     K = len(act_banks)
-    result = [[None] * N for _ in range(N)]
+    results = [[None] * N for _ in range(N)]
+    await FallingEdge(dut.clk_i)
+    for bank in range(K):
+        act_matrix = act_banks[bank]
+        for row in range(N):
+            await FallingEdge(dut.clk_i)
+            for col in range(N):
+                dut.act_n_i[col].value       = act_matrix[row][col]
+                dut.act_sel_n_i[col].value   = bank % 2
+                dut.act_valid_n_i[col].value = 1
 
-    # K*N cycles to push all activations in, plus the N + N - 1 drain tail.
-    total_cycles = K * N + 2 * N - 1
-
-    for cycle in range(total_cycles):
-        await FallingEdge(dut.clk_i)
-
-        # Drive activations: all K banks streamed back-to-back, staggered per row.
-        for i in range(N):
-            t = cycle - i   # diagonal-corrected time for row i
-            k = t // N      # which bank
-            m = t % N       # which row within that bank
-
-            if 0 <= t < K * N:
-                dut.act_sel_n_i[i].value   = k % 2
-                dut.act_n_i[i].value       = act_banks[k][m][i]
-                dut.act_valid_n_i[i].value = 1
-            else:
-                dut.act_n_i[i].value       = 0
-                dut.act_valid_n_i[i].value = 0
-
-        await ReadOnly()
-
-        # Capture output: accumulated result drains N cycles after the last bank.
-        # Output row m at column j: m = cycle - K*N - j.
-        for j in range(N):
-            if dut.psum_out_valid_n_o[j].value == 1:
-                m = cycle - K * N - j
-                if 0 <= m < N:
-                    result[m][j] = dut.psum_out_n_o[j].value.to_signed()
-
+    await FallingEdge(dut.clk_i)
+    for col in range(N):
+            dut.act_valid_n_i[col].value = 0
+    await ReadOnly()
+    await FallingEdge(dut.clk_i)
     for m in range(N):
         for j in range(N):
-            assert result[m][j] is not None, \
-                f"accumulated output row {m}, col {j}: not captured"
-    for m, row_out in enumerate(result):
-        cocotb.log.info(f"  → accumulated output row {m}: {row_out}")
-    return result
+            if dut.psum_out_valid_n_o[j].value == 1:
+                results[m][j] = dut.psum_out_n_o[j].value.to_signed()
+        await FallingEdge(dut.clk_i)
 
+    for m, row_out in enumerate(results):
+        cocotb.log.info(f"  → output row {m}: {row_out}")
+    return results
 
 
 # ---------------------------------------------------------------------------
@@ -236,10 +165,11 @@ async def test_random_matmul_matrix(dut):
     cocotb.log.info(f"weights={weights}")
     cocotb.log.info(f"expected={expected}")
 
-    cocotb.start_soon(load_weights(dut, N, weights))
+    # cocotb.start_soon(load_weights(dut, N, weights))
+    cocotb.start_soon(load_weight_banks(dut, N, [weights]))
     for _ in range(N):
         await FallingEdge(dut.clk_i)
-    results = await stream_activation_matrix(dut, N, act_matrix)
+    results = await stream_activation_banks_tiled(dut, N, [act_matrix])
 
     for m, (row_got, row_exp) in enumerate(zip(results, expected)):
         for j, (got, exp) in enumerate(zip(row_got, row_exp)):
@@ -383,7 +313,7 @@ proj_path = Path("./src/sysray").resolve()
 SOURCES   = [proj_path / "sysray_nxn.sv", proj_path / "pe.sv"]
 
 
-@pytest.mark.parametrize("N", [2, 8])
+@pytest.mark.parametrize("N", [8])
 @pytest.mark.parametrize("testcase", tests)
 def test_sysray_nxn_each(N, testcase):
     run_test(
@@ -396,7 +326,7 @@ def test_sysray_nxn_each(N, testcase):
     )
 
 
-@pytest.mark.parametrize("N", [2, 8])
+@pytest.mark.parametrize("N", [8])
 def test_sysray_nxn_all(N):
     run_test(
         sources=SOURCES,

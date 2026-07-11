@@ -42,7 +42,12 @@ genvar i, j;
 generate
   for (i = 0 ; i < N; i++) begin  : row_block
     for (j = 0; j < N; j++) begin : col_block
+      localparam int act_col = (j == 0) ? N-1 : j-1;
       if (i == 0) begin : gen_first_row
+
+        assign a_conn[i][j] = {act_sel_n_i[j], act_n_i[j]};
+        assign a_valid_conn[i][j] = act_valid_n_i[j];
+
         assign w_conn[i][j] = {weight_sel_n_i[j], weight_n_i[j]};
         assign w_valid_conn[i][j] = weight_valid_n_i[j];
         always_comb begin : psum_tiling
@@ -54,25 +59,25 @@ generate
 
       end else if (i == N-1) begin : gen_last_row
         assign psum_out_n_o[j] = psum_conn[i+1][j];
-        assign psum_out_valid_intermediate[j] = a_valid_conn[i][j+1];
-        assign psum_out_valid_n_o[j] = psum_out_valid_intermediate[j] & ~act_valid_n_i[j];
-      end
-      if (j == 0) begin : gen_first_col
-        assign a_conn[i][j] = {act_sel_n_i[i], act_n_i[i]};
-        assign a_valid_conn[i][j] = act_valid_n_i[i];
+        assign psum_out_valid_intermediate[j] = a_valid_conn[i+1][act_col];
+
+        always_ff @( posedge clk_i ) begin
+          psum_out_valid_n_o[j] <= psum_out_valid_intermediate[j] & ~act_valid_n_i[j];
+        end
+
       end
 
       pe #(.DATA_WIDTH(DATA_WIDTH), .ACC_WIDTH(ACC_WIDTH)) pe_ij (
         .clk_i(clk_i),
         .rst_i(rst_i),
         .act_i(a_conn[i][j]),
-        .act_o(a_conn[i][j+1]),
+        .act_o(a_conn[i+1][act_col]),
         .weight_i(w_conn[i][j]),
         .weight_o(w_conn[i+1][j]),
         .weight_valid_i(w_valid_conn[i][j]),
         .weight_valid_o(w_valid_conn[i+1][j]),
         .act_valid_i(a_valid_conn[i][j]),
-        .act_valid_o(a_valid_conn[i][j+1]),
+        .act_valid_o(a_valid_conn[i+1][act_col]),
         .psum_i(psum_conn[i][j]),
         .psum_o(psum_conn[i+1][j])
       );

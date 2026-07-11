@@ -120,7 +120,7 @@ async def test_tpu_instructions(dut):
             i += 1
     await bfm.write(base_addr, words, timeout=timeout)
     await bfm.write(0x1000_0000, [list(0x0000_0000_0000_0001.to_bytes(8, 'big'))], timeout=timeout)
-    await ClockCycles(dut.clk_i, 1000)
+    await ClockCycles(dut.clk_i, 2500)
     got = await bfm.read(0x400, 8)
     expected_matmul = tiled_matmul_saturating_ref([act], [weight])
     expected_output = []
@@ -164,9 +164,9 @@ sources = [
     proj_path / "control" / "control_buffer.sv",
     proj_path / "control" / "control_sram.sv",
     proj_path / "compute_core.sv",
-    proj_path / "sram" / "sram_1x256.sv",
-    proj_path / "sram" / "sram_8x256.sv",
-    proj_path / "sram" / "sram_8x256_full.sv",
+    proj_path / "sram" / "sram_1x1024.sv",
+    proj_path / "sram" / "sram_8x1024.sv",
+    proj_path / "sram" / "sram_8x1024_full.sv",
     proj_path / "sram" / "memory_transaction.sv",
     proj_path / "sysray" / "mxu.sv",
     proj_path / "sysray" / "sysray_nxn.sv",
@@ -181,7 +181,7 @@ sources = [
     proj_path / "scalar_units" / "scalar_stage_sram.sv",
     proj_path / "debug_mux.sv",
     proj_path / "tri_shift.sv",
-    "ip/gf180mcu_ocd_ip_sram/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1.v"
+    "ip/gf180mcu_ocd_ip_sram/cells/gf180mcu_ocd_ip_sram__sram1024x8m8wm1/gf180mcu_ocd_ip_sram__sram1024x8m8wm1.v"
 ]
 parameters = {"sys_clk_mhz_p": 100}
 module_name = "test_tpu_instructions"

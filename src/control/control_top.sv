@@ -1,10 +1,10 @@
 module control_top #(
-    parameter int SRAM_ADDR_WIDTH = 8,
+    parameter int SRAM_ADDR_WIDTH = 10,
     parameter int EXTERNAL_DRAM_ADDR_WIDTH = 20, 
-    parameter int DRAM_ADDR_WIDTH = 12,     // this is the instruction dram width
-    parameter int DRAM_COUNTER_WIDTH = 8,
+    parameter int DRAM_ADDR_WIDTH = 14,     // this is the instruction dram width
+    parameter int DRAM_COUNTER_WIDTH = 10,
     parameter int DRAM_DATA_WIDTH = 64,
-    parameter int CONTROL_WIDTH = 8
+    parameter int CONTROL_WIDTH = 10
 ) (
 `ifdef USE_POWER_PINS
     inout  wire VDD,
@@ -84,7 +84,7 @@ module control_top #(
                     tpu_state_d = INIT_PC;
             end
             INIT_PC: begin
-                if (~dma_busy_i& sram_is_full)
+                if (~dma_busy_i & sram_is_full)
                     tpu_state_d = COMPUTE;
             end
             COMPUTE: begin
@@ -117,7 +117,7 @@ module control_top #(
     logic buf_dram_start, dec_inst_ready;
 
     assign buf_dram_start_addr = pc_out;
-    assign buf_dram_word_count = (tpu_state_d == INIT_PC) ? 8'd32 : 8'd1;
+    assign buf_dram_word_count = (tpu_state_d == INIT_PC) ? 10'd128 : 8'd1;
     assign buf_dram_start = ~dec_dram_start & ~dma_busy_i & buffer_ready_out &
                             (tpu_state_q == INIT_PC || tpu_state_q == COMPUTE);
     assign instruction_ready = (tpu_state_q == COMPUTE) ? dec_inst_ready : 1'b0;
@@ -175,7 +175,7 @@ module control_top #(
 
     control_buffer #(
         .DRAM_WIDTH      (DRAM_DATA_WIDTH),
-        .CONTROL_WIDTH   (CONTROL_WIDTH),
+        .CONTROL_WIDTH   (8),
         .DRAM_ADDR_WIDTH (DRAM_ADDR_WIDTH)
     ) control_buffer_inst (
         .clk_i       (clk_i),

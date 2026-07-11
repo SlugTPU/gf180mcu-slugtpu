@@ -421,8 +421,8 @@ async def alternating_single_read_write_test(dut):
 
 proj_path = Path("./src").resolve()
 sources   = [proj_path / "control" / "control_sram.sv",
-             proj_path / "sram/sram_1x256.sv",
-             "./ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram256x8m8wm1/gf180mcu_ocd_ip_sram__sram256x8m8wm1.v",]
+             proj_path / "sram/sram_1x1024.sv",
+             "./ip/gf180mcu_ocd_ip_sram.git/cells/gf180mcu_ocd_ip_sram__sram1024x8m8wm1/gf180mcu_ocd_ip_sram__sram1024x8m8wm1.v",]
 
 TESTS = [
     "reset_test",
