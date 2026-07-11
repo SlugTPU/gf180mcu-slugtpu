@@ -318,7 +318,6 @@ def get_sources():
     if gl:
         sources = [
             pdk_root / pdk / "libs.ref" / scl / "verilog" / f"{scl}.v",
-            src_path / "gl_cell_stubs.v",
             proj_path / "final" / "pnl" / "chip_top.pnl.v",
         ]
         defines["USE_POWER_PINS"] = True

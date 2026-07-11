@@ -65,3 +65,7 @@ endmodule
 module gf180mcu_fd_io__fill10 (DVDD, DVSS, VDD, VSS);
     inout DVDD, DVSS, VDD, VSS;
 endmodule
+
+module gf180mcu_fd_io__fillnc (DVDD, DVSS, VDD, VSS);
+   inout DVDD, DVSS, VDD, VSS;
+endmodule

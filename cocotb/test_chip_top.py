@@ -295,7 +295,6 @@ def get_sources():
     if gl:
         sources = [
             pdk_root / pdk / "libs.ref" / scl / "verilog" / f"{scl}.v",
-            src_path / "functional_stubs" / "gl_cell_stubs.v",
             proj_path / "final" / "pnl" / "chip_top.pnl.v",
         ]
         defines.update({"functional": True, "USE_POWER_PINS": True})

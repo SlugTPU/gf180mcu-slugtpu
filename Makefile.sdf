@@ -49,8 +49,6 @@ export GL = 1
 
 # Standard cell library (with specify blocks)
 VERILOG_SOURCES += $(PDK_ROOT)/$(PDK)/libs.ref/$(SCL)/verilog/$(SCL).v
-# Drive-strength stubs missing from the AS 3v3 library verilog models
-VERILOG_SOURCES += $(MAKEFILE_DIR)/src/gl_cell_stubs.v
 # Gate-level netlist with power nets
 VERILOG_SOURCES += $(MAKEFILE_DIR)/final/pnl/chip_top.pnl.v
 
