@@ -100,59 +100,59 @@ MACROS:
 
       # Control instruction SRAM (1x sram_1x1024)
       i_chip_core.i_tpu_soc.control.control_sram_inst.control_sram_block.sram_inst:
-        location: [1000, 2100]
+        location: [1010, 2262]
         orientation: N
 
       # Weight SRAMs (8x from sram_8x1024 inside weight_sram_inst)
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x1024[0].sram_mod_i':
-        location: [1500, 1675]
+        location: [1723, 2628]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x1024[1].sram_mod_i':
-        location: [1801, 1675]
+        location: [2063, 2628]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x1024[2].sram_mod_i':
-        location: [2102, 1675]
+        location: [2403, 2628]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x1024[3].sram_mod_i':
-        location: [2403, 1675]
+        location: [2743, 2628]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x1024[4].sram_mod_i':
-        location: [1500, 1901]
+        location: [1723, 3194]
         orientation: S
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x1024[5].sram_mod_i':
-        location: [1801, 1901]
+        location: [2063, 3194]
         orientation: S
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x1024[6].sram_mod_i':
-        location: [2102, 1901]
+        location: [2403, 3194]
         orientation: S
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.weight_sram_inst.sram_inst.sram_gen_blk_8x1024[7].sram_mod_i':
-        location: [2403, 1901]
+        location: [2743, 3194]
         orientation: S
 
       # Activation SRAMs (8x from sram_8x1024 inside scalar_stage_sram_inst)
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x1024[0].sram_mod_i':
-        location: [1500, 2300]
+        location: [1723, 1277]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x1024[1].sram_mod_i':
-        location: [1801, 2300]
+        location: [2063, 1277]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x1024[2].sram_mod_i':
-        location: [2102, 2300]
+        location: [2403, 1277]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x1024[3].sram_mod_i':
-        location: [2403, 2300]
+        location: [2743, 1277]
         orientation: N
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x1024[4].sram_mod_i':
-        location: [1500, 2526]
+        location: [1723, 1843]
         orientation: S
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x1024[5].sram_mod_i':
-        location: [1801, 2526]
+        location: [2063, 1843]
         orientation: S
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x1024[6].sram_mod_i':
-        location: [2102, 2526]
+        location: [2403, 1843]
         orientation: S
       'i_chip_core.i_tpu_soc.control.control_decoder_inst.compute_core_inst.scalar_stage_sram_inst.activation_sram_inst.sram_inst.sram_gen_blk_8x1024[7].sram_mod_i':
-        location: [2403, 2526]
+        location: [2743, 1843]
         orientation: S
 
 # This is an alternative method compared to
