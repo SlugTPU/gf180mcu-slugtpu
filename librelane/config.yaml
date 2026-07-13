@@ -239,10 +239,13 @@ KLAYOUT_PROPERTIES: dir::gf180mcu_render.lyp
 KLAYOUT_DRC_THREADS: 1
 
 # "max" equals max hardware threads
+# Capped at 4: even 8 workers (down from `max` = 32 on this machine) still
+# OOM-killed mid-run on this design's densest layers (e.g. via4 ~9.8M polygons,
+# workers observed at ~3.5-4.9GB RSS each), exceeding available RAM.
 KLAYOUT_DRC_OPTIONS:
   decks: "all,-antenna,-density,-cup" # disable CUP for now
   variant: ref::$PDK
-  workers: max
+  workers: 4
 
 KLAYOUT_DENSITY_OPTIONS:
   decks: "density"
