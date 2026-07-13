@@ -5,7 +5,7 @@ module tpu_soc #(
    ,parameter dram_burst_p    = 4
    ,parameter with_sdram_pin_buffering_p = 0
    ,parameter dbg_n_words_p = 32
-   ,parameter test_ram_words_p = 32
+   ,parameter test_ram_words_p = 64
 
    ,parameter control_top_instruction_addr_width_p = 12
    ,parameter control_top_dram_counter_width_p = 8
